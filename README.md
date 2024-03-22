@@ -18,3 +18,9 @@
 - [ ] Part to generate seo_description
 - [ ] Part to generate seo_title
 - [ ] Part to generate excerpt
+- [ ] Connect custom api key for gpt-3 
+- [ ] Connect custom api key for image recognition
+- [ ] Add examples
+- [ ] Clean Readme
+- [ ] Add tests
+- [ ] Clean manifest
