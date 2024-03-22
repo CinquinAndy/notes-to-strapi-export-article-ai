@@ -24,3 +24,4 @@
 - [ ] Clean Readme
 - [ ] Add tests
 - [ ] Clean manifest
+- [ ] Renovate
