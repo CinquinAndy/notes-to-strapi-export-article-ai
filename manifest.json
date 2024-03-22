@@ -1,0 +1,10 @@
+{
+  "id": "strapi-export",
+  "name": "Export Notes to Strapi",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Export notes to Strapi CMS",
+  "author": "Cinquin Andy",
+  "authorUrl": "https://andy.cinquin.com",
+  "isDesktopOnly": false
+}
