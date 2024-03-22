@@ -10,7 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "form-data": "^4.0.0",
     "node-fetch": "^3.3.2",
     "obsidian": "^1.5.7-1"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5"
   }
 }
