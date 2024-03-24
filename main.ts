@@ -81,7 +81,6 @@ export default class MyPlugin extends Plugin {
 	}
 
 	extractImagePaths(content: string): string[] {
-		console.log('content: ', content)
 		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 		const imagePaths: string[] = []
 		let match
@@ -89,7 +88,6 @@ export default class MyPlugin extends Plugin {
 			const imagePath = match[1]
 			imagePaths.push(imagePath)
 		}
-		console.log('imagePaths', imagePaths)
 		return imagePaths
 	}
 
@@ -104,7 +102,7 @@ export default class MyPlugin extends Plugin {
 			formData.append('files', imageFile, imagePath)
 
 			try {
-				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
+				const response = await fetch(`${this.settings.strapiUrl}/api/uploadz`, {
 					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${this.settings.strapiApiToken}`,
