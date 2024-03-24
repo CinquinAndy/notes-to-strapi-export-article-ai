@@ -129,8 +129,15 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async readImageAsBlob(imagePath: string): Promise<Blob> {
-		const response = await fetch(imagePath)
-		const blob = await response.blob()
+		const adapter = this.app.vault.adapter
+		const imageFile = await adapter.read(imagePath)
+
+		const arr = new Uint8Array(imageFile.length)
+		for (let i = 0; i < imageFile.length; i++) {
+			arr[i] = imageFile.charCodeAt(i)
+		}
+
+		const blob = new Blob([arr], { type: 'image/png' })
 		return blob
 	}
 
