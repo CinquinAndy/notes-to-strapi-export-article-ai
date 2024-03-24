@@ -1,8 +1,6 @@
 import {
 	App,
-	Editor,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
 	PluginSettingTab,
@@ -26,8 +24,8 @@ export default class MyPlugin extends Plugin {
 		await this.loadSettings()
 
 		const ribbonIconEl = this.addRibbonIcon(
-			'dice',
-			'Sample Plugin',
+			'italic-glyph',
+			'Upload images to Strapi and update links in Markdown content',
 			async (evt: MouseEvent) => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
 				if (!activeView) {
@@ -83,12 +81,15 @@ export default class MyPlugin extends Plugin {
 	}
 
 	extractImagePaths(content: string): string[] {
-		const imageRegex = /!\[.*?\]\((.*?)\)/g
+		console.log('content: ', content)
+		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 		const imagePaths: string[] = []
 		let match
 		while ((match = imageRegex.exec(content)) !== null) {
-			imagePaths.push(match[1])
+			const imagePath = match[1]
+			imagePaths.push(imagePath)
 		}
+		console.log('imagePaths', imagePaths)
 		return imagePaths
 	}
 
