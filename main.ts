@@ -10,12 +10,12 @@ import {
 } from 'obsidian'
 
 interface MyPluginSettings {
-	mySetting: string
+	strapiUrl: string
 	strapiApiToken: string
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+	strapiUrl: '',
 	strapiApiToken: '',
 }
 
@@ -34,22 +34,37 @@ export default class MyPlugin extends Plugin {
 					new Notice('No active Markdown view')
 					return
 				}
+
+				if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
+					new Notice(
+						'Please configure Strapi URL and API token in the plugin settings'
+					)
+					return
+				}
+
+				new Notice('Processing Markdown content...')
+
 				const editor = activeView.editor
 				const content = editor.getValue()
 
-				// Extract image paths from the Markdown content
 				const imagePaths = this.extractImagePaths(content)
 
-				// Upload images to Strapi
+				new Notice('Uploading images to Strapi...')
+
 				const uploadedImages = await this.uploadImagesToStrapi(imagePaths)
 
-				// Replace local image paths with remote image URLs
+				if (Object.keys(uploadedImages).length === 0) {
+					new Notice('No images found or uploaded')
+					return
+				}
+
+				new Notice('Replacing image paths...')
+
 				const updatedContent = this.replaceImagePaths(content, uploadedImages)
 
-				// Update the Markdown content in the editor
 				editor.setValue(updatedContent)
 
-				new Notice('Images uploaded and links updated!')
+				new Notice('Images uploaded and links updated successfully!')
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -68,7 +83,6 @@ export default class MyPlugin extends Plugin {
 	}
 
 	extractImagePaths(content: string): string[] {
-		// Use a regular expression to extract image paths from the Markdown content
 		const imageRegex = /!\[.*?\]\((.*?)\)/g
 		const imagePaths: string[] = []
 		let match
@@ -88,19 +102,25 @@ export default class MyPlugin extends Plugin {
 			const imageFile = await this.readImageAsBlob(imagePath)
 			formData.append('files', imageFile, imagePath)
 
-			const response = await fetch('https://your-strapi-url/api/upload', {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${this.settings.strapiApiToken}`,
-				},
-				body: formData,
-			})
+			try {
+				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${this.settings.strapiApiToken}`,
+					},
+					body: formData,
+				})
 
-			if (response.ok) {
-				const data = await response.json()
-				uploadedImages[imagePath] = data[0].url
-			} else {
-				console.error(`Failed to upload image: ${imagePath}`)
+				if (response.ok) {
+					const data = await response.json()
+					uploadedImages[imagePath] = data[0].url
+				} else {
+					new Notice(`Failed to upload image: ${imagePath}`)
+					console.error(`Failed to upload image: ${imagePath}`)
+				}
+			} catch (error) {
+				new Notice(`Error uploading image: ${imagePath}`)
+				console.error(`Error uploading image: ${imagePath}`, error)
 			}
 		}
 
@@ -135,6 +155,19 @@ class MyExportSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this
 		containerEl.empty()
+
+		new Setting(containerEl)
+			.setName('Strapi URL')
+			.setDesc('Enter your Strapi instance URL')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url')
+					.setValue(this.plugin.settings.strapiUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
 
 		new Setting(containerEl)
 			.setName('Strapi API Token')
