@@ -102,7 +102,7 @@ export default class MyPlugin extends Plugin {
 			formData.append('files', imageFile, imagePath)
 
 			try {
-				const response = await fetch(`${this.settings.strapiUrl}/api/uploadz`, {
+				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
 					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${this.settings.strapiApiToken}`,
