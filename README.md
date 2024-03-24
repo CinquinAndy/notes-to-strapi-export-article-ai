@@ -2,7 +2,10 @@
 --- work in progress ---
 ## Export Obsidian notes to Strapi CMS
 ### Roadmap
-- [ ] Get notes content from Obsidian
+- [X] Get notes content from Obsidian
+- [x] Config in the plugin settings for the token to use
+- [x] Config in the plugin settings for the api url to use
+- [x] Add clean errors notices messages 
 - [ ] Upload images & attachments to Strapi
 - [ ] Replace image links in notes with Strapi media links
 - [ ] Upload to Strapi article
@@ -11,7 +14,7 @@
 - [ ] Make it usable by anyone, env variables for Strapi URL, user & password & token
 - [ ] Config in the plugin settings for the schema to use
 - [ ] Config in the plugin settings for the fields to use
-- [ ] Part to générate alt / title for images
+- [ ] Part to generate alt / title for images
 - [ ] Part to generate slug for the article
 - [ ] Part to generate tags for the article
 - [ ] Part to generate linked articles
