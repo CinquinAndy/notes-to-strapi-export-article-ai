@@ -628,19 +628,6 @@ class MyExportSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Image Recognition API Key')
-			.setDesc('Enter your API key for image recognition')
-			.addText(text =>
-				text
-					.setPlaceholder('Enter your image recognition API key')
-					.setValue(this.plugin.settings.imageRecognitionApiKey)
-					.onChange(async value => {
-						this.plugin.settings.imageRecognitionApiKey = value
-						await this.plugin.saveSettings()
-					})
-			)
-
-		new Setting(containerEl)
 			.setName('JSON Template')
 			.setDesc('Enter the JSON template for the fields needed')
 			.addTextArea(text =>

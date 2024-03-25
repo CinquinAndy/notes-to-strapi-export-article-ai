@@ -1,6 +1,7 @@
 # Obsidian Strapi Article Creator
 
-This Obsidian plugin allows you to easily create articles in Strapi CMS using the content from your Obsidian Markdown files. It automatically uploads images, generates SEO-friendly content, and creates the article in Strapi with a single click.
+This Obsidian plugin allows you to easily create articles in Strapi CMS using the content from your Obsidian Markdown files. It automatically uploads images, generates SEO-friendly
+content, and creates the article in Strapi with a single click.
 
 ## Features
 
@@ -52,19 +53,23 @@ Before using the plugin, you need to configure the following settings:
 
 Feel free to submit issues and pull requests to improve the plugin. Make sure to follow the existing code style and include relevant tests when submitting pull requests.
 
-
 ### Roadmap
+
 - [X] Get notes content from Obsidian
 - [x] Config in the plugin settings for the token to use
 - [x] Config in the plugin settings for the api url to use
-- [x] Add clean errors notices messages 
+- [x] Add clean errors notices messages
 - [x] Upload images & attachments to Strapi
 - [x] Replace image links in notes with Strapi media links
+
 ---
+
 - [x] Connect custom api key for gpt-3
 - [x] Connect custom api key for image recognition
 - [x] Following my personnal template & fields
+
 ---
+
 - [x] Part to generate alt / title for images
 - [x] Part to generate slug for the article
 - [x] Part to generate tags for the article
@@ -72,7 +77,9 @@ Feel free to submit issues and pull requests to improve the plugin. Make sure to
 - [x] Part to generate seo_description
 - [x] Part to generate seo_title
 - [x] Part to generate excerpt
+
 ---
+
 - [x] Upload to Strapi article
 - [ ] Make it available as a plugin in Obsidian
 - [ ] Make it usable by anyone, env variables for Strapi URL, user & password & token
