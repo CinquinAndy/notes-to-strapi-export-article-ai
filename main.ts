@@ -197,6 +197,7 @@ export default class MyPlugin extends Plugin {
 						
 						Please provide the generated article content as a JSON object following the given template structure.
 						if present the locale need to be 'fr' and the content in french, and generate at least 8 tags if present in the schema too.
+						if present the rank need to be 999
 						Méta Description : Rédigez une méta description attrayante incluant le mot-clé principal, qui incite à cliquer sur l'article depuis les résultats de recherche.
 						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. Le contenu doit répondre à leurs questions ou résoudre un problème`
 
