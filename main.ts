@@ -481,10 +481,18 @@ export default class MyPlugin extends Plugin {
 		return uploadedImages
 	}
 
+	/**
+	 * Replace the image paths in the content with the uploaded image URLs
+	 * @param content
+	 * @param uploadedImages
+	 */
 	replaceImagePaths(
 		content: string,
 		uploadedImages: { [key: string]: { url: string; data: any } }
 	): string {
+		/**
+		 * Replace the image paths in the content with the uploaded image URLs
+		 */
 		for (const [localPath, imageData] of Object.entries(uploadedImages)) {
 			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
 			content = content.replace(
@@ -495,7 +503,13 @@ export default class MyPlugin extends Plugin {
 		return content
 	}
 
+	/**
+	 * Get the description of the image using OpenAI
+	 * @param imageBlob
+	 * @param openai
+	 */
 	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
+		// get the image description using the OpenAI API ( using gpt 4 vision preview model )
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4-vision-preview',
 			messages: [
@@ -527,6 +541,7 @@ export default class MyPlugin extends Plugin {
 		)
 
 		// gpt-3.5-turbo-0125
+		// alt text, caption, and title for the image, based on the description of the image
 		const completion = await openai.chat.completions.create({
 			model: 'gpt-3.5-turbo-0125',
 			messages: [
@@ -554,6 +569,9 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
+/**
+ * The settings tab for the plugin
+ */
 class MyExportSettingTab extends PluginSettingTab {
 	plugin: MyPlugin
 
@@ -566,6 +584,10 @@ class MyExportSettingTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
+		/** ****************************************************************************
+		 * Add the settings for the plugin
+		 * *****************************************************************************
+		 */
 		new Setting(containerEl)
 			.setName('Strapi URL')
 			.setDesc('Enter your Strapi instance URL')
