@@ -208,7 +208,7 @@ export default class MyPlugin extends Plugin {
 
 			try {
 				console.log('Uploading image:', imageBlob, formData)
-				const response = await fetch(`${this.settings.strapiUrl}/upload`, {
+				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
 					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${this.settings.strapiApiToken}`,
