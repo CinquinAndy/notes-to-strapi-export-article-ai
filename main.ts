@@ -52,6 +52,7 @@ export default class MyPlugin extends Plugin {
 				console.log('content:', content)
 
 				const imagePaths = this.extractImagePaths(content)
+				console.log('imagePaths:', imagePaths)
 				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
 				console.log('imageBlobs:', imageBlobs)
 
@@ -89,15 +90,14 @@ export default class MyPlugin extends Plugin {
 	}
 
 	extractImagePaths(content: string): string[] {
-		const markdownImageRegex = /!\[.*?\]\((.*?)\)/g
+		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 		const imagePaths: string[] = []
 		let match
 
-		while ((match = markdownImageRegex.exec(content)) !== null) {
+		while ((match = imageRegex.exec(content)) !== null) {
 			imagePaths.push(match[1])
 		}
 
-		console.log('imagePaths:', imagePaths)
 		return imagePaths
 	}
 
