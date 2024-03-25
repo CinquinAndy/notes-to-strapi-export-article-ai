@@ -214,11 +214,9 @@ export default class MyPlugin extends Plugin {
 						new Notice('Article created successfully in Strapi!')
 					} else {
 						new Notice('Failed to create article in Strapi.')
-						console.error('Error response:', await response.json())
 					}
 				} catch (error) {
 					new Notice('Error creating article in Strapi.')
-					console.error('Error:', error)
 				}
 
 				new Notice('Article content generated successfully!')
@@ -330,12 +328,9 @@ export default class MyPlugin extends Plugin {
 					}
 				} else {
 					new Notice(`Failed to upload image: ${imageBlob.name}`)
-					console.error(`Failed to upload image: ${imageBlob.name}`)
-					console.error('Error response:', await response.json())
 				}
 			} catch (error) {
 				new Notice(`Error uploading image: ${imageBlob.name}`)
-				console.error(`Error uploading image: ${imageBlob.name}`, error)
 			}
 		}
 
@@ -346,8 +341,6 @@ export default class MyPlugin extends Plugin {
 		content: string,
 		uploadedImages: { [key: string]: { url: string; data: any } }
 	): string {
-		console.log('uploadedImages:', uploadedImages)
-		console.log('content:', content)
 		for (const [localPath, imageData] of Object.entries(uploadedImages)) {
 			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
 			content = content.replace(
@@ -384,8 +377,6 @@ export default class MyPlugin extends Plugin {
 			],
 		})
 
-		console.log(response)
-		console.log(response.choices[0].message.content)
 		new Notice(response.choices[0].message.content ?? 'no response content...')
 		new Notice(
 			`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
@@ -408,8 +399,6 @@ export default class MyPlugin extends Plugin {
 			stop: null,
 		})
 
-		console.log(completion)
-		console.log(completion.choices[0].message.content)
 		new Notice(
 			completion.choices[0].message.content ?? 'no response content...'
 		)
