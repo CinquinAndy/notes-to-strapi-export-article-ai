@@ -56,6 +56,7 @@ export default class MyPlugin extends Plugin {
 				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
 				console.log('imageBlobs perfect:', imageBlobs)
 
+				/**
 				new Notice('Uploading images to Strapi...')
 
 				const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
@@ -68,6 +69,7 @@ export default class MyPlugin extends Plugin {
 				await this.app.vault.modify(file, updatedContent)
 
 				new Notice('Images uploaded and links updated successfully!')
+				 */
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
