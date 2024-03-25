@@ -438,6 +438,9 @@ export default class MyPlugin extends Plugin {
 		 */
 		for (const imageBlob of imageBlobs) {
 			const formData = new FormData()
+			/**
+			 * Append the image blob and the image description to the form data
+			 */
 			formData.append('files', imageBlob.blob, imageBlob.name)
 			formData.append(
 				'fileInfo',
@@ -448,8 +451,8 @@ export default class MyPlugin extends Plugin {
 				})
 			)
 
+			// upload the image to Strapi
 			try {
-				console.log('Uploading image:', imageBlob, formData)
 				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
 					method: 'POST',
 					headers: {
