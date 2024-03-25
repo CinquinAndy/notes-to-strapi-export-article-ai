@@ -252,6 +252,65 @@ export default class MyPlugin extends Plugin {
 		return content
 	}
 
+	// async getImageDescription(imageBlob: Blob, openai: OpenAI) {
+	// 	const response = await openai.chat.completions.create({
+	// 		model: 'gpt-4-vision-preview',
+	// 		messages: [
+	// 			{
+	// 				role: 'user',
+	// 				content: [
+	// 					{
+	// 						type: 'text',
+	// 						text: 'What’s in this image? make it simple, i just want the context and an idea (think about alt text)',
+	// 					},
+	// 					{
+	// 						type: 'image_url',
+	// 						// encore imageBlob as base64
+	// 						image_url: `data:image/png;base64,${btoa(
+	// 							new Uint8Array(await imageBlob.arrayBuffer()).reduce(
+	// 								(data, byte) => data + String.fromCharCode(byte),
+	// 								''
+	// 							)
+	// 						)}`,
+	// 					},
+	// 				],
+	// 			},
+	// 		],
+	// 	})
+	// 	console.log(response)
+	// 	console.log(response.choices[0].message.content)
+	// 	new Notice(response.choices[0].message.content ?? 'no response content...')
+	// 	new Notice(
+	// 		`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
+	// 	)
+	//
+	// 	// gpt-3.5-turbo-0125
+	// 	const completion = await openai.chat.completions.create({
+	// 		model: 'gpt-3.5-turbo-0125',
+	// 		response_format: { type: 'json_object' },
+	// 		messages: [
+	// 			{
+	// 				role: 'system',
+	// 				content:
+	// 					'You are an SEO expert and you are writing alt text, caption, and title for this image. What would you write?' +
+	// 					'There is the description of the image, ' +
+	// 					response.choices[0].message.content +
+	// 					'give me a title (name) for this image, an alternative text (seo friendly) and a caption for this image.' +
+	// 					'Generate these informations and response with the JSON object with the following fields: name, alternativeText, caption. You can use the following JSON template: ' +
+	// 					'{"name": "string", "alternativeText": "string", "caption": "string"}',
+	// 			},
+	// 		],
+	// 	})
+	// 	console.log(completion)
+	// 	console.log(completion.choices[0].message.content)
+	// 	new Notice(
+	// 		completion.choices[0].message.content ?? 'no response content...'
+	// 	)
+	// 	new Notice(
+	// 		`prompt_tokens: ${completion.usage?.prompt_tokens} // completion_tokens: ${completion.usage?.completion_tokens} // total_tokens: ${completion.usage?.total_tokens}`
+	// 	)
+	// 	return completion.choices[0].message.content
+	// }
 	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4-vision-preview',
@@ -261,11 +320,11 @@ export default class MyPlugin extends Plugin {
 					content: [
 						{
 							type: 'text',
-							text: 'What’s in this image? make it simple, i just want the context and an idea (think about alt text)',
+							text: `What's in this image? make it simple, i just want the context and an idea(think about alt text)`,
 						},
 						{
 							type: 'image_url',
-							// encore imageBlob as base64
+							// encode imageBlob as base64
 							image_url: `data:image/png;base64,${btoa(
 								new Uint8Array(await imageBlob.arrayBuffer()).reduce(
 									(data, byte) => data + String.fromCharCode(byte),
@@ -277,13 +336,40 @@ export default class MyPlugin extends Plugin {
 				},
 			],
 		})
+
 		console.log(response)
 		console.log(response.choices[0].message.content)
 		new Notice(response.choices[0].message.content ?? 'no response content...')
 		new Notice(
 			`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
 		)
-		return response.choices[0].message.content
+
+		// gpt-3.5-turbo-0125
+		const completion = await openai.completions.create({
+			model: 'gpt-3.5-turbo-0125',
+			messages: [
+				{
+					role: 'user',
+					content: `You are an SEO expert and you are writing alt text, caption, and title for this image. The description of the image is: ${response.choices[0].message.content}.
+        Give me a title (name) for this image, an SEO-friendly alternative text, and a caption for this image.
+        Generate this information and respond with a JSON object using the following fields: name, alternativeText, caption.
+        Use this JSON template: {"name": "string", "alternativeText": "string", "caption": "string"}.`,
+				},
+			],
+			max_tokens: 750,
+			n: 1,
+			stop: null,
+			// temperature: 0.7,
+		})
+
+		console.log(completion)
+		console.log(completion.choices[0].text)
+		new Notice(completion.choices[0].text ?? 'no response content...')
+		new Notice(
+			`prompt_tokens: ${completion.usage?.prompt_tokens} // completion_tokens: ${completion.usage?.completion_tokens} // total_tokens: ${completion.usage?.total_tokens}`
+		)
+
+		return JSON.parse(completion.choices[0].text?.trim() || '{}')
 	}
 }
 
