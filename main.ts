@@ -5,6 +5,7 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFile,
 } from 'obsidian'
 
 interface MyPluginSettings {
@@ -48,26 +49,28 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 				const content = await this.app.vault.read(file)
+				console.log('content:', content)
 
 				const imagePaths = this.extractImagePaths(content)
 				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
+				console.log('imageBlobs:', imageBlobs)
 
 				new Notice('Uploading images to Strapi...')
 
-				const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
+				// const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
+				//
+				// if (Object.keys(uploadedImages).length === 0) {
+				// 	new Notice('No images found or uploaded')
+				// 	return
+				// }
+				//
+				// new Notice('Replacing image paths...')
 
-				if (Object.keys(uploadedImages).length === 0) {
-					new Notice('No images found or uploaded')
-					return
-				}
+				// const updatedContent = this.replaceImagePaths(content, uploadedImages)
 
-				new Notice('Replacing image paths...')
+				// editor.setValue(updatedContent)
 
-				const updatedContent = this.replaceImagePaths(content, uploadedImages)
-
-				editor.setValue(updatedContent)
-
-				new Notice('Images uploaded and links updated successfully!')
+				// new Notice('Images uploaded and links updated successfully!')
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -94,15 +97,45 @@ export default class MyPlugin extends Plugin {
 			imagePaths.push(match[1])
 		}
 
+		console.log('imagePaths:', imagePaths)
 		return imagePaths
 	}
 
+	async getImageBlobs(
+		imagePaths: string[],
+		currentFilePath: string
+	): Promise<{ path: string; blob: Blob }[]> {
+		const blobs = await Promise.all(
+			imagePaths.map(async path => {
+				const normalizedPath = this.normalizePath(path, currentFilePath)
+				const file = this.app.vault.getAbstractFileByPath(normalizedPath)
+				if (file instanceof TFile) {
+					const blob = await this.app.vault.readBinary(file)
+					return { path, blob: new Blob([blob], { type: 'image/png' }) }
+				}
+				return null
+			})
+		)
+
+		return blobs.filter(
+			(item): item is { path: string; blob: Blob } => item !== null
+		)
+	}
+
+	normalizePath(path: string, currentFilePath: string): string {
+		if (path.startsWith('/')) {
+			return path.slice(1)
+		}
+		const currentDir = currentFilePath.split('/').slice(0, -1).join('/')
+		return `${currentDir}/${path}`
+	}
+
 	async uploadImagesToStrapi(
-		imagePaths: string[]
+		imageBlobs: { path: string; blob: Blob }[]
 	): Promise<{ [key: string]: string }> {
 		const uploadedImages: { [key: string]: string } = {}
 
-		for (const imagePath of imagePaths) {
+		for (const imagePath of imageBlobs.map(item => item.path)) {
 			const formData = new FormData()
 			const imageFile = await this.readImageAsBlob(imagePath)
 			const fileName = imagePath.split('/').pop()
