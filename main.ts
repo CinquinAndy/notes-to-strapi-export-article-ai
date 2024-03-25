@@ -249,8 +249,6 @@ export default class MyPlugin extends Plugin {
 				}
 
 				new Notice('Article content generated successfully!')
-
-				// TODO: Send the generated article content to Strapi using the appropriate API route
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
