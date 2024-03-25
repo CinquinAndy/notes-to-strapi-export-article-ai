@@ -108,8 +108,21 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 
-				new Notice('Processing Markdown content...')
+				if (!this.settings.jsonTemplateDescription) {
+					new Notice(
+						'Please configure JSON template description in the plugin settings'
+					)
+					return
+				}
 
+				if (!this.settings.strapiArticleCreateUrl) {
+					new Notice(
+						'Please configure Strapi article create URL in the plugin settings'
+					)
+					return
+				}
+
+				new Notice('All settings are ok, processing Markdown content...')
 				const file = activeView.file
 				let content = ''
 				if (!file) {
@@ -166,14 +179,6 @@ export default class MyPlugin extends Plugin {
 					this.settings.jsonTemplateDescription
 				)
 
-				console.log('jsonTemplate:', jsonTemplate)
-				console.log('jsonTemplateDescription:', jsonTemplateDescription)
-
-				if (!jsonTemplate || !jsonTemplateDescription) {
-					new Notice('Invalid JSON template or description...')
-					return
-				}
-
 				if (!content) {
 					// get the content from the active view
 					content = await this.app.vault.read(file)
@@ -187,11 +192,13 @@ export default class MyPlugin extends Plugin {
 						Field Descriptions:
 						${JSON.stringify(jsonTemplateDescription, null, 2)}
 						
-						The main content of the article should be based on the following text:
+						The main content of the article should be based on the following text and all the keywords around the domain of the text:
 						${content}
 						
 						Please provide the generated article content as a JSON object following the given template structure.
-						The locale need to be 'fr' and the content in french`
+						if present the locale need to be 'fr' and the content in french, and generate at least 8 tags if present in the schema too.
+						Méta Description : Rédigez une méta description attrayante incluant le mot-clé principal, qui incite à cliquer sur l'article depuis les résultats de recherche.
+						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. Le contenu doit répondre à leurs questions ou résoudre un problème`
 
 				const completion = await openai.chat.completions.create({
 					model: 'gpt-3.5-turbo-0125',
