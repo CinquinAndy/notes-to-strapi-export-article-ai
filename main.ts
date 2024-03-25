@@ -251,6 +251,9 @@ export default class MyPlugin extends Plugin {
 					content = await this.app.vault.read(file)
 				}
 
+				/**
+				 * Prompt for generating the article content
+				 */
 				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
 
 						Template:
@@ -273,6 +276,9 @@ export default class MyPlugin extends Plugin {
 						pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. 
 						Le contenu doit répondre à leurs questions ou résoudre un problème`
 
+				/**
+				 * Generate the article content using OpenAI
+				 */
 				const completion = await openai.chat.completions.create({
 					model: 'gpt-3.5-turbo-0125',
 					messages: [
@@ -286,16 +292,21 @@ export default class MyPlugin extends Plugin {
 					stop: null,
 				})
 
+				/**
+				 * Parse the generated article content
+				 */
 				let articleContent = JSON.parse(
 					completion.choices[0].message.content ?? '{}'
 				)
+				/**
+				 * Add the content to the article content
+				 */
 				articleContent = {
 					...articleContent,
 					[this.settings.strapiContentAttributeName]: content,
 				}
 
 				new Notice('Article content generated successfully!')
-
 				try {
 					const response = await fetch(this.settings.strapiArticleCreateUrl, {
 						method: 'POST',
@@ -325,15 +336,28 @@ export default class MyPlugin extends Plugin {
 
 	onunload() {}
 
+	/**
+	 * Load the settings for the plugin
+	 */
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
 	}
 
+	/**
+	 * Save the settings for the plugin
+	 */
 	async saveSettings() {
 		await this.saveData(this.settings)
 	}
 
+	/**
+	 * Extract the image paths from the content
+	 * @param content
+	 */
 	extractImagePaths(content: string): string[] {
+		/**
+		 * Extract the image paths from the content
+		 */
 		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 		const imagePaths: string[] = []
 		let match
@@ -345,17 +369,29 @@ export default class MyPlugin extends Plugin {
 		return imagePaths
 	}
 
+	/**
+	 * Check if the content has any unexported images
+	 * @param content
+	 */
 	hasUnexportedImages(content: string): boolean {
 		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 		return imageRegex.test(content)
 	}
 
+	/**
+	 * Get the image blobs from the image paths
+	 * @param imagePaths
+	 */
 	async getImageBlobs(
 		imagePaths: string[]
 	): Promise<{ path: string; blob: Blob; name: string }[]> {
+		// get all the files in the vault
 		const files = this.app.vault.getAllLoadedFiles()
+		// get the image files name from the vault
 		const fileNames = files.map(file => file.name)
+		// filter the image files, and get all the images files paths
 		const imageFiles = imagePaths.filter(path => fileNames.includes(path))
+		// get the image blobs, find it, and return the blob
 		return await Promise.all(
 			imageFiles.map(async path => {
 				const file = files.find(file => file.name === path)
@@ -376,6 +412,10 @@ export default class MyPlugin extends Plugin {
 		)
 	}
 
+	/**
+	 * Upload the images to Strapi
+	 * @param imageBlobs
+	 */
 	async uploadImagesToStrapi(
 		imageBlobs: {
 			path: string
@@ -388,10 +428,14 @@ export default class MyPlugin extends Plugin {
 			}
 		}[]
 	): Promise<{ [key: string]: { url: string; data: any } }> {
+		// upload the images to Strapi
 		const uploadedImages: {
 			[key: string]: { url: string; data: any }
 		} = {}
 
+		/**
+		 * Upload the images to Strapi
+		 */
 		for (const imageBlob of imageBlobs) {
 			const formData = new FormData()
 			formData.append('files', imageBlob.blob, imageBlob.name)
