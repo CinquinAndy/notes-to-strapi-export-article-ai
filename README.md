@@ -48,6 +48,10 @@ To get started with Strapi Exporter, you'll need to configure the following sett
 
 We welcome contributions from the community! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Let's make Strapi Exporter even better together!
 
+## 📜 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 ### Roadmap
 
 - [X] Get notes content from Obsidian
