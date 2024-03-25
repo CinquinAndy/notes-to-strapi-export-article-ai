@@ -9,6 +9,9 @@ import {
 	TFile,
 } from 'obsidian'
 
+/**
+ * The settings for the plugin
+ */
 interface MyPluginSettings {
 	strapiUrl: string
 	strapiApiToken: string
@@ -20,6 +23,9 @@ interface MyPluginSettings {
 	strapiContentAttributeName: string
 }
 
+/**
+ * The default settings for the plugin
+ */
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
@@ -70,15 +76,24 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	strapiContentAttributeName: '',
 }
 
+/**
+ * The main plugin class
+ */
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings
 
+	/**
+	 * The main entry point for the plugin
+	 */
 	async onload() {
 		await this.loadSettings()
 
+		/**
+		 * Add a ribbon icon to the Markdown view (the little icon on the left side bar)
+		 */
 		const ribbonIconEl = this.addRibbonIcon(
 			'italic-glyph',
-			'Upload images to Strapi and update links in Markdown content',
+			'Upload images to Strapi and update links in Markdown content, then generate article content using OpenAI',
 			async (evt: MouseEvent) => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
 				if (!activeView) {
@@ -86,6 +101,10 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 
+				/** ****************************************************************************
+				 * Check if all the settings are configured
+				 * *****************************************************************************
+				 */
 				if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
 					new Notice(
 						'Please configure Strapi URL and API token in the plugin settings'
@@ -131,6 +150,10 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 
+				/** ****************************************************************************
+				 * Process the Markdown content
+				 * *****************************************************************************
+				 */
 				new Notice('All settings are ok, processing Markdown content...')
 				const file = activeView.file
 				let content = ''
@@ -138,20 +161,41 @@ export default class MyPlugin extends Plugin {
 					new Notice('No file found in active view...')
 					return
 				}
+				/**
+				 * Read the content of the file
+				 */
 				content = await this.app.vault.read(file)
 
 				// check if the content has any images to process
 				const flag = this.hasUnexportedImages(content)
+				/**
+				 * Initialize the OpenAI API
+				 */
 				const openai = new OpenAI({
 					apiKey: this.settings.openaiApiKey,
 					dangerouslyAllowBrowser: true,
 				})
+
+				/**
+				 * Process the images in the content, upload them to Strapi, and update the links,
+				 * only if there are images in the content
+				 * that are not already uploaded to Strapi
+				 */
 				if (flag) {
+					/**
+					 * Extract the image paths from the content
+					 */
 					const imagePaths = this.extractImagePaths(content)
+
+					/**
+					 * Get the image blobs from the image paths
+					 */
 					const imageBlobs = await this.getImageBlobs(imagePaths)
 
+					/**
+					 * Get the image descriptions using the OpenAI API
+					 */
 					new Notice('Getting image descriptions...')
-
 					const imageDescriptions = await Promise.all(
 						imageBlobs.map(async imageBlob => {
 							const description = await this.getImageDescription(
@@ -167,14 +211,19 @@ export default class MyPlugin extends Plugin {
 						})
 					)
 
+					/**
+					 * Upload the images to Strapi
+					 */
 					new Notice('Uploading images to Strapi...')
 					const uploadedImages =
 						await this.uploadImagesToStrapi(imageDescriptions)
 
+					/**
+					 * Replace the image paths in the content with the uploaded image URLs
+					 */
 					new Notice('Replacing image paths...')
 					content = this.replaceImagePaths(content, uploadedImages)
 					await this.app.vault.modify(file, content)
-
 					new Notice('Images uploaded and links updated successfully!')
 				} else {
 					new Notice(
@@ -182,12 +231,21 @@ export default class MyPlugin extends Plugin {
 					)
 				}
 
+				/**
+				 * Generate article content using OpenAI
+				 */
 				new Notice('Generating article content...')
+				/**
+				 * Parse the JSON template and description
+				 */
 				const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
 				const jsonTemplateDescription = JSON.parse(
 					this.settings.jsonTemplateDescription
 				)
 
+				/**
+				 * If the content is not present, get it from the active view
+				 */
 				if (!content) {
 					// get the content from the active view
 					content = await this.app.vault.read(file)
