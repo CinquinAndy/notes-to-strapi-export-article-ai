@@ -193,13 +193,24 @@ export default class MyPlugin extends Plugin {
 						${JSON.stringify(jsonTemplateDescription, null, 2)}
 						
 						The main content of the article should be based on the following text and all the keywords around the domain of the text:
+						----- CONTENT -----
 						${content}
+						----- END CONTENT -----
 						
 						Please provide the generated article content as a JSON object following the given template structure.
 						if present the locale need to be 'fr' and the content in french, and generate at least 8 tags if present in the schema too.
 						if present the rank need to be 999
-						Méta Description : Rédigez une méta description attrayante incluant le mot-clé principal, qui incite à cliquer sur l'article depuis les résultats de recherche.
-						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. Le contenu doit répondre à leurs questions ou résoudre un problème`
+						Méta Description : Rédigez une méta description attrayante incluant le mot-clé principal, 
+						qui incite à cliquer sur l'article depuis les résultats de recherche.
+						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé 
+						pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. 
+						Le contenu doit répondre à leurs questions ou résoudre un problème
+						
+						Pour tout ce qui lié au contenu de l'article, tu mettras le contenu de l'article exactement comme il est écrit entre les éléments 
+						----- CONTENT ----- 
+						et 
+						----- END CONTENT -----
+						Sans le modifier et sans changer quoi que ce soit à la présentation du texte.`
 
 				const completion = await openai.chat.completions.create({
 					model: 'gpt-3.5-turbo-0125',
@@ -214,12 +225,9 @@ export default class MyPlugin extends Plugin {
 					stop: null,
 				})
 
-				console.log(completion.choices[0].message.content)
 				const articleContent = JSON.parse(
 					completion.choices[0].message.content ?? '{}'
 				)
-
-				console.log('articleContent:', articleContent)
 
 				new Notice('Article content generated successfully!')
 
@@ -230,7 +238,7 @@ export default class MyPlugin extends Plugin {
 							'Content-Type': 'application/json',
 							Authorization: `Bearer ${this.settings.strapiApiToken}`,
 						},
-						body: JSON.stringify(articleContent),
+						body: JSON.stringify({ ...articleContent }),
 					})
 
 					if (response.ok) {
