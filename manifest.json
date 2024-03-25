@@ -1,5 +1,5 @@
 {
-  "id": "strapi-export",
+  "id": "notes-to-strapi-export-article-ai",
   "name": "Strapi Exporter, Obsidian Notes to Strapi article",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
