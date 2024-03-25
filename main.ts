@@ -133,14 +133,10 @@ export default class MyPlugin extends Plugin {
 	): Promise<{ [key: string]: string }> {
 		const uploadedImages: { [key: string]: string } = {}
 
-		for (const imagePath of imageBlobs.map(item => item.path)) {
+		for (const imagePath of imageBlobs) {
 			const formData = new FormData()
-			const imageFile = await this.readImageAsBlob(imagePath)
-			const fileName = imagePath.split('/').pop()
+			formData.append('files', imagePath.blob, imagePath.path)
 
-			console.log('imageFile:', imageFile)
-			console.log('fileName:', fileName)
-			formData.append('files', imageFile, fileName)
 			console.log("formData.get('files'):", formData.get('files'))
 
 			try {
@@ -155,7 +151,7 @@ export default class MyPlugin extends Plugin {
 
 				if (response.ok) {
 					const data = await response.json()
-					uploadedImages[imagePath] = data[0].url
+					uploadedImages[imagePath.name] = data[0].url
 				} else {
 					new Notice(`Failed to upload image: ${imagePath}`)
 					console.error(`Failed to upload image: ${imagePath}`)
