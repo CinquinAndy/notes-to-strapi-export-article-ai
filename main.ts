@@ -61,18 +61,13 @@ export default class MyPlugin extends Plugin {
 				const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
 
 				console.log('uploadedImages:', uploadedImages)
-				// if (Object.keys(uploadedImages).length === 0) {
-				// 	new Notice('No images found or uploaded')
-				// 	return
-				// }
-				//
-				// new Notice('Replacing image paths...')
+				new Notice('Replacing image paths...')
 
-				// const updatedContent = this.replaceImagePaths(content, uploadedImages)
+				const updatedContent = this.replaceImagePaths(content, uploadedImages)
 
-				// editor.setValue(updatedContent)
+				await this.app.vault.modify(file, updatedContent)
 
-				// new Notice('Images uploaded and links updated successfully!')
+				new Notice('Images uploaded and links updated successfully!')
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -166,25 +161,13 @@ export default class MyPlugin extends Plugin {
 		return uploadedImages
 	}
 
-	async readImageAsBlob(imagePath: string): Promise<Blob> {
-		const adapter = this.app.vault.adapter
-		const imageFile = await adapter.read(imagePath)
-
-		const arr = new Uint8Array(imageFile.length)
-		for (let i = 0; i < imageFile.length; i++) {
-			arr[i] = imageFile.charCodeAt(i)
-		}
-
-		const blob = new Blob([arr], { type: 'image/png' })
-		return blob
-	}
-
 	replaceImagePaths(
 		content: string,
 		uploadedImages: { [key: string]: string }
 	): string {
 		for (const [localPath, remotePath] of Object.entries(uploadedImages)) {
-			content = content.replace(localPath, remotePath)
+			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
+			content = content.replace(markdownImageRegex, `![](${remotePath})`)
 		}
 		return content
 	}
