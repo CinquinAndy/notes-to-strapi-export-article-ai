@@ -6,8 +6,8 @@
 - [x] Config in the plugin settings for the token to use
 - [x] Config in the plugin settings for the api url to use
 - [x] Add clean errors notices messages 
-- [ ] Upload images & attachments to Strapi
-- [ ] Replace image links in notes with Strapi media links
+- [x] Upload images & attachments to Strapi
+- [x] Replace image links in notes with Strapi media links
 - [ ] Upload to Strapi article
 - [ ] Following my personnal template & fields
 - [ ] Make it available as a plugin in Obsidian
