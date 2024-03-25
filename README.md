@@ -9,19 +9,19 @@
 - [x] Upload images & attachments to Strapi
 - [x] Replace image links in notes with Strapi media links
 ---
-- [ ] Connect custom api key for gpt-3
-- [ ] Connect custom api key for image recognition
-- [ ] Following my personnal template & fields
+- [x] Connect custom api key for gpt-3
+- [x] Connect custom api key for image recognition
+- [x] Following my personnal template & fields
 ---
-- [ ] Part to generate alt / title for images
-- [ ] Part to generate slug for the article
-- [ ] Part to generate tags for the article
-- [ ] Part to generate linked articles
-- [ ] Part to generate seo_description
-- [ ] Part to generate seo_title
-- [ ] Part to generate excerpt
+- [x] Part to generate alt / title for images
+- [x] Part to generate slug for the article
+- [x] Part to generate tags for the article
+- [x] Part to generate linked articles
+- [x] Part to generate seo_description
+- [x] Part to generate seo_title
+- [x] Part to generate excerpt
 ---
-- [ ] Upload to Strapi article
+- [x] Upload to Strapi article
 - [ ] Make it available as a plugin in Obsidian
 - [ ] Make it usable by anyone, env variables for Strapi URL, user & password & token
 - [ ] Config in the plugin settings for the schema to use
