@@ -111,23 +111,24 @@ export default class MyPlugin extends Plugin {
 				new Notice('Processing Markdown content...')
 
 				const file = activeView.file
+				let content = ''
 				if (!file) {
 					new Notice('No file found in active view...')
 					return
 				}
-				const content = await this.app.vault.read(file)
+				content = await this.app.vault.read(file)
 
 				// check if the content has any images to process
 				const flag = this.hasUnexportedImages(content)
+				const openai = new OpenAI({
+					apiKey: this.settings.openaiApiKey,
+					dangerouslyAllowBrowser: true,
+				})
 				if (flag) {
 					const imagePaths = this.extractImagePaths(content)
 					const imageBlobs = await this.getImageBlobs(imagePaths)
 
 					new Notice('Getting image descriptions...')
-					const openai = new OpenAI({
-						apiKey: this.settings.openaiApiKey,
-						dangerouslyAllowBrowser: true,
-					})
 
 					const imageDescriptions = await Promise.all(
 						imageBlobs.map(async imageBlob => {
@@ -149,8 +150,8 @@ export default class MyPlugin extends Plugin {
 						await this.uploadImagesToStrapi(imageDescriptions)
 
 					new Notice('Replacing image paths...')
-					const updatedContent = this.replaceImagePaths(content, uploadedImages)
-					await this.app.vault.modify(file, updatedContent)
+					content = this.replaceImagePaths(content, uploadedImages)
+					await this.app.vault.modify(file, content)
 
 					new Notice('Images uploaded and links updated successfully!')
 				} else {
@@ -165,6 +166,19 @@ export default class MyPlugin extends Plugin {
 					this.settings.jsonTemplateDescription
 				)
 
+				console.log('jsonTemplate:', jsonTemplate)
+				console.log('jsonTemplateDescription:', jsonTemplateDescription)
+
+				if (!jsonTemplate || !jsonTemplateDescription) {
+					new Notice('Invalid JSON template or description...')
+					return
+				}
+
+				if (!content) {
+					// get the content from the active view
+					content = await this.app.vault.read(file)
+				}
+
 				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
 
 						Template:
@@ -174,9 +188,10 @@ export default class MyPlugin extends Plugin {
 						${JSON.stringify(jsonTemplateDescription, null, 2)}
 						
 						The main content of the article should be based on the following text:
-						${updatedContent}
+						${content}
 						
-						Please provide the generated article content as a JSON object following the given template structure.`
+						Please provide the generated article content as a JSON object following the given template structure.
+						The locale need to be 'fr' and the content in french`
 
 				const completion = await openai.chat.completions.create({
 					model: 'gpt-3.5-turbo-0125',
