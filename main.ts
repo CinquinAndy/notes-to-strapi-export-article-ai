@@ -16,7 +16,6 @@ interface MyPluginSettings {
 	strapiUrl: string
 	strapiApiToken: string
 	openaiApiKey: string
-	imageRecognitionApiKey: string
 	jsonTemplate: string
 	jsonTemplateDescription: string
 	strapiArticleCreateUrl: string
@@ -30,7 +29,6 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
 	openaiApiKey: '',
-	imageRecognitionApiKey: '',
 	jsonTemplate: `{
     "data": {
       "title": "string",
@@ -114,13 +112,6 @@ export default class MyPlugin extends Plugin {
 
 				if (!this.settings.openaiApiKey) {
 					new Notice('Please configure OpenAI API key in the plugin settings')
-					return
-				}
-
-				if (!this.settings.imageRecognitionApiKey) {
-					new Notice(
-						'Please configure Image Recognition API key in the plugin settings'
-					)
 					return
 				}
 
