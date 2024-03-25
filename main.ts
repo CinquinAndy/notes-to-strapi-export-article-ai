@@ -54,12 +54,13 @@ export default class MyPlugin extends Plugin {
 				const imagePaths = this.extractImagePaths(content)
 				console.log('imagePaths:', imagePaths)
 				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
-				console.log('imageBlobs:', imageBlobs)
+				console.log('imageBlobs perfect:', imageBlobs)
 
 				new Notice('Uploading images to Strapi...')
 
-				// const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
-				//
+				const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
+
+				console.log('uploadedImages:', uploadedImages)
 				// if (Object.keys(uploadedImages).length === 0) {
 				// 	new Notice('No images found or uploaded')
 				// 	return
@@ -102,23 +103,32 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async getImageBlobs(
-		imagePaths: string[],
-		currentFilePath: string
-	): Promise<{ path: string; blob: Blob }[]> {
-		const blobs = await Promise.all(
-			imagePaths.map(async path => {
-				const normalizedPath = this.normalizePath(path, currentFilePath)
-				const file = this.app.vault.getAbstractFileByPath(normalizedPath)
+		imagePaths: string[]
+	): Promise<{ path: string; blob: Blob; name: string }[]> {
+		console.log('currentFilePath', currentFilePath)
+		console.log('all imagePaths:', this.app.vault.getAllLoadedFiles())
+		// compare the imagePaths with the files in the vault
+		// if the file is found, read the file and get the blob
+		const files = this.app.vault.getAllLoadedFiles()
+		const fileNames = files.map(file => file.name)
+		const imageFiles = imagePaths.filter(path => fileNames.includes(path))
+		return await Promise.all(
+			imageFiles.map(async path => {
+				const file = files.find(file => file.name === path)
 				if (file instanceof TFile) {
 					const blob = await this.app.vault.readBinary(file)
-					return { path, blob: new Blob([blob], { type: 'image/png' }) }
+					return {
+						name: path,
+						blob: new Blob([blob], { type: 'image/png' }),
+						path: file.path,
+					}
 				}
-				return null
+				return {
+					name: '',
+					blob: new Blob(),
+					path: '',
+				}
 			})
-		)
-
-		return blobs.filter(
-			(item): item is { path: string; blob: Blob } => item !== null
 		)
 	}
 
@@ -131,7 +141,7 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async uploadImagesToStrapi(
-		imageBlobs: { path: string; blob: Blob }[]
+		imageBlobs: { path: string; blob: Blob; name: string }[]
 	): Promise<{ [key: string]: string }> {
 		const uploadedImages: { [key: string]: string } = {}
 
