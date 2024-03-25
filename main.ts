@@ -16,6 +16,7 @@ interface MyPluginSettings {
 	imageRecognitionApiKey: string
 	jsonTemplate: string
 	jsonTemplateDescription: string
+	strapiArticleCreateUrl: string
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -64,6 +65,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
       "locale": "Locale or language code, as a short string"
     }
   }`,
+	strapiArticleCreateUrl: '',
 }
 
 export default class MyPlugin extends Plugin {
@@ -114,52 +116,114 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 				const content = await this.app.vault.read(file)
-				console.log('content:', content)
 
-				const imagePaths = this.extractImagePaths(content)
-				console.log('imagePaths:', imagePaths)
-				const imageBlobs = await this.getImageBlobs(imagePaths)
-				console.log('imageBlobs perfect:', imageBlobs)
+				// check if the content has any images to process
+				const flag = this.hasUnexportedImages(content)
+				if (flag) {
+					const imagePaths = this.extractImagePaths(content)
+					const imageBlobs = await this.getImageBlobs(imagePaths)
 
-				new Notice('Getting image descriptions...')
-				const openai = new OpenAI({
-					apiKey: this.settings.openaiApiKey,
-					dangerouslyAllowBrowser: true,
-				})
-
-				const imageDescriptions = await Promise.all(
-					imageBlobs.map(async imageBlob => {
-						const description = await this.getImageDescription(
-							imageBlob.blob,
-							openai
-						)
-						return {
-							blob: imageBlob.blob,
-							name: imageBlob.name,
-							path: imageBlob.path,
-							description,
-						}
+					new Notice('Getting image descriptions...')
+					const openai = new OpenAI({
+						apiKey: this.settings.openaiApiKey,
+						dangerouslyAllowBrowser: true,
 					})
+
+					const imageDescriptions = await Promise.all(
+						imageBlobs.map(async imageBlob => {
+							const description = await this.getImageDescription(
+								imageBlob.blob,
+								openai
+							)
+							return {
+								blob: imageBlob.blob,
+								name: imageBlob.name,
+								path: imageBlob.path,
+								description,
+							}
+						})
+					)
+
+					new Notice('Uploading images to Strapi...')
+					const uploadedImages =
+						await this.uploadImagesToStrapi(imageDescriptions)
+
+					new Notice('Replacing image paths...')
+					const updatedContent = this.replaceImagePaths(content, uploadedImages)
+					await this.app.vault.modify(file, updatedContent)
+
+					new Notice('Images uploaded and links updated successfully!')
+				} else {
+					new Notice(
+						'No local images found in the content... Skip the image processing...'
+					)
+				}
+
+				new Notice('Generating article content...')
+				const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
+				const jsonTemplateDescription = JSON.parse(
+					this.settings.jsonTemplateDescription
 				)
 
-				console.log('*************************************')
-				console.log('images blobs:', imageBlobs)
-				console.log('images:', imageDescriptions)
+				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
 
-				new Notice('Uploading images to Strapi...')
+						Template:
+						${JSON.stringify(jsonTemplate, null, 2)}
+						
+						Field Descriptions:
+						${JSON.stringify(jsonTemplateDescription, null, 2)}
+						
+						The main content of the article should be based on the following text:
+						${updatedContent}
+						
+						Please provide the generated article content as a JSON object following the given template structure.`
 
-				const uploadedImages =
-					await this.uploadImagesToStrapi(imageDescriptions)
+				const completion = await openai.chat.completions.create({
+					model: 'gpt-3.5-turbo-0125',
+					messages: [
+						{
+							role: 'user',
+							content: articlePrompt,
+						},
+					],
+					max_tokens: 2000,
+					n: 1,
+					stop: null,
+				})
 
-				console.log('uploadedImages:', uploadedImages)
-				new Notice('Replacing image paths...')
+				console.log(completion.choices[0].message.content)
+				const articleContent = JSON.parse(
+					completion.choices[0].message.content ?? '{}'
+				)
 
-				const updatedContent = this.replaceImagePaths(content, uploadedImages)
+				console.log('articleContent:', articleContent)
 
-				console.log('updatedContent:', updatedContent)
-				await this.app.vault.modify(file, updatedContent)
+				new Notice('Article content generated successfully!')
 
-				new Notice('Images uploaded and links updated successfully!')
+				try {
+					const response = await fetch(this.settings.strapiArticleCreateUrl, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${this.settings.strapiApiToken}`,
+						},
+						body: JSON.stringify(articleContent),
+					})
+
+					if (response.ok) {
+						new Notice('Article created successfully in Strapi!')
+					} else {
+						new Notice('Failed to create article in Strapi.')
+						console.error('Error response:', await response.json())
+					}
+				} catch (error) {
+					new Notice('Error creating article in Strapi.')
+					console.error('Error:', error)
+				}
+
+				new Notice('Article content generated successfully!')
+
+				// TODO: Send the generated article content to Strapi using the appropriate API route
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -187,6 +251,11 @@ export default class MyPlugin extends Plugin {
 		}
 
 		return imagePaths
+	}
+
+	hasUnexportedImages(content: string): boolean {
+		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
+		return imageRegex.test(content)
 	}
 
 	async getImageBlobs(
@@ -425,6 +494,32 @@ class MyExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.jsonTemplate)
 					.onChange(async value => {
 						this.plugin.settings.jsonTemplate = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('JSON Template Description')
+			.setDesc('Enter the description for each field in the JSON template')
+			.addTextArea(text =>
+				text
+					.setPlaceholder('Enter the field descriptions')
+					.setValue(this.plugin.settings.jsonTemplateDescription)
+					.onChange(async value => {
+						this.plugin.settings.jsonTemplateDescription = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Strapi Article Create URL')
+			.setDesc('Enter the URL to create articles in Strapi')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url/api/articles')
+					.setValue(this.plugin.settings.strapiArticleCreateUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiArticleCreateUrl = value
 						await this.plugin.saveSettings()
 					})
 			)
