@@ -80,6 +80,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ---
 
 - [x] Upload to Strapi article
+- [ ] Fix the process, it's not working at all, the content is not generated correctly (on full process)
 - [ ] Make it available as a plugin in Obsidian
 - [ ] Make it usable by anyone, env variables for Strapi URL, user & password & token
 - [ ] Config in the plugin settings for the schema to use
