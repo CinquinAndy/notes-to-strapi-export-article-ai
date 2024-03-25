@@ -238,7 +238,7 @@ export default class MyPlugin extends Plugin {
 							'Content-Type': 'application/json',
 							Authorization: `Bearer ${this.settings.strapiApiToken}`,
 						},
-						body: JSON.stringify({ ...articleContent }),
+						body: JSON.stringify(articleContent),
 					})
 
 					if (response.ok) {
