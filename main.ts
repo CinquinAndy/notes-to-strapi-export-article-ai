@@ -515,6 +515,7 @@ export default class MyPlugin extends Plugin {
 			messages: [
 				{
 					role: 'user',
+					// @ts-ignore
 					content: [
 						{
 							type: 'text',
