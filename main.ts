@@ -102,10 +102,25 @@ export default class MyPlugin extends Plugin {
 						}
 					})
 				)
+				const imageDescriptions = [
+					{
+						path: 'folder/Pasted image 20240324195821.png',
+						description:
+							'{\n  "name": "GitHub Repository Page for obsidian-sample-plugin",\n  "alternativeText": "Screenshot of a GitHub repository page titled \'obsidian-sample-plugin\' showing files, directories, commit messages, buttons like \'Watch\' and \'Fork,\' and repository statistics",\n  "caption": "Screenshot of the GitHub repository page for \'obsidian-sample-plugin\' displaying files, directories, commit messages, and repository statistics"\n}',
+					},
+					{
+						path: 'folder/Pasted image 20240324202456.png',
+						description:
+							'{\n  "name": "JavaScript function for extracting image paths from a string",\n  "alternativeText": "Snippet of JavaScript code showing a function to extract image paths from a string input using regular expressions and logging statements",\n  "caption": "Snippet of JavaScript code demonstrating a function to extract image paths from a string input"\n}',
+					},
+				]
 
 				console.log('*************************************')
 				console.log('images blobs:', imageBlobs)
-				console.log('imageDescriptions:', imageDescriptions)
+				console.log('imageDescriptions:', imageDescriptions[0].description)
+				// transform imageDescriptions to object
+
+				console.log('images:', images)
 
 				// new Notice('Generating JSON data...')
 				//
@@ -369,7 +384,11 @@ export default class MyPlugin extends Plugin {
 			`prompt_tokens: ${completion.usage?.prompt_tokens} // completion_tokens: ${completion.usage?.completion_tokens} // total_tokens: ${completion.usage?.total_tokens}`
 		)
 
-		return JSON.parse(completion.choices[0].text?.trim() || '{}')
+		const dataParsed = JSON.parse(completion.choices[0].text?.trim() || '{}')
+		return dataParsed.map(({ path, description }) => ({
+			path,
+			description: JSON.parse(description),
+		}))
 	}
 }
 
