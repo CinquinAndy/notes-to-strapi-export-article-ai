@@ -119,9 +119,10 @@ export default class MyPlugin extends Plugin {
 
 				const updatedContent = this.replaceImagePaths(content, uploadedImages)
 
-				await this.app.vault.modify(file, updatedContent)
+				console.log('updatedContent:', updatedContent)
+				// await this.app.vault.modify(file, updatedContent)
 
-				new Notice('Images uploaded and links updated successfully!')
+				// new Notice('Images uploaded and links updated successfully!')
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -217,7 +218,10 @@ export default class MyPlugin extends Plugin {
 
 				if (response.ok) {
 					const data = await response.json()
-					uploadedImages[imageBlob.name] = data[0].url
+					uploadedImages[imageBlob.name] = {
+						url: data[0].url,
+						alternativeText: imageBlob.description.alternativeText,
+					}
 				} else {
 					new Notice(`Failed to upload image: ${imageBlob.name}`)
 					console.error(`Failed to upload image: ${imageBlob.name}`)
@@ -234,11 +238,16 @@ export default class MyPlugin extends Plugin {
 
 	replaceImagePaths(
 		content: string,
-		uploadedImages: { [key: string]: string }
+		uploadedImages: { [key: string]: { url: string; alternativeText: string } }
 	): string {
+		console.log('uploadedImages:', uploadedImages)
+		console.log('content:', content)
 		for (const [localPath, remotePath] of Object.entries(uploadedImages)) {
 			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
-			content = content.replace(markdownImageRegex, `![](${remotePath})`)
+			content = content.replace(
+				markdownImageRegex,
+				`![${localPath}](${remotePath})`
+			)
 		}
 		return content
 	}
