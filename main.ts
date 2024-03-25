@@ -17,6 +17,7 @@ interface MyPluginSettings {
 	jsonTemplate: string
 	jsonTemplateDescription: string
 	strapiArticleCreateUrl: string
+	strapiContentAttributeName: string
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -66,6 +67,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
     }
   }`,
 	strapiArticleCreateUrl: '',
+	strapiContentAttributeName: '',
 }
 
 export default class MyPlugin extends Plugin {
@@ -118,6 +120,13 @@ export default class MyPlugin extends Plugin {
 				if (!this.settings.strapiArticleCreateUrl) {
 					new Notice(
 						'Please configure Strapi article create URL in the plugin settings'
+					)
+					return
+				}
+
+				if (!this.settings.strapiContentAttributeName) {
+					new Notice(
+						'Please configure Strapi content attribute name in the plugin settings'
 					)
 					return
 				}
@@ -182,6 +191,11 @@ export default class MyPlugin extends Plugin {
 				if (!content) {
 					// get the content from the active view
 					content = await this.app.vault.read(file)
+				}
+
+				let contentForChatGPT = content
+				if (!this.settings.useFullContent) {
+					contentForChatGPT = content.substring(0, 500)
 				}
 
 				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
