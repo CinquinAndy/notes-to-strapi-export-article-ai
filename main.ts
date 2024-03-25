@@ -461,6 +461,9 @@ export default class MyPlugin extends Plugin {
 					body: formData,
 				})
 
+				/**
+				 * If the response is ok, add the uploaded image to the uploaded images object
+				 */
 				if (response.ok) {
 					const data = await response.json()
 					uploadedImages[imageBlob.name] = {
