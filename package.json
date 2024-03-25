@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-to-strapi-export",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "This is plugin for Obsidian that exports notes to Strapi api",
 	"main": "main.js",
 	"scripts": {
