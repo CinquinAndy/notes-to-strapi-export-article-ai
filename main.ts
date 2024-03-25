@@ -194,7 +194,7 @@ export default class MyPlugin extends Plugin {
 						
 						The main content of the article should be based on the following text and all the keywords around the domain of the text:
 						----- CONTENT -----
-						${content}
+						${content.substring(0, 500)}
 						----- END CONTENT -----
 						
 						Please provide the generated article content as a JSON object following the given template structure.
@@ -204,13 +204,7 @@ export default class MyPlugin extends Plugin {
 						qui incite à cliquer sur l'article depuis les résultats de recherche.
 						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé 
 						pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. 
-						Le contenu doit répondre à leurs questions ou résoudre un problème
-						
-						Pour tout ce qui lié au contenu de l'article, tu mettras le contenu de l'article exactement comme il est écrit entre les éléments 
-						----- CONTENT ----- 
-						et 
-						----- END CONTENT -----
-						Sans le modifier et sans changer quoi que ce soit à la présentation du texte.`
+						Le contenu doit répondre à leurs questions ou résoudre un problème`
 
 				const completion = await openai.chat.completions.create({
 					model: 'gpt-3.5-turbo-0125',
@@ -225,9 +219,13 @@ export default class MyPlugin extends Plugin {
 					stop: null,
 				})
 
-				const articleContent = JSON.parse(
+				let articleContent = JSON.parse(
 					completion.choices[0].message.content ?? '{}'
 				)
+				articleContent = {
+					...articleContent,
+					content: content,
+				}
 
 				new Notice('Article content generated successfully!')
 
