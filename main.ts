@@ -193,11 +193,6 @@ export default class MyPlugin extends Plugin {
 					content = await this.app.vault.read(file)
 				}
 
-				let contentForChatGPT = content
-				if (!this.settings.useFullContent) {
-					contentForChatGPT = content.substring(0, 500)
-				}
-
 				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
 
 						Template:
@@ -238,8 +233,8 @@ export default class MyPlugin extends Plugin {
 				)
 				articleContent = {
 					...articleContent,
-					content: content,
-				}
+					[this.settings.strapiContentAttributeName]: content,
+				};
 
 				new Notice('Article content generated successfully!')
 
