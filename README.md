@@ -1,57 +1,52 @@
-# Obsidian Strapi Article Creator
+# 🚀 Strapi Exporter: Supercharge Your Obsidian-to-Strapi Workflow
 
-This Obsidian plugin allows you to easily create articles in Strapi CMS using the content from your Obsidian Markdown files. It automatically uploads images, generates SEO-friendly
-content, and creates the article in Strapi with a single click.
+[![Version](https://img.shields.io/github/package-json/v/CinquinAndy/obsidian-strapi-exporter)](https://github.com/CinquinAndy/obsidian-strapi-exporter/releases)
+[![License](https://img.shields.io/github/license/CinquinAndy/obsidian-strapi-exporter)](https://github.com/CinquinAndy/obsidian-strapi-exporter/blob/main/LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-CinquinAndy-purple)](https://github.com/sponsors/CinquinAndy)
 
-## Features
+Strapi Exporter is a game-changing Obsidian plugin that streamlines your content creation process by seamlessly exporting your notes to Strapi CMS. With its AI-powered image handling and SEO optimization features, you can take your content to the next level with just a few clicks.
 
-- Upload images from Markdown files to Strapi
-- Generate SEO-friendly article content using OpenAI's GPT-3
-- Create articles in Strapi with the generated content and images
-- Customize the JSON template for the article fields
-- Configure the Strapi API URL, token, and content attribute name
+## ✨ Features
 
-## Installation
+- 🖼️ Automatically upload images from your notes to Strapi
+- 🎨 Generate SEO-friendly alt text and captions for images using AI
+- 📝 Create SEO-optimized article content based on your notes
+- 🔧 Customize the JSON template for the article fields in Strapi
+- ⚙️ Easy configuration for Strapi API URL, token, and content attribute name
+
+## 🛠️ Installation
 
 1. Clone this repository into your Obsidian plugins folder (usually located at `<vault>/.obsidian/plugins/`).
 2. Enable the plugin in Obsidian's settings under "Community plugins".
 3. Configure the necessary settings (see the Configuration section below).
 
-## Configuration
+## ⚙️ Configuration
 
-Before using the plugin, you need to configure the following settings:
+To get started with Strapi Exporter, you'll need to configure the following settings:
 
 - **Strapi URL**: The URL of your Strapi instance (e.g., `https://your-strapi-url`).
 - **Strapi API Token**: Your Strapi API token for authentication.
 - **OpenAI API Key**: Your OpenAI API key for using GPT-3 to generate SEO-friendly content.
+- **Image Recognition API Key**: Your API key for image recognition (used to generate alt text and captions).
 - **JSON Template**: The JSON template for the article fields in Strapi. Customize this according to your Strapi content type structure.
 - **JSON Template Description**: A description for each field in the JSON template to help GPT-3 understand the structure.
 - **Strapi Article Create URL**: The URL to create articles in Strapi (e.g., `https://your-strapi-url/api/articles`).
 - **Strapi Content Attribute Name**: The attribute name for the article content in Strapi (default is `content`).
 
-## Usage
+## 🚀 Usage
 
 1. Open a Markdown file in Obsidian.
-2. Click on the plugin's ribbon icon to start the process.
-3. The plugin will:
-    - Extract images from the Markdown file
-    - Generate descriptions, alt text, and captions for the images using OpenAI's GPT-3
-    - Upload the images to Strapi
-    - Generate SEO-friendly article content based on the Markdown file's content and the provided JSON template
-    - Create a new article in Strapi with the generated content and uploaded images
-4. If the process is successful, you will see a notice confirming that the article was created in Strapi.
+2. Click on the plugin's ribbon icon to start the magic.
+3. Sit back and relax while Strapi Exporter does the heavy lifting:
+   - 🖼️ Extracting and uploading images to Strapi
+   - 🎨 Generating SEO-friendly alt text and captions for images
+   - 📝 Creating SEO-optimized article content based on your notes
+   - 🌐 Publishing the article to Strapi with the generated content and images
+4. Enjoy your freshly exported article in Strapi!
 
-## How it works
+## 🤝 Contributing
 
-1. The plugin extracts image paths from the Markdown file and uploads the images to Strapi using the configured API URL and token.
-2. It then uses OpenAI's GPT-3 to generate descriptions, alt text, and captions for the uploaded images.
-3. The plugin replaces the local image paths in the Markdown file with the uploaded image URLs from Strapi.
-4. It generates SEO-friendly article content using GPT-3 based on the Markdown file's content and the provided JSON template and description.
-5. Finally, the plugin creates a new article in Strapi using the generated content and the uploaded images, according to the specified JSON template structure.
-
-## Contributing
-
-Feel free to submit issues and pull requests to improve the plugin. Make sure to follow the existing code style and include relevant tests when submitting pull requests.
+We welcome contributions from the community! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Let's make Strapi Exporter even better together!
 
 ### Roadmap
 
@@ -90,3 +85,8 @@ Feel free to submit issues and pull requests to improve the plugin. Make sure to
 - [ ] Add tests
 - [ ] Clean manifest
 - [ ] Renovate
+
+
+---
+
+🌟 Elevate your content workflow with Strapi Exporter and unleash the full potential of your Obsidian notes! 🌟
