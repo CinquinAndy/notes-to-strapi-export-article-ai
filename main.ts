@@ -11,11 +11,21 @@ import {
 interface MyPluginSettings {
 	strapiUrl: string
 	strapiApiToken: string
+	openaiApiKey: string
+	imageRecognitionApiKey: string
+	jsonTemplate: string
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
+	openaiApiKey: '',
+	imageRecognitionApiKey: '',
+	jsonTemplate: `{
+    "title": "string",
+    "content": "string",
+    "description": "string"
+  }`,
 }
 
 export default class MyPlugin extends Plugin {
@@ -41,6 +51,23 @@ export default class MyPlugin extends Plugin {
 					return
 				}
 
+				if (!this.settings.openaiApiKey) {
+					new Notice('Please configure OpenAI API key in the plugin settings')
+					return
+				}
+
+				if (!this.settings.imageRecognitionApiKey) {
+					new Notice(
+						'Please configure Image Recognition API key in the plugin settings'
+					)
+					return
+				}
+
+				if (!this.settings.jsonTemplate) {
+					new Notice('Please configure JSON template in the plugin settings')
+					return
+				}
+
 				new Notice('Processing Markdown content...')
 
 				const file = activeView.file
@@ -55,6 +82,30 @@ export default class MyPlugin extends Plugin {
 				console.log('imagePaths:', imagePaths)
 				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
 				console.log('imageBlobs perfect:', imageBlobs)
+
+				new Notice('Getting image descriptions...')
+
+				const imageDescriptions = await Promise.all(
+					imageBlobs.map(async imageBlob => {
+						const description = await this.getImageDescription(imageBlob.blob)
+						return { path: imageBlob.path, description }
+					})
+				)
+
+				console.log('imageDescriptions:', imageDescriptions)
+
+				new Notice('Generating JSON data...')
+
+				const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
+				const jsonData = {
+					...jsonTemplate,
+					images: imageDescriptions.map(({ path, description }) => ({
+						path,
+						description,
+					})),
+				}
+
+				console.log('jsonData:', jsonData)
 
 				/**
 				new Notice('Uploading images to Strapi...')
@@ -126,19 +177,33 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async uploadImagesToStrapi(
-		imageBlobs: { path: string; blob: Blob; name: string }[]
+		imageBlobs: { path: string; blob: Blob; name: string }[],
+		imageDescriptions: { path: string; description: string }[]
 	): Promise<{ [key: string]: string }> {
 		const uploadedImages: { [key: string]: string } = {}
 
-		for (const imagePath of imageBlobs) {
+		for (const imageBlob of imageBlobs) {
 			const formData = new FormData()
-			formData.append('files', imagePath.blob, imagePath.path)
+			const imageDescription = imageDescriptions.find(
+				desc => desc.path === imageBlob.path
+			)
+			const description = imageDescription ? imageDescription.description : ''
+
+			formData.append('files', imageBlob.blob, imageBlob.name)
+			formData.append(
+				'fileInfo',
+				JSON.stringify({
+					name: imageBlob.name,
+					alternativeText: description,
+					caption: description,
+				})
+			)
 
 			console.log("formData.get('files'):", formData.get('files'))
 
 			try {
-				console.log('Uploading image:', imagePath, formData)
-				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
+				console.log('Uploading image:', imageBlob, formData)
+				const response = await fetch(`${this.settings.strapiUrl}/upload`, {
 					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${this.settings.strapiApiToken}`,
@@ -148,15 +213,15 @@ export default class MyPlugin extends Plugin {
 
 				if (response.ok) {
 					const data = await response.json()
-					uploadedImages[imagePath.name] = data[0].url
+					uploadedImages[imageBlob.name] = data[0].url
 				} else {
-					new Notice(`Failed to upload image: ${imagePath}`)
-					console.error(`Failed to upload image: ${imagePath}`)
+					new Notice(`Failed to upload image: ${imageBlob.name}`)
+					console.error(`Failed to upload image: ${imageBlob.name}`)
 					console.error('Error response:', await response.json())
 				}
 			} catch (error) {
-				new Notice(`Error uploading image: ${imagePath}`)
-				console.error(`Error uploading image: ${imagePath}`, error)
+				new Notice(`Error uploading image: ${imageBlob.name}`)
+				console.error(`Error uploading image: ${imageBlob.name}`, error)
 			}
 		}
 
@@ -172,6 +237,51 @@ export default class MyPlugin extends Plugin {
 			content = content.replace(markdownImageRegex, `![](${remotePath})`)
 		}
 		return content
+	}
+
+	async getImageDescription(imageBlob: Blob): Promise<string> {
+		const response = await fetch(
+			'https://api.openai.com/v1/images/generations',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${this.settings.imageRecognitionApiKey}`,
+				},
+				body: JSON.stringify({
+					model: 'image-alpha-001',
+					prompt: 'Describe the image',
+					num_images: 1,
+					size: '256x256',
+					response_format: 'url',
+				}),
+			}
+		)
+
+		const { data } = await response.json()
+		const imageUrl = data[0].url
+
+		const completionResponse = await fetch(
+			'https://api.openai.com/v1/completions',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${this.settings.openaiApiKey}`,
+				},
+				body: JSON.stringify({
+					model: 'text-davinci-003',
+					prompt: `Describe the image: ${imageUrl}`,
+					max_tokens: 100,
+					n: 1,
+					stop: null,
+					temperature: 0.5,
+				}),
+			}
+		)
+
+		const completionData = await completionResponse.json()
+		return completionData.choices[0].text.trim()
 	}
 }
 
@@ -209,6 +319,45 @@ class MyExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.strapiApiToken)
 					.onChange(async value => {
 						this.plugin.settings.strapiApiToken = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('OpenAI API Key')
+			.setDesc('Enter your OpenAI API key for GPT-3')
+			.addText(text =>
+				text
+					.setPlaceholder('Enter your OpenAI API key')
+					.setValue(this.plugin.settings.openaiApiKey)
+					.onChange(async value => {
+						this.plugin.settings.openaiApiKey = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Image Recognition API Key')
+			.setDesc('Enter your API key for image recognition')
+			.addText(text =>
+				text
+					.setPlaceholder('Enter your image recognition API key')
+					.setValue(this.plugin.settings.imageRecognitionApiKey)
+					.onChange(async value => {
+						this.plugin.settings.imageRecognitionApiKey = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('JSON Template')
+			.setDesc('Enter the JSON template for the fields needed')
+			.addTextArea(text =>
+				text
+					.setPlaceholder('Enter your JSON template')
+					.setValue(this.plugin.settings.jsonTemplate)
+					.onChange(async value => {
+						this.plugin.settings.jsonTemplate = value
 						await this.plugin.saveSettings()
 					})
 			)
