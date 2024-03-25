@@ -1,7 +1,7 @@
 # 🚀 Strapi Exporter: Supercharge Your Obsidian-to-Strapi Workflow
 
-[![Version](https://img.shields.io/github/package-json/v/CinquinAndy/obsidian-strapi-exporter)](https://github.com/CinquinAndy/obsidian-strapi-exporter/releases)
-[![License](https://img.shields.io/github/license/CinquinAndy/obsidian-strapi-exporter)](https://github.com/CinquinAndy/obsidian-strapi-exporter/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/package-json/v/CinquinAndy/notes-to-strapi-export-article-ai)](https://github.com/CinquinAndy/notes-to-strapi-export-article-ai/releases)
+[![License](https://img.shields.io/github/license/CinquinAndy/notes-to-strapi-export-article-ai)](https://github.com/CinquinAndy/notes-to-strapi-export-article-ai/blob/main/LICENSE)
 [![Sponsor](https://img.shields.io/badge/sponsor-CinquinAndy-purple)](https://github.com/sponsors/CinquinAndy)
 
 Strapi Exporter is a game-changing Obsidian plugin that streamlines your content creation process by seamlessly exporting your notes to Strapi CMS. With its AI-powered image handling and SEO optimization features, you can take your content to the next level with just a few clicks.
