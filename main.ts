@@ -1,3 +1,4 @@
+import OpenAI from 'openai'
 import {
 	App,
 	MarkdownView,
@@ -80,32 +81,44 @@ export default class MyPlugin extends Plugin {
 
 				const imagePaths = this.extractImagePaths(content)
 				console.log('imagePaths:', imagePaths)
-				const imageBlobs = await this.getImageBlobs(imagePaths, file.path)
+				const imageBlobs = await this.getImageBlobs(imagePaths)
 				console.log('imageBlobs perfect:', imageBlobs)
 
 				new Notice('Getting image descriptions...')
+				const openai = new OpenAI({
+					apiKey: this.settings.openaiApiKey,
+					dangerouslyAllowBrowser: true,
+				})
 
 				const imageDescriptions = await Promise.all(
 					imageBlobs.map(async imageBlob => {
-						const description = await this.getImageDescription(imageBlob.blob)
-						return { path: imageBlob.path, description }
+						const description = await this.getImageDescription(
+							imageBlob.blob,
+							openai
+						)
+						return {
+							path: imageBlob.path,
+							description,
+						}
 					})
 				)
 
+				console.log('*************************************')
+				console.log('images blobs:', imageBlobs)
 				console.log('imageDescriptions:', imageDescriptions)
 
-				new Notice('Generating JSON data...')
-
-				const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
-				const jsonData = {
-					...jsonTemplate,
-					images: imageDescriptions.map(({ path, description }) => ({
-						path,
-						description,
-					})),
-				}
-
-				console.log('jsonData:', jsonData)
+				// new Notice('Generating JSON data...')
+				//
+				// const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
+				// const jsonData = {
+				// 	...jsonTemplate,
+				// 	images: imageDescriptions.map(({ path, description }) => ({
+				// 		path,
+				// 		description,
+				// 	})),
+				// }
+				//
+				// console.log('jsonData:', jsonData)
 
 				/**
 				new Notice('Uploading images to Strapi...')
@@ -239,49 +252,38 @@ export default class MyPlugin extends Plugin {
 		return content
 	}
 
-	async getImageDescription(imageBlob: Blob): Promise<string> {
-		const response = await fetch(
-			'https://api.openai.com/v1/images/generations',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${this.settings.imageRecognitionApiKey}`,
+	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
+		const response = await openai.chat.completions.create({
+			model: 'gpt-4-vision-preview',
+			messages: [
+				{
+					role: 'user',
+					content: [
+						{
+							type: 'text',
+							text: 'What’s in this image? make it simple, i just want the context and an idea (think about alt text)',
+						},
+						{
+							type: 'image_url',
+							// encore imageBlob as base64
+							image_url: `data:image/png;base64,${btoa(
+								new Uint8Array(await imageBlob.arrayBuffer()).reduce(
+									(data, byte) => data + String.fromCharCode(byte),
+									''
+								)
+							)}`,
+						},
+					],
 				},
-				body: JSON.stringify({
-					model: 'image-alpha-001',
-					prompt: 'Describe the image',
-					num_images: 1,
-					size: '256x256',
-					response_format: 'url',
-				}),
-			}
+			],
+		})
+		console.log(response)
+		console.log(response.choices[0].message.content)
+		new Notice(response.choices[0].message.content ?? 'no response content...')
+		new Notice(
+			`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
 		)
-
-		const { data } = await response.json()
-		const imageUrl = data[0].url
-
-		const completionResponse = await fetch(
-			'https://api.openai.com/v1/completions',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${this.settings.openaiApiKey}`,
-				},
-				body: JSON.stringify({
-					model: 'text-davinci-003',
-					prompt: `Describe the image: ${imageUrl}`,
-					max_tokens: 100,
-					n: 1,
-					stop: null,
-					temperature: 0.5,
-				}),
-			}
-		)
-
-		const completionData = await completionResponse.json()
-		return completionData.choices[0].text.trim()
+		return response.choices[0].message.content
 	}
 }
 
