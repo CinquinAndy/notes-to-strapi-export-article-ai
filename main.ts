@@ -189,9 +189,9 @@ export default class MyPlugin extends Plugin {
 				caption: string
 			}
 		}[]
-	): Promise<{ [key: string]: { url: string; alternativeText: string } }> {
+	): Promise<{ [key: string]: { url: string; data: any } }> {
 		const uploadedImages: {
-			[key: string]: { url: string; alternativeText: string }
+			[key: string]: { url: string; data: any }
 		} = {}
 
 		for (const imageBlob of imageBlobs) {
@@ -220,7 +220,7 @@ export default class MyPlugin extends Plugin {
 					const data = await response.json()
 					uploadedImages[imageBlob.name] = {
 						url: data[0].url,
-						alternativeText: imageBlob.description.alternativeText,
+						data: data[0],
 					}
 				} else {
 					new Notice(`Failed to upload image: ${imageBlob.name}`)
