@@ -105,10 +105,6 @@ export default class MyPlugin extends Plugin {
 	async getImageBlobs(
 		imagePaths: string[]
 	): Promise<{ path: string; blob: Blob; name: string }[]> {
-		console.log('currentFilePath', currentFilePath)
-		console.log('all imagePaths:', this.app.vault.getAllLoadedFiles())
-		// compare the imagePaths with the files in the vault
-		// if the file is found, read the file and get the blob
 		const files = this.app.vault.getAllLoadedFiles()
 		const fileNames = files.map(file => file.name)
 		const imageFiles = imagePaths.filter(path => fileNames.includes(path))
@@ -130,14 +126,6 @@ export default class MyPlugin extends Plugin {
 				}
 			})
 		)
-	}
-
-	normalizePath(path: string, currentFilePath: string): string {
-		if (path.startsWith('/')) {
-			return path.slice(1)
-		}
-		const currentDir = currentFilePath.split('/').slice(0, -1).join('/')
-		return `${currentDir}/${path}`
 	}
 
 	async uploadImagesToStrapi(
