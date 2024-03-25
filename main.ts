@@ -5,6 +5,7 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFile,
 } from 'obsidian'
 
 interface MyPluginSettings {
@@ -70,6 +71,37 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new MyExportSettingTab(this.app, this))
 	}
 
+	async getImageBlobsFromNote(
+		noteFile: TFile
+	): Promise<Array<{ path: string; blob: Blob }>> {
+		// Read the content of the note
+		const content = await this.app.vault.read(noteFile)
+		// Extract image paths using a regular expression
+		const imagePaths = this.extractImagePaths(content)
+
+		const blobs = []
+
+		for (const path of imagePaths) {
+			// Resolve the image path to an actual file object
+			let imageFile = this.app.vault.getAbstractFileByPath(path)
+
+			// If the file doesn't exist directly by the path, it might be relative
+			if (!imageFile) {
+				const noteDir = noteFile.parent.path
+				const fullPath = noteDir + '/' + path
+				imageFile = this.app.vault.getAbstractFileByPath(fullPath)
+			}
+
+			if (imageFile instanceof TFile) {
+				// Read the file as a binary blob
+				const blob = await this.app.vault.readBinary(imageFile)
+				blobs.push({ path, blob })
+			}
+		}
+
+		return blobs
+	}
+
 	onunload() {}
 
 	async loadSettings() {
@@ -81,13 +113,21 @@ export default class MyPlugin extends Plugin {
 	}
 
 	extractImagePaths(content: string): string[] {
-		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
-		const imagePaths: string[] = []
+		const markdownImageRegex = /!\[.*?\]\((.*?)\)/g
+		const obsidianEmbedRegex = /!\[\[(.*?)\]\]/g
 		let match
-		while ((match = imageRegex.exec(content)) !== null) {
-			const imagePath = match[1]
-			imagePaths.push(imagePath)
+		const imagePaths = []
+
+		// Extract Markdown image paths
+		while ((match = markdownImageRegex.exec(content)) !== null) {
+			imagePaths.push(match[1])
 		}
+
+		// Extract Obsidian embed paths
+		while ((match = obsidianEmbedRegex.exec(content)) !== null) {
+			imagePaths.push(match[1].split('|')[0])
+		}
+
 		return imagePaths
 	}
 
@@ -99,9 +139,15 @@ export default class MyPlugin extends Plugin {
 		for (const imagePath of imagePaths) {
 			const formData = new FormData()
 			const imageFile = await this.readImageAsBlob(imagePath)
-			formData.append('files', imageFile, imagePath)
+			const fileName = imagePath.split('/').pop()
+
+			console.log('imageFile:', imageFile)
+			console.log('fileName:', fileName)
+			formData.append('files', imageFile, fileName)
+			console.log("formData.get('files'):", formData.get('files'))
 
 			try {
+				console.log('Uploading image:', imagePath, formData)
 				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
 					method: 'POST',
 					headers: {
@@ -116,6 +162,7 @@ export default class MyPlugin extends Plugin {
 				} else {
 					new Notice(`Failed to upload image: ${imagePath}`)
 					console.error(`Failed to upload image: ${imagePath}`)
+					console.error('Error response:', await response.json())
 				}
 			} catch (error) {
 				new Notice(`Error uploading image: ${imagePath}`)
