@@ -234,7 +234,7 @@ export default class MyPlugin extends Plugin {
 				articleContent = {
 					...articleContent,
 					[this.settings.strapiContentAttributeName]: content,
-				};
+				}
 
 				new Notice('Article content generated successfully!')
 
@@ -545,6 +545,19 @@ class MyExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.strapiArticleCreateUrl)
 					.onChange(async value => {
 						this.plugin.settings.strapiArticleCreateUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Strapi Content Attribute Name')
+			.setDesc('Enter the attribute name for the content field in Strapi')
+			.addText(text =>
+				text
+					.setPlaceholder('content')
+					.setValue(this.plugin.settings.strapiContentAttributeName)
+					.onChange(async value => {
+						this.plugin.settings.strapiContentAttributeName = value
 						await this.plugin.saveSettings()
 					})
 			)
