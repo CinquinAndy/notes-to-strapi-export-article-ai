@@ -97,6 +97,8 @@ export default class MyPlugin extends Plugin {
 							openai
 						)
 						return {
+							blob: imageBlob.blob,
+							name: imageBlob.name,
 							path: imageBlob.path,
 							description,
 						}
@@ -107,23 +109,10 @@ export default class MyPlugin extends Plugin {
 				console.log('images blobs:', imageBlobs)
 				console.log('images:', imageDescriptions)
 
-				// new Notice('Generating JSON data...')
-				//
-				// const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
-				// const jsonData = {
-				// 	...jsonTemplate,
-				// 	images: imageDescriptions.map(({ path, description }) => ({
-				// 		path,
-				// 		description,
-				// 	})),
-				// }
-				//
-				// console.log('jsonData:', jsonData)
-
-				/**
 				new Notice('Uploading images to Strapi...')
 
-				const uploadedImages = await this.uploadImagesToStrapi(imageBlobs)
+				const uploadedImages =
+					await this.uploadImagesToStrapi(imageDescriptions)
 
 				console.log('uploadedImages:', uploadedImages)
 				new Notice('Replacing image paths...')
@@ -133,7 +122,6 @@ export default class MyPlugin extends Plugin {
 				await this.app.vault.modify(file, updatedContent)
 
 				new Notice('Images uploaded and links updated successfully!')
-				 */
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -190,29 +178,32 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async uploadImagesToStrapi(
-		imageBlobs: { path: string; blob: Blob; name: string }[],
-		imageDescriptions: { path: string; description: string }[]
-	): Promise<{ [key: string]: string }> {
-		const uploadedImages: { [key: string]: string } = {}
+		imageBlobs: {
+			path: string
+			blob: Blob
+			name: string
+			description: {
+				name: string
+				alternativeText: string
+				caption: string
+			}
+		}[]
+	): Promise<{ [key: string]: { url: string; alternativeText: string } }> {
+		const uploadedImages: {
+			[key: string]: { url: string; alternativeText: string }
+		} = {}
 
 		for (const imageBlob of imageBlobs) {
 			const formData = new FormData()
-			const imageDescription = imageDescriptions.find(
-				desc => desc.path === imageBlob.path
-			)
-			const description = imageDescription ? imageDescription.description : ''
-
 			formData.append('files', imageBlob.blob, imageBlob.name)
 			formData.append(
 				'fileInfo',
 				JSON.stringify({
-					name: imageBlob.name,
-					alternativeText: description,
-					caption: description,
+					name: imageBlob.description.name,
+					alternativeText: imageBlob.description.alternativeText,
+					caption: imageBlob.description.caption,
 				})
 			)
-
-			console.log("formData.get('files'):", formData.get('files'))
 
 			try {
 				console.log('Uploading image:', imageBlob, formData)
@@ -300,7 +291,6 @@ export default class MyPlugin extends Plugin {
 			max_tokens: 750,
 			n: 1,
 			stop: null,
-			// temperature: 0.7,
 		})
 
 		console.log(completion)
