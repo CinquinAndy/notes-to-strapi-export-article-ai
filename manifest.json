@@ -1,9 +1,9 @@
 {
   "id": "strapi-export",
-  "name": "Export Notes to Strapi",
+  "name": "Strapi Exporter, Obsidian Notes to Strapi article",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "Export notes to Strapi CMS, ",
+  "description": "Effortlessly export your Obsidian notes to Strapi CMS with AI-powered image handling and SEO optimization. Replace all the images in your notes by uploaded images in Strapi, and add SEO metadata to uploaded images.",
   "author": "Cinquin Andy",
   "authorUrl": "https://andy.cinquin.com",
   "isDesktopOnly": false,
