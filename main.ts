@@ -20,6 +20,7 @@ interface MyPluginSettings {
 	jsonTemplateDescription: string
 	strapiArticleCreateUrl: string
 	strapiContentAttributeName: string
+	additionalPrompt: string
 }
 
 /**
@@ -72,6 +73,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
   }`,
 	strapiArticleCreateUrl: '',
 	strapiContentAttributeName: '',
+	additionalPrompt: '',
 }
 
 /**
@@ -244,25 +246,20 @@ export default class MyPlugin extends Plugin {
 				 */
 				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
 
-						Template:
-						${JSON.stringify(jsonTemplate, null, 2)}
-						
-						Field Descriptions:
-						${JSON.stringify(jsonTemplateDescription, null, 2)}
-						
-						The main content of the article should be based on the following text and all the keywords around the domain of the text:
-						----- CONTENT -----
-						${content.substring(0, 500)}
-						----- END CONTENT -----
-						
-						Please provide the generated article content as a JSON object following the given template structure.
-						if present the locale need to be 'fr' and the content in french, and generate at least 8 tags if present in the schema too.
-						if present the rank need to be 999
-						Méta Description : Rédigez une méta description attrayante incluant le mot-clé principal, 
-						qui incite à cliquer sur l'article depuis les résultats de recherche.
-						Optimisation pour les Lecteurs et les Moteurs de Recherche : Rédigez un contenu qui est non seulement optimisé 
-						pour les moteurs de recherche mais aussi engageant et informatif pour les lecteurs. 
-						Le contenu doit répondre à leurs questions ou résoudre un problème`
+    Template:
+    ${JSON.stringify(jsonTemplate, null, 2)}
+    
+    Field Descriptions:
+    ${JSON.stringify(jsonTemplateDescription, null, 2)}
+    
+    The main content of the article should be based on the following text and all the keywords around the domain of the text:
+    ----- CONTENT -----
+    ${content.substring(0, 500)}
+    ----- END CONTENT -----
+    
+    Please provide the generated article content as a JSON object following the given template structure.
+    
+    ${this.settings.additionalPrompt ? `Additional Prompt: ${this.settings.additionalPrompt}` : ''}`
 
 				/**
 				 * Generate the article content using OpenAI
@@ -668,6 +665,21 @@ class MyExportSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.strapiContentAttributeName)
 					.onChange(async value => {
 						this.plugin.settings.strapiContentAttributeName = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Additional Prompt')
+			.setDesc(
+				'Enter an optional additional prompt to customize the article content generation'
+			)
+			.addTextArea(text =>
+				text
+					.setPlaceholder('Enter your additional prompt here...')
+					.setValue(this.plugin.settings.additionalPrompt)
+					.onChange(async value => {
+						this.plugin.settings.additionalPrompt = value
 						await this.plugin.saveSettings()
 					})
 			)
