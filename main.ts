@@ -661,12 +661,10 @@ class MyExportSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Strapi Content Attribute Name')
-			.setDesc(
-				'Enter the attribute name for the content field in Strapi, (be carefull, it could be data.content or something else)'
-			)
+			.setDesc('Enter the attribute name for the content field in Strapi')
 			.addText(text =>
 				text
-					.setPlaceholder('data.content')
+					.setPlaceholder('content')
 					.setValue(this.plugin.settings.strapiContentAttributeName)
 					.onChange(async value => {
 						this.plugin.settings.strapiContentAttributeName = value
