@@ -90,7 +90,7 @@ export default class MyPlugin extends Plugin {
 		 * Add a ribbon icon to the Markdown view (the little icon on the left side bar)
 		 */
 		const ribbonIconEl = this.addRibbonIcon(
-			'italic-glyph',
+			'upload',
 			'Upload images to Strapi and update links in Markdown content, then generate article content using OpenAI',
 			async (evt: MouseEvent) => {
 				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
@@ -237,10 +237,7 @@ export default class MyPlugin extends Plugin {
 				/**
 				 * If the content is not present, get it from the active view
 				 */
-				if (!content) {
-					// get the content from the active view
-					content = await this.app.vault.read(file)
-				}
+				content = await this.app.vault.read(file)
 
 				/**
 				 * Prompt for generating the article content
@@ -293,8 +290,10 @@ export default class MyPlugin extends Plugin {
 				 * Add the content to the article content
 				 */
 				articleContent = {
-					...articleContent,
-					[this.settings.strapiContentAttributeName]: content,
+					data: {
+						...articleContent.data,
+						[this.settings.strapiContentAttributeName]: content,
+					},
 				}
 
 				new Notice('Article content generated successfully!')
@@ -317,7 +316,9 @@ export default class MyPlugin extends Plugin {
 					new Notice('Error creating article in Strapi.')
 				}
 
-				new Notice('Article content generated successfully!')
+				new Notice(
+					'Check your API content now, the article is created & uploaded ! 🎉'
+				)
 			}
 		)
 		ribbonIconEl.addClass('my-plugin-ribbon-class')
@@ -660,10 +661,12 @@ class MyExportSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Strapi Content Attribute Name')
-			.setDesc('Enter the attribute name for the content field in Strapi')
+			.setDesc(
+				'Enter the attribute name for the content field in Strapi, (be carefull, it could be data.content or something else)'
+			)
 			.addText(text =>
 				text
-					.setPlaceholder('content')
+					.setPlaceholder('data.content')
 					.setValue(this.plugin.settings.strapiContentAttributeName)
 					.onChange(async value => {
 						this.plugin.settings.strapiContentAttributeName = value
