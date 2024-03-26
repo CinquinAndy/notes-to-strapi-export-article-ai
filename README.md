@@ -4,7 +4,8 @@
 [![License](https://img.shields.io/github/license/CinquinAndy/notes-to-strapi-export-article-ai)](https://github.com/CinquinAndy/notes-to-strapi-export-article-ai/blob/main/LICENSE)
 [![Sponsor](https://img.shields.io/badge/sponsor-CinquinAndy-purple)](https://github.com/sponsors/CinquinAndy)
 
-Strapi Exporter is a game-changing Obsidian plugin that streamlines your content creation process by seamlessly exporting your notes to Strapi CMS. With its AI-powered image handling and SEO optimization features, you can take your content to the next level with just a few clicks.
+Strapi Exporter is a game-changing Obsidian plugin that streamlines your content creation process by seamlessly exporting your notes to Strapi CMS. With its AI-powered image
+handling and SEO optimization features, you can take your content to the next level with just a few clicks.
 
 ## ✨ Features
 
@@ -16,9 +17,21 @@ Strapi Exporter is a game-changing Obsidian plugin that streamlines your content
 
 ## 🛠️ Installation
 
+### If you're a developer:
+
+To install Strapi Exporter, follow these steps (coming soon to the Obsidian plugin marketplace):
+
 1. Clone this repository into your Obsidian plugins folder (usually located at `<vault>/.obsidian/plugins/`).
 2. Enable the plugin in Obsidian's settings under "Community plugins".
 3. Configure the necessary settings (see the Configuration section below).
+
+### If you're a simple user:
+
+1. Download the latest release from the [releases page](https://github.com/CinquinAndy/notes-to-strapi-export-article-ai/releases/tag/)
+2. Move the downloaded `main.js` file & `manifest.json` to your Obsidian plugins folder (usually located at `<vault>/.obsidian/plugins/`).
+3. Enable the plugin in Obsidian's settings under "Community plugins".
+4. Configure the necessary settings (see the Configuration section below).
+5. Enjoy!
 
 ## ⚙️ Configuration
 
@@ -38,15 +51,16 @@ To get started with Strapi Exporter, you'll need to configure the following sett
 1. Open a Markdown file in Obsidian.
 2. Click on the plugin's ribbon icon to start the magic.
 3. Sit back and relax while Strapi Exporter does the heavy lifting:
-   - 🖼️ Extracting and uploading images to Strapi
-   - 🎨 Generating SEO-friendly alt text and captions for images
-   - 📝 Creating SEO-optimized article content based on your notes
-   - 🌐 Publishing the article to Strapi with the generated content and images
+    - 🖼️ Extracting and uploading images to Strapi
+    - 🎨 Generating SEO-friendly alt text and captions for images
+    - 📝 Creating SEO-optimized article content based on your notes
+    - 🌐 Publishing the article to Strapi with the generated content and images
 4. Enjoy your freshly exported article in Strapi!
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Let's make Strapi Exporter even better together!
+We welcome contributions from the community! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Let's make Strapi Exporter even
+better together!
 
 ## 📜 License
 
@@ -80,17 +94,16 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ---
 
 - [x] Upload to Strapi article
-- [ ] Fix the process, it's not working at all, the content is not generated correctly (on full process)
+- [x] Fix the process, it's not working at all, the content is not generated correctly (on full process)
+- [x] Make it usable by anyone, env variables for Strapi URL, user & password & token
+- [x] Config in the plugin settings for the schema to use
+- [x] Config in the plugin settings for the fields to use
+- [x] Clean Readme
+- [x] Clean manifest
 - [ ] Make it available as a plugin in Obsidian
-- [ ] Make it usable by anyone, env variables for Strapi URL, user & password & token
-- [ ] Config in the plugin settings for the schema to use
-- [ ] Config in the plugin settings for the fields to use
 - [ ] Add examples
-- [ ] Clean Readme
 - [ ] Add tests
-- [ ] Clean manifest
 - [ ] Renovate
-
 
 ---
 
