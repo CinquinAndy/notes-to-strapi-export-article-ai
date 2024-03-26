@@ -17,14 +17,6 @@ handling and SEO optimization features, you can take your content to the next le
 
 ## 🛠️ Installation
 
-### If you're a developer:
-
-To install Strapi Exporter, follow these steps (coming soon to the Obsidian plugin marketplace):
-
-1. Clone this repository into your Obsidian plugins folder (usually located at `<vault>/.obsidian/plugins/`).
-2. Enable the plugin in Obsidian's settings under "Community plugins".
-3. Configure the necessary settings (see the Configuration section below).
-
 ### If you're a simple user:
 
 1. Download the latest release from the [releases page](https://github.com/CinquinAndy/notes-to-strapi-export-article-ai/releases/tag/)
@@ -32,6 +24,14 @@ To install Strapi Exporter, follow these steps (coming soon to the Obsidian plug
 3. Enable the plugin in Obsidian's settings under "Community plugins".
 4. Configure the necessary settings (see the Configuration section below).
 5. Enjoy!
+
+### If you're a developer:
+
+To install Strapi Exporter, follow these steps (coming soon to the Obsidian plugin marketplace):
+
+1. Clone this repository into your Obsidian plugins folder (usually located at `<vault>/.obsidian/plugins/`).
+2. Enable the plugin in Obsidian's settings under "Community plugins".
+3. Configure the necessary settings (see the Configuration section below).
 
 ## ⚙️ Configuration
 
