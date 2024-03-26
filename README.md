@@ -147,6 +147,7 @@ To get started with Strapi Exporter, you'll need to configure the following sett
 
 1. Open a Markdown file in Obsidian.
 2. Click on the plugin's ribbon icon to start the magic.
+![img_9.png](img_9.png)
 3. Sit back and relax while Strapi Exporter does the heavy lifting:
     - 🖼️ Extracting and uploading images to Strapi
     - 🎨 Generating SEO-friendly alt text and captions for images
