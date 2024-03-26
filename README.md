@@ -105,6 +105,10 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [ ] Add tests
 - [ ] Renovate
 
+- [ ] ajouter l'étape de création du plugin (création du folder)
+- [ ] ajouter l'étape de redémarrage d'obsidian
+- [ ] ajouter l'étape de configuration du plugin
+  - [ ] ajouter l'étape de configuration du token d'access de strapi (accès etc)
 ---
 
 🌟 Elevate your content workflow with Strapi Exporter and unleash the full potential of your Obsidian notes! 🌟
