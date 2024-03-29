@@ -56,4 +56,4 @@ jobs:
                     git commit -m "chore(release): ${{ steps.version-bump.outputs.VERSION }}"
                     git tag v${{ steps.version-bump.outputs.VERSION }}
                     git push origin main --follow-tags
-                    git push origin refs/tags/v${{ steps.version-bump.outputs.VERSION }}
+                    git push origin refs/tags/${{ steps.version-bump.outputs.VERSION }}
