@@ -19,8 +19,8 @@ jobs:
 
             -   name: Configure Git
                 run: |
-                    git config --local user.email "your-email@example.com"
-                    git config --local user.name "Your Name"
+                    git config --local user.email "cinquin.andy@gmail.com"
+                    git config --local user.name "CINQUIN Andy"
 
             -   name: Use Node.js
                 uses: actions/setup-node@v4
@@ -41,19 +41,19 @@ jobs:
                     new_version=$(npx semver -i patch $current_version)
                     echo "New version: $new_version"
                     
-                    while git rev-parse v$new_version >/dev/null 2>&1; do
+                    while git rev-parse $new_version >/dev/null 2>&1; do
                       new_version=$(npx semver -i patch $new_version)
-                      echo "Tag v$new_version already exists. Trying next version..."
+                      echo "Tag $new_version already exists. Trying next version..."
                     done
                     
                     npm version $new_version --no-git-tag-version
                     sed -i "s/\"version\": \".*\"/\"version\": \"$new_version\"/" manifest.json
-                    echo "::set-output name=VERSION::$new_version"
+                    echo "version=$new_version" >> $GITHUB_OUTPUT
 
             -   name: Commit and Push Version Update
                 run: |
                     git add package.json manifest.json
-                    git commit -m "chore(release): ${{ steps.version-bump.outputs.VERSION }}"
-                    git tag v${{ steps.version-bump.outputs.VERSION }}
+                    git commit -m "chore(release): ${{ steps.version-bump.outputs.version }}"
+                    git tag ${{ steps.version-bump.outputs.version }}
                     git push origin main --follow-tags
-                    git push origin refs/tags/${{ steps.version-bump.outputs.VERSION }}
+                    git push origin refs/tags/${{ steps.version-bump.outputs.version }}
