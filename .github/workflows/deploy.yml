@@ -19,8 +19,8 @@ jobs:
 
             -   name: Configure Git
                 run: |
-                    git config --local user.email "cinquin.andy@gmail.com"
-                    git config --local user.name "Cinquin Andy"
+                    git config --local user.email "your-email@example.com"
+                    git config --local user.name "Your Name"
 
             -   name: Use Node.js
                 uses: actions/setup-node@v4
@@ -47,11 +47,12 @@ jobs:
                     done
                     
                     npm version $new_version --no-git-tag-version
+                    sed -i "s/\"version\": \".*\"/\"version\": \"$new_version\"/" manifest.json
                     echo "::set-output name=VERSION::$new_version"
 
             -   name: Commit and Push Version Update
                 run: |
-                    git add package.json
+                    git add package.json manifest.json
                     git commit -m "chore(release): ${{ steps.version-bump.outputs.VERSION }}"
                     git tag v${{ steps.version-bump.outputs.VERSION }}
                     git push origin main --follow-tags
