@@ -1,6 +1,6 @@
 {
 	"name": "notes-to-strapi-export-article-ai",
-	"version": "1.0.4",
+	"version": "1.0.6",
 	"description": "Effortlessly export your Obsidian notes to Strapi CMS with AI-powered image handling and SEO optimization. Replace all the images in your notes by uploaded images in Strapi, and add SEO metadata to uploaded images.",
 	"main": "main.js",
 	"scripts": {
@@ -12,8 +12,8 @@
 	"author": "Cinquin Andy",
 	"devDependencies": {
 		"@types/node": "20.11.30",
-		"@typescript-eslint/eslint-plugin": "7.3.1",
-		"@typescript-eslint/parser": "7.3.1",
+		"@typescript-eslint/eslint-plugin": "7.4.0",
+		"@typescript-eslint/parser": "7.4.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.20.2",
 		"obsidian": "latest",
