@@ -21,6 +21,11 @@ interface StrapiExporterSettings {
 	strapiArticleCreateUrl: string
 	strapiContentAttributeName: string
 	additionalPrompt: string
+	enableAdditionalButton: boolean
+	additionalJsonTemplate: string
+	additionalJsonTemplateDescription: string
+	additionalUrl: string
+	additionalContentAttributeName: string
 }
 
 /**
@@ -74,6 +79,11 @@ const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiArticleCreateUrl: '',
 	strapiContentAttributeName: '',
 	additionalPrompt: '',
+	enableAdditionalButton: false,
+	additionalJsonTemplate: '',
+	additionalJsonTemplateDescription: '',
+	additionalUrl: '',
+	additionalContentAttributeName: '',
 }
 
 /**
@@ -95,230 +105,24 @@ export default class StrapiExporterPlugin extends Plugin {
 			'upload',
 			'Upload images to Strapi and update links in Markdown content, then generate article content using OpenAI',
 			async (evt: MouseEvent) => {
-				const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
-				if (!activeView) {
-					new Notice('No active Markdown view')
-					return
-				}
-
-				/** ****************************************************************************
-				 * Check if all the settings are configured
-				 * *****************************************************************************
-				 */
-				if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
-					new Notice(
-						'Please configure Strapi URL and API token in the plugin settings'
-					)
-					return
-				}
-
-				if (!this.settings.openaiApiKey) {
-					new Notice('Please configure OpenAI API key in the plugin settings')
-					return
-				}
-
-				if (!this.settings.jsonTemplate) {
-					new Notice('Please configure JSON template in the plugin settings')
-					return
-				}
-
-				if (!this.settings.jsonTemplateDescription) {
-					new Notice(
-						'Please configure JSON template description in the plugin settings'
-					)
-					return
-				}
-
-				if (!this.settings.strapiArticleCreateUrl) {
-					new Notice(
-						'Please configure Strapi article create URL in the plugin settings'
-					)
-					return
-				}
-
-				if (!this.settings.strapiContentAttributeName) {
-					new Notice(
-						'Please configure Strapi content attribute name in the plugin settings'
-					)
-					return
-				}
-
-				/** ****************************************************************************
-				 * Process the Markdown content
-				 * *****************************************************************************
-				 */
-				new Notice('All settings are ok, processing Markdown content...')
-				const file = activeView.file
-				let content = ''
-				if (!file) {
-					new Notice('No file found in active view...')
-					return
-				}
-				/**
-				 * Read the content of the file
-				 */
-				content = await this.app.vault.read(file)
-
-				// check if the content has any images to process
-				const flag = this.hasUnexportedImages(content)
-				/**
-				 * Initialize the OpenAI API
-				 */
-				const openai = new OpenAI({
-					apiKey: this.settings.openaiApiKey,
-					dangerouslyAllowBrowser: true,
-				})
-
-				/**
-				 * Process the images in the content, upload them to Strapi, and update the links,
-				 * only if there are images in the content
-				 * that are not already uploaded to Strapi
-				 */
-				if (flag) {
-					/**
-					 * Extract the image paths from the content
-					 */
-					const imagePaths = this.extractImagePaths(content)
-
-					/**
-					 * Get the image blobs from the image paths
-					 */
-					const imageBlobs = await this.getImageBlobs(imagePaths)
-
-					/**
-					 * Get the image descriptions using the OpenAI API
-					 */
-					new Notice('Getting image descriptions...')
-					const imageDescriptions = await Promise.all(
-						imageBlobs.map(async imageBlob => {
-							const description = await this.getImageDescription(
-								imageBlob.blob,
-								openai
-							)
-							return {
-								blob: imageBlob.blob,
-								name: imageBlob.name,
-								path: imageBlob.path,
-								description,
-							}
-						})
-					)
-
-					/**
-					 * Upload the images to Strapi
-					 */
-					new Notice('Uploading images to Strapi...')
-					const uploadedImages =
-						await this.uploadImagesToStrapi(imageDescriptions)
-
-					/**
-					 * Replace the image paths in the content with the uploaded image URLs
-					 */
-					new Notice('Replacing image paths...')
-					content = this.replaceImagePaths(content, uploadedImages)
-					await this.app.vault.modify(file, content)
-					new Notice('Images uploaded and links updated successfully!')
-				} else {
-					new Notice(
-						'No local images found in the content... Skip the image processing...'
-					)
-				}
-
-				/**
-				 * Generate article content using OpenAI
-				 */
-				new Notice('Generating article content...')
-				/**
-				 * Parse the JSON template and description
-				 */
-				const jsonTemplate = JSON.parse(this.settings.jsonTemplate)
-				const jsonTemplateDescription = JSON.parse(
-					this.settings.jsonTemplateDescription
-				)
-
-				/**
-				 * If the content is not present, get it from the active view
-				 */
-				content = await this.app.vault.read(file)
-
-				/**
-				 * Prompt for generating the article content
-				 */
-				const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
-
-    Template:
-    ${JSON.stringify(jsonTemplate, null, 2)}
-    
-    Field Descriptions:
-    ${JSON.stringify(jsonTemplateDescription, null, 2)}
-    
-    The main content of the article should be based on the following text and all the keywords around the domain of the text:
-    ----- CONTENT -----
-    ${content.substring(0, 500)}
-    ----- END CONTENT -----
-    
-    Please provide the generated article content as a JSON object following the given template structure.
-    
-    ${this.settings.additionalPrompt ? `Additional Prompt: ${this.settings.additionalPrompt}` : ''}`
-
-				/**
-				 * Generate the article content using OpenAI
-				 */
-				const completion = await openai.chat.completions.create({
-					model: 'gpt-3.5-turbo-0125',
-					messages: [
-						{
-							role: 'user',
-							content: articlePrompt,
-						},
-					],
-					max_tokens: 2000,
-					n: 1,
-					stop: null,
-				})
-
-				/**
-				 * Parse the generated article content
-				 */
-				let articleContent = JSON.parse(
-					completion.choices[0].message.content ?? '{}'
-				)
-				/**
-				 * Add the content to the article content
-				 */
-				articleContent = {
-					data: {
-						...articleContent.data,
-						[this.settings.strapiContentAttributeName]: content,
-					},
-				}
-
-				new Notice('Article content generated successfully!')
-				try {
-					const response = await fetch(this.settings.strapiArticleCreateUrl, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							Authorization: `Bearer ${this.settings.strapiApiToken}`,
-						},
-						body: JSON.stringify(articleContent),
-					})
-
-					if (response.ok) {
-						new Notice('Article created successfully in Strapi!')
-					} else {
-						new Notice('Failed to create article in Strapi.')
-					}
-				} catch (error) {
-					new Notice('Error creating article in Strapi.')
-				}
-
-				new Notice(
-					'Check your API content now, the article is created & uploaded ! 🎉'
-				)
+				await this.processMarkdownContent()
 			}
 		)
 		ribbonIconEl.addClass('strapi-exporter-ribbon-class')
+
+		/**
+		 * Add an additional ribbon icon based on the settings
+		 */
+		if (this.settings.enableAdditionalButton) {
+			const additionalRibbonIconEl = this.addRibbonIcon(
+				'link',
+				'Upload images to Strapi and update links in Markdown content, then generate additional content using OpenAI',
+				async (evt: MouseEvent) => {
+					await this.processMarkdownContent(true)
+				}
+			)
+			additionalRibbonIconEl.addClass('strapi-exporter-additional-ribbon-class')
+		}
 
 		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
 	}
@@ -341,6 +145,276 @@ export default class StrapiExporterPlugin extends Plugin {
 	 */
 	async saveSettings() {
 		await this.saveData(this.settings)
+	}
+
+	/**
+	 * Process the Markdown content
+	 * @param useAdditionalButton Whether to use the additional button settings
+	 */
+	async processMarkdownContent(useAdditionalButton = false) {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
+		if (!activeView) {
+			new Notice('No active Markdown view')
+			return
+		}
+
+		/** ****************************************************************************
+		 * Check if all the settings are configured
+		 * *****************************************************************************
+		 */
+		if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
+			new Notice(
+				'Please configure Strapi URL and API token in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.openaiApiKey) {
+			new Notice('Please configure OpenAI API key in the plugin settings')
+			return
+		}
+
+		if (useAdditionalButton) {
+			if (!this.settings.additionalJsonTemplate) {
+				new Notice(
+					'Please configure the additional button JSON template in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalJsonTemplateDescription) {
+				new Notice(
+					'Please configure the additional button JSON template description in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalUrl) {
+				new Notice(
+					'Please configure the additional button URL in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalContentAttributeName) {
+				new Notice(
+					'Please configure the additional button content attribute name in the plugin settings'
+				)
+				return
+			}
+		} else {
+			if (!this.settings.jsonTemplate) {
+				new Notice('Please configure JSON template in the plugin settings')
+				return
+			}
+
+			if (!this.settings.jsonTemplateDescription) {
+				new Notice(
+					'Please configure JSON template description in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.strapiArticleCreateUrl) {
+				new Notice(
+					'Please configure Strapi article create URL in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.strapiContentAttributeName) {
+				new Notice(
+					'Please configure Strapi content attribute name in the plugin settings'
+				)
+				return
+			}
+		}
+
+		/** ****************************************************************************
+		 * Process the Markdown content
+		 * *****************************************************************************
+		 */
+		new Notice('All settings are ok, processing Markdown content...')
+		const file = activeView.file
+		let content = ''
+		if (!file) {
+			new Notice('No file found in active view...')
+			return
+		}
+		/**
+		 * Read the content of the file
+		 */
+		content = await this.app.vault.read(file)
+
+		// Check if the content has any images to process
+		const flag = this.hasUnexportedImages(content)
+		/**
+		 * Initialize the OpenAI API
+		 */
+		const openai = new OpenAI({
+			apiKey: this.settings.openaiApiKey,
+			dangerouslyAllowBrowser: true,
+		})
+
+		/**
+		 * Process the images in the content, upload them to Strapi, and update the links,
+		 * only if there are images in the content
+		 * that are not already uploaded to Strapi
+		 */
+		if (flag) {
+			/**
+			 * Extract the image paths from the content
+			 */
+			const imagePaths = this.extractImagePaths(content)
+
+			/**
+			 * Get the image blobs from the image paths
+			 */
+			const imageBlobs = await this.getImageBlobs(imagePaths)
+
+			/**
+			 * Get the image descriptions using the OpenAI API
+			 */
+			new Notice('Getting image descriptions...')
+			const imageDescriptions = await Promise.all(
+				imageBlobs.map(async imageBlob => {
+					const description = await this.getImageDescription(
+						imageBlob.blob,
+						openai
+					)
+					return {
+						blob: imageBlob.blob,
+						name: imageBlob.name,
+						path: imageBlob.path,
+						description,
+					}
+				})
+			)
+
+			/**
+			 * Upload the images to Strapi
+			 */
+			new Notice('Uploading images to Strapi...')
+			const uploadedImages = await this.uploadImagesToStrapi(imageDescriptions)
+
+			/**
+			 * Replace the image paths in the content with the uploaded image URLs
+			 */
+			new Notice('Replacing image paths...')
+			content = this.replaceImagePaths(content, uploadedImages)
+			await this.app.vault.modify(file, content)
+			new Notice('Images uploaded and links updated successfully!')
+		} else {
+			new Notice(
+				'No local images found in the content... Skip the image processing...'
+			)
+		}
+
+		/**
+		 * Generate article content using OpenAI
+		 */
+		new Notice('Generating article content...')
+		let jsonTemplate: any
+		let jsonTemplateDescription: any
+		let url: any
+		let contentAttributeName: any
+
+		if (useAdditionalButton) {
+			jsonTemplate = JSON.parse(this.settings.additionalJsonTemplate)
+			jsonTemplateDescription = JSON.parse(
+				this.settings.additionalJsonTemplateDescription
+			)
+			url = this.settings.additionalUrl
+			contentAttributeName = this.settings.additionalContentAttributeName
+		} else {
+			jsonTemplate = JSON.parse(this.settings.jsonTemplate)
+			jsonTemplateDescription = JSON.parse(
+				this.settings.jsonTemplateDescription
+			)
+			url = this.settings.strapiArticleCreateUrl
+			contentAttributeName = this.settings.strapiContentAttributeName
+		}
+
+		/**
+		 * If the content is not present, get it from the active view
+		 */
+		content = await this.app.vault.read(file)
+
+		/**
+		 * Prompt for generating the article content
+		 */
+		const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
+
+		Template:
+		${JSON.stringify(jsonTemplate, null, 2)}
+		
+		Field Descriptions:
+		${JSON.stringify(jsonTemplateDescription, null, 2)}
+		
+		The main content of the article should be based on the following text and all the keywords around the domain of the text:
+		----- CONTENT -----
+		${content.substring(0, 500)}
+		----- END CONTENT -----
+		
+		Please provide the generated article content as a JSON object following the given template structure.
+		
+		${this.settings.additionalPrompt ? `Additional Prompt: ${this.settings.additionalPrompt}` : ''}`
+
+		/**
+		 * Generate the article content using OpenAI
+		 */
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-3.5-turbo-0125',
+			messages: [
+				{
+					role: 'user',
+					content: articlePrompt,
+				},
+			],
+			max_tokens: 2000,
+			n: 1,
+			stop: null,
+		})
+
+		/**
+		 * Parse the generated article content
+		 */
+		let articleContent = JSON.parse(
+			completion.choices[0].message.content ?? '{}'
+		)
+		/**
+		 * Add the content to the article content
+		 */
+		articleContent = {
+			data: {
+				...articleContent.data,
+				[contentAttributeName]: content,
+			},
+		}
+
+		new Notice('Article content generated successfully!')
+		try {
+			const response = await fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${this.settings.strapiApiToken}`,
+				},
+				body: JSON.stringify(articleContent),
+			})
+
+			if (response.ok) {
+				new Notice('Article created successfully in Strapi!')
+			} else {
+				new Notice('Failed to create article in Strapi.')
+			}
+		} catch (error) {
+			new Notice('Error creating article in Strapi.')
+		}
+
+		new Notice(
+			'Check your API content now, the article is created & uploaded ! 🎉'
+		)
 	}
 
 	/**
@@ -378,13 +452,13 @@ export default class StrapiExporterPlugin extends Plugin {
 	async getImageBlobs(
 		imagePaths: string[]
 	): Promise<{ path: string; blob: Blob; name: string }[]> {
-		// get all the files in the vault
+		// Get all the files in the vault
 		const files = this.app.vault.getAllLoadedFiles()
-		// get the image files name from the vault
+		// Get the image files name from the vault
 		const fileNames = files.map(file => file.name)
-		// filter the image files, and get all the images files paths
+		// Filter the image files, and get all the images files paths
 		const imageFiles = imagePaths.filter(path => fileNames.includes(path))
-		// get the image blobs, find it, and return the blob
+		// Get the image blobs, find it, and return the blob
 		return await Promise.all(
 			imageFiles.map(async path => {
 				const file = files.find(file => file.name === path)
@@ -421,7 +495,7 @@ export default class StrapiExporterPlugin extends Plugin {
 			}
 		}[]
 	): Promise<{ [key: string]: { url: string; data: any } }> {
-		// upload the images to Strapi
+		// Upload the images to Strapi
 		const uploadedImages: {
 			[key: string]: { url: string; data: any }
 		} = {}
@@ -444,7 +518,7 @@ export default class StrapiExporterPlugin extends Plugin {
 				})
 			)
 
-			// upload the image to Strapi
+			// Upload the image to Strapi
 			try {
 				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
 					method: 'POST',
@@ -502,7 +576,7 @@ export default class StrapiExporterPlugin extends Plugin {
 	 * @param openai
 	 */
 	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
-		// get the image description using the OpenAI API ( using gpt 4 vision preview model )
+		// Get the image description using the OpenAI API (using gpt 4 vision preview model)
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4-vision-preview',
 			messages: [
@@ -516,7 +590,7 @@ export default class StrapiExporterPlugin extends Plugin {
 						},
 						{
 							type: 'image_url',
-							// encode imageBlob as base64
+							// Encode imageBlob as base64
 							image_url: `data:image/png;base64,${btoa(
 								new Uint8Array(await imageBlob.arrayBuffer()).reduce(
 									(data, byte) => data + String.fromCharCode(byte),
@@ -535,16 +609,16 @@ export default class StrapiExporterPlugin extends Plugin {
 		)
 
 		// gpt-3.5-turbo-0125
-		// alt text, caption, and title for the image, based on the description of the image
+		// Generate alt text, caption, and title for the image, based on the description of the image
 		const completion = await openai.chat.completions.create({
 			model: 'gpt-3.5-turbo-0125',
 			messages: [
 				{
 					role: 'user',
 					content: `You are an SEO expert and you are writing alt text, caption, and title for this image. The description of the image is: ${response.choices[0].message.content}.
-        Give me a title (name) for this image, an SEO-friendly alternative text, and a caption for this image.
-        Generate this information and respond with a JSON object using the following fields: name, alternativeText, caption.
-        Use this JSON template: {"name": "string", "alternativeText": "string", "caption": "string"}.`,
+				Give me a title (name) for this image, an SEO-friendly alternative text, and a caption for this image.
+				Generate this information and respond with a JSON object using the following fields: name, alternativeText, caption.
+				Use this JSON template: {"name": "string", "alternativeText": "string", "caption": "string"}.`,
 				},
 			],
 			max_tokens: 750,
@@ -563,9 +637,6 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 }
 
-/**
- * The settings tab for the Strapi Exporter plugin
- */
 class StrapiExporterSettingTab extends PluginSettingTab {
 	plugin: StrapiExporterPlugin
 
@@ -620,6 +691,79 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings()
 					})
 			)
+
+		new Setting(containerEl)
+			.setName('Enable Additional Button')
+			.setDesc('Toggle the additional button in the ribbon menu')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.enableAdditionalButton)
+					.onChange(async value => {
+						this.plugin.settings.enableAdditionalButton = value
+						await this.plugin.saveSettings()
+						this.display()
+					})
+			)
+
+		if (this.plugin.settings.enableAdditionalButton) {
+			new Setting(containerEl)
+				.setName('Additional Button JSON Template')
+				.setDesc(
+					'Enter the JSON template for the fields needed for the additional button'
+				)
+				.addTextArea(text =>
+					text
+						.setPlaceholder('Enter your JSON template')
+						.setValue(this.plugin.settings.additionalJsonTemplate)
+						.onChange(async value => {
+							this.plugin.settings.additionalJsonTemplate = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Button JSON Template Description')
+				.setDesc(
+					'Enter the description for each field in the additional button JSON template'
+				)
+				.addTextArea(text =>
+					text
+						.setPlaceholder('Enter the field descriptions')
+						.setValue(this.plugin.settings.additionalJsonTemplateDescription)
+						.onChange(async value => {
+							this.plugin.settings.additionalJsonTemplateDescription = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Button URL')
+				.setDesc('Enter the URL to create content for the additional button')
+				.addText(text =>
+					text
+						.setPlaceholder('https://your-strapi-url/api/additional-content')
+						.setValue(this.plugin.settings.additionalUrl)
+						.onChange(async value => {
+							this.plugin.settings.additionalUrl = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Button Content Attribute Name')
+				.setDesc(
+					'Enter the attribute name for the content field for the additional button'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('content')
+						.setValue(this.plugin.settings.additionalContentAttributeName)
+						.onChange(async value => {
+							this.plugin.settings.additionalContentAttributeName = value
+							await this.plugin.saveSettings()
+						})
+				)
+		}
 
 		new Setting(containerEl)
 			.setName('JSON Template')
