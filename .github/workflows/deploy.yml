@@ -1,0 +1,58 @@
+name: Auto Deploy, install dependencies, increment version and push tag
+
+on:
+    pull_request:
+        branches: [ main ]
+        types: [ closed ]
+
+jobs:
+    publish:
+        if: github.event.pull_request.merged == true
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
+                    token: ${{ secrets.GIT_TOKEN }}
+                    ref: 'main'
+
+            -   name: Configure Git
+                run: |
+                    git config --local user.email "cinquin.andy@gmail.com"
+                    git config --local user.name "Cinquin Andy"
+
+            -   name: Use Node.js
+                uses: actions/setup-node@v4
+                with:
+                    node-version: '20'
+                    registry-url: 'https://registry.npmjs.org'
+
+            -   name: Install Dependencies
+                run: npm ci
+
+            -   name: Increment Package Version and Update Tag
+                id: version-bump
+                run: |
+                    git fetch --tags
+                    current_version=$(npm pkg get version | sed 's/"//g')
+                    echo "Current version: $current_version"
+                    
+                    new_version=$(npx semver -i patch $current_version)
+                    echo "New version: $new_version"
+                    
+                    while git rev-parse v$new_version >/dev/null 2>&1; do
+                      new_version=$(npx semver -i patch $new_version)
+                      echo "Tag v$new_version already exists. Trying next version..."
+                    done
+                    
+                    npm version $new_version --no-git-tag-version
+                    echo "::set-output name=VERSION::$new_version"
+
+            -   name: Commit and Push Version Update
+                run: |
+                    git add package.json
+                    git commit -m "chore(release): ${{ steps.version-bump.outputs.VERSION }}"
+                    git tag v${{ steps.version-bump.outputs.VERSION }}
+                    git push origin main --follow-tags
+                    git push origin refs/tags/v${{ steps.version-bump.outputs.VERSION }}
