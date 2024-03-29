@@ -10,9 +10,9 @@ import {
 } from 'obsidian'
 
 /**
- * The settings for the plugin
+ * The settings for the Strapi Exporter plugin
  */
-interface MyPluginSettings {
+interface StrapiExporterSettings {
 	strapiUrl: string
 	strapiApiToken: string
 	openaiApiKey: string
@@ -26,7 +26,7 @@ interface MyPluginSettings {
 /**
  * The default settings for the plugin
  */
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
 	openaiApiKey: '',
@@ -79,8 +79,8 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 /**
  * The main plugin class
  */
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings
+export default class StrapiExporterPlugin extends Plugin {
+	settings: StrapiExporterSettings
 
 	/**
 	 * The main entry point for the plugin
@@ -318,9 +318,9 @@ export default class MyPlugin extends Plugin {
 				)
 			}
 		)
-		ribbonIconEl.addClass('my-plugin-ribbon-class')
+		ribbonIconEl.addClass('strapi-exporter-ribbon-class')
 
-		this.addSettingTab(new MyExportSettingTab(this.app, this))
+		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
 	}
 
 	onunload() {}
@@ -329,7 +329,11 @@ export default class MyPlugin extends Plugin {
 	 * Load the settings for the plugin
 	 */
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
+		this.settings = Object.assign(
+			{},
+			DEFAULT_STRAPI_EXPORTER_SETTINGS,
+			await this.loadData()
+		)
 	}
 
 	/**
@@ -560,12 +564,12 @@ export default class MyPlugin extends Plugin {
 }
 
 /**
- * The settings tab for the plugin
+ * The settings tab for the Strapi Exporter plugin
  */
-class MyExportSettingTab extends PluginSettingTab {
-	plugin: MyPlugin
+class StrapiExporterSettingTab extends PluginSettingTab {
+	plugin: StrapiExporterPlugin
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: StrapiExporterPlugin) {
 		super(app, plugin)
 		this.plugin = plugin
 	}
