@@ -21,7 +21,7 @@ interface StrapiExporterSettings {
 	strapiArticleCreateUrl: string
 	strapiContentAttributeName: string
 	additionalPrompt: string
-	enableAdditionalButton: boolean
+	enableAdditionalApiCall: boolean
 	additionalJsonTemplate: string
 	additionalJsonTemplateDescription: string
 	additionalUrl: string
@@ -79,7 +79,7 @@ const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiArticleCreateUrl: '',
 	strapiContentAttributeName: '',
 	additionalPrompt: '',
-	enableAdditionalButton: false,
+	enableAdditionalApiCall: false,
 	additionalJsonTemplate: '',
 	additionalJsonTemplateDescription: '',
 	additionalUrl: '',
@@ -113,7 +113,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Add an additional ribbon icon based on the settings
 		 */
-		if (this.settings.enableAdditionalButton) {
+		if (this.settings.enableAdditionalApiCall) {
 			const additionalRibbonIconEl = this.addRibbonIcon(
 				'link',
 				'Upload images to Strapi and update links in Markdown content, then generate additional content using OpenAI',
@@ -653,19 +653,8 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 		 * Add the settings for the plugin
 		 * *****************************************************************************
 		 */
-		new Setting(containerEl)
-			.setName('Strapi URL')
-			.setDesc('Enter your Strapi instance URL')
-			.addText(text =>
-				text
-					.setPlaceholder('https://your-strapi-url')
-					.setValue(this.plugin.settings.strapiUrl)
-					.onChange(async value => {
-						this.plugin.settings.strapiUrl = value
-						await this.plugin.saveSettings()
-					})
-			)
 
+		containerEl.createEl('h2', { text: 'Strapi & OpenAI Settings' })
 		new Setting(containerEl)
 			.setName('Strapi API Token')
 			.setDesc('Enter your Strapi API token')
@@ -693,77 +682,34 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Enable Additional Button')
-			.setDesc('Toggle the additional button in the ribbon menu')
-			.addToggle(toggle =>
-				toggle
-					.setValue(this.plugin.settings.enableAdditionalButton)
+			.setName('Additional Prompt')
+			.setDesc(
+				'Enter an optional additional prompt to customize the article content generation'
+			)
+			.addTextArea(text =>
+				text
+					.setPlaceholder('Enter your additional prompt here...')
+					.setValue(this.plugin.settings.additionalPrompt)
 					.onChange(async value => {
-						this.plugin.settings.enableAdditionalButton = value
+						this.plugin.settings.additionalPrompt = value
 						await this.plugin.saveSettings()
-						this.display()
 					})
 			)
 
-		if (this.plugin.settings.enableAdditionalButton) {
-			new Setting(containerEl)
-				.setName('Additional Button JSON Template')
-				.setDesc(
-					'Enter the JSON template for the fields needed for the additional button'
-				)
-				.addTextArea(text =>
-					text
-						.setPlaceholder('Enter your JSON template')
-						.setValue(this.plugin.settings.additionalJsonTemplate)
-						.onChange(async value => {
-							this.plugin.settings.additionalJsonTemplate = value
-							await this.plugin.saveSettings()
-						})
-				)
+		containerEl.createEl('h2', { text: 'Strapi Settings - Call 1' })
 
-			new Setting(containerEl)
-				.setName('Additional Button JSON Template Description')
-				.setDesc(
-					'Enter the description for each field in the additional button JSON template'
-				)
-				.addTextArea(text =>
-					text
-						.setPlaceholder('Enter the field descriptions')
-						.setValue(this.plugin.settings.additionalJsonTemplateDescription)
-						.onChange(async value => {
-							this.plugin.settings.additionalJsonTemplateDescription = value
-							await this.plugin.saveSettings()
-						})
-				)
-
-			new Setting(containerEl)
-				.setName('Additional Button URL')
-				.setDesc('Enter the URL to create content for the additional button')
-				.addText(text =>
-					text
-						.setPlaceholder('https://your-strapi-url/api/additional-content')
-						.setValue(this.plugin.settings.additionalUrl)
-						.onChange(async value => {
-							this.plugin.settings.additionalUrl = value
-							await this.plugin.saveSettings()
-						})
-				)
-
-			new Setting(containerEl)
-				.setName('Additional Button Content Attribute Name')
-				.setDesc(
-					'Enter the attribute name for the content field for the additional button'
-				)
-				.addText(text =>
-					text
-						.setPlaceholder('content')
-						.setValue(this.plugin.settings.additionalContentAttributeName)
-						.onChange(async value => {
-							this.plugin.settings.additionalContentAttributeName = value
-							await this.plugin.saveSettings()
-						})
-				)
-		}
+		new Setting(containerEl)
+			.setName('Strapi URL')
+			.setDesc('Enter your Strapi instance URL')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url')
+					.setValue(this.plugin.settings.strapiUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
 
 		new Setting(containerEl)
 			.setName('JSON Template')
@@ -817,19 +763,83 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
+		containerEl.createEl('h2', { text: 'Strapi Settings - Call 1' })
+
+		containerEl.createEl('p', {
+			text: `(Be careful, when enabling this feature, you'll need to restart Obsidian to see the additional button in the ribbon menu.)`,
+		})
+
 		new Setting(containerEl)
-			.setName('Additional Prompt')
-			.setDesc(
-				'Enter an optional additional prompt to customize the article content generation'
-			)
-			.addTextArea(text =>
-				text
-					.setPlaceholder('Enter your additional prompt here...')
-					.setValue(this.plugin.settings.additionalPrompt)
+			.setName('Enable Additional Button')
+			.setDesc('Toggle the additional button in the ribbon menu')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.enableAdditionalApiCall)
 					.onChange(async value => {
-						this.plugin.settings.additionalPrompt = value
+						this.plugin.settings.enableAdditionalApiCall = value
 						await this.plugin.saveSettings()
+						this.display()
 					})
 			)
+
+		if (this.plugin.settings.enableAdditionalApiCall) {
+			new Setting(containerEl)
+				.setName('Additional JSON Template')
+				.setDesc(
+					'Enter the JSON template for the fields needed for the additional api'
+				)
+				.addTextArea(text =>
+					text
+						.setPlaceholder('Enter your JSON template')
+						.setValue(this.plugin.settings.additionalJsonTemplate)
+						.onChange(async value => {
+							this.plugin.settings.additionalJsonTemplate = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional API JSON Template Description')
+				.setDesc(
+					'Enter the description for each field in the additional API JSON template'
+				)
+				.addTextArea(text =>
+					text
+						.setPlaceholder('Enter the field descriptions')
+						.setValue(this.plugin.settings.additionalJsonTemplateDescription)
+						.onChange(async value => {
+							this.plugin.settings.additionalJsonTemplateDescription = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional API URL')
+				.setDesc('Enter the URL to create content for the additional API')
+				.addText(text =>
+					text
+						.setPlaceholder('https://your-strapi-url/api/additional-content')
+						.setValue(this.plugin.settings.additionalUrl)
+						.onChange(async value => {
+							this.plugin.settings.additionalUrl = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional API Content Attribute Name')
+				.setDesc(
+					'Enter the attribute name for the content field for the additional API'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('content')
+						.setValue(this.plugin.settings.additionalContentAttributeName)
+						.onChange(async value => {
+							this.plugin.settings.additionalContentAttributeName = value
+							await this.plugin.saveSettings()
+						})
+				)
+		}
 	}
 }
