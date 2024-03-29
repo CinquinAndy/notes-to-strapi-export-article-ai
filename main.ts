@@ -763,8 +763,9 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h2', { text: 'Strapi Settings - Call 1' })
-
+		containerEl.createEl('h2', {
+			text: 'Strapi Settings - Call 2 - Additional call',
+		})
 		containerEl.createEl('p', {
 			text: `(Be careful, when enabling this feature, you'll need to restart Obsidian to see the additional button in the ribbon menu.)`,
 		})
