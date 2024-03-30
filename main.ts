@@ -429,29 +429,29 @@ export default class StrapiExporterPlugin extends Plugin {
 			completion.choices[0].message.content ?? '{}'
 		)
 		/**
-		 * Add the content to the article content
+		 * Upload the gallery images to Strapi
 		 */
-		if (imageBlob) {
-			articleContent = {
-				data: {
-					...articleContent.data,
-					[imageFullPathProperty]: imageBlob.path,
-				},
-			}
-		}
-		if (galeryImageBlobs.length > 0) {
-			articleContent = {
-				data: {
-					...articleContent.data,
-					[galeryFullPathProperty]: galeryImageBlobs.map(blob => blob.path),
-				},
-			}
+		const galeryUploadedImageIds =
+			await this.uploadGaleryImagesToStrapi(galeryImageBlobs)
+
+		// Rename the galery folder to "alreadyUpload"
+		const galeryFolder = this.app.vault.getAbstractFileByPath(galeryFolderPath)
+		if (galeryFolder instanceof TFolder) {
+			await this.app.vault.rename(
+				galeryFolder,
+				galeryFolderPath.replace(/\/[^/]*$/, '/alreadyUpload')
+			)
 		}
 
+		/**
+		 * Add the content, image, and gallery to the article content
+		 */
 		articleContent = {
 			data: {
 				...articleContent.data,
 				[contentAttributeName]: content,
+				[imageFullPathProperty]: imageBlob ? imageBlob.path : null,
+				[galeryFullPathProperty]: galeryUploadedImageIds,
 			},
 		}
 
@@ -730,7 +730,8 @@ export default class StrapiExporterPlugin extends Plugin {
 			const files = folder.children.filter(
 				file =>
 					file instanceof TFile &&
-					file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
+					file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i) &&
+					!file.parent?.name.includes('alreadyUpload')
 			)
 			return Promise.all(
 				files.map(async file => {
@@ -744,6 +745,38 @@ export default class StrapiExporterPlugin extends Plugin {
 			)
 		}
 		return []
+	}
+
+	async uploadGaleryImagesToStrapi(
+		imageBlobs: { path: string; blob: Blob; name: string }[]
+	): Promise<number[]> {
+		const uploadedImageIds: number[] = []
+
+		for (const imageBlob of imageBlobs) {
+			const formData = new FormData()
+			formData.append('files', imageBlob.blob, imageBlob.name)
+
+			try {
+				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${this.settings.strapiApiToken}`,
+					},
+					body: formData,
+				})
+
+				if (response.ok) {
+					const data = await response.json()
+					uploadedImageIds.push(data[0].id)
+				} else {
+					new Notice(`Failed to upload galery image: ${imageBlob.name}`)
+				}
+			} catch (error) {
+				new Notice(`Error uploading galery image: ${imageBlob.name}`)
+			}
+		}
+
+		return uploadedImageIds
 	}
 }
 
