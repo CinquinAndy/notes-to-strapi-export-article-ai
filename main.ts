@@ -7,6 +7,7 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
+	TFolder,
 } from 'obsidian'
 
 /**
@@ -34,6 +35,10 @@ interface StrapiExporterSettings {
 	additionalButtonImageEnabled: boolean
 	additionalButtonGalery: string
 	additionalButtonGaleryEnabled: boolean
+	mainButtonImageFullPathProperty: string
+	mainButtonGaleryFullPathProperty: string
+	additionalButtonImageFullPathProperty: string
+	additionalButtonGaleryFullPathProperty: string
 }
 
 /**
@@ -100,6 +105,10 @@ const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	additionalButtonImageEnabled: false,
 	additionalButtonGalery: '',
 	additionalButtonGaleryEnabled: false,
+	mainButtonImageFullPathProperty: '',
+	mainButtonGaleryFullPathProperty: '',
+	additionalButtonImageFullPathProperty: '',
+	additionalButtonGaleryFullPathProperty: '',
 }
 
 /**
@@ -165,9 +174,9 @@ export default class StrapiExporterPlugin extends Plugin {
 
 	/**
 	 * Process the Markdown content
-	 * @param useAdditionalButton Whether to use the additional button settings
+	 * @param useAdditionalCallAPI Whether to use the additional Call api settings
 	 */
-	async processMarkdownContent(useAdditionalButton = false) {
+	async processMarkdownContent(useAdditionalCallAPI = false) {
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
 		if (!activeView) {
 			new Notice('No active Markdown view')
@@ -190,31 +199,31 @@ export default class StrapiExporterPlugin extends Plugin {
 			return
 		}
 
-		if (useAdditionalButton) {
+		if (useAdditionalCallAPI) {
 			if (!this.settings.additionalJsonTemplate) {
 				new Notice(
-					'Please configure the additional button JSON template in the plugin settings'
+					'Please configure the additional call api JSON template in the plugin settings'
 				)
 				return
 			}
 
 			if (!this.settings.additionalJsonTemplateDescription) {
 				new Notice(
-					'Please configure the additional button JSON template description in the plugin settings'
+					'Please configure the additional call api JSON template description in the plugin settings'
 				)
 				return
 			}
 
 			if (!this.settings.additionalUrl) {
 				new Notice(
-					'Please configure the additional button URL in the plugin settings'
+					'Please configure the additional call api URL in the plugin settings'
 				)
 				return
 			}
 
 			if (!this.settings.additionalContentAttributeName) {
 				new Notice(
-					'Please configure the additional button content attribute name in the plugin settings'
+					'Please configure the additional call api content attribute name in the plugin settings'
 				)
 				return
 			}
@@ -261,18 +270,15 @@ export default class StrapiExporterPlugin extends Plugin {
 		/************************************************************
 		 * Check if the content has any images to process
 		 ************************************************************/
-		const imageP
-		const imageFolder = useAdditionalButton
+		const imagePath = useAdditionalCallAPI
 			? this.settings.additionalButtonImage
 			: this.settings.mainButtonImage
-		const galeryFolder = useAdditionalButton
+		const galeryFolderPath = useAdditionalCallAPI
 			? this.settings.additionalButtonGalery
 			: this.settings.mainButtonGalery
-		const imageBlobs = await this.getImageBlobs(
-			imagePaths.filter(
-				path => path.startsWith(imageFolder) || path.startsWith(galeryFolder)
-			)
-		)
+
+		const imageBlob = await this.getImageBlob(imagePath)
+		const galeryImageBlobs = await this.getGaleryImageBlobs(galeryFolderPath)
 
 		/**
 		 * Read the content of the file
@@ -352,7 +358,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		let url: any
 		let contentAttributeName: any
 
-		if (useAdditionalButton) {
+		if (useAdditionalCallAPI) {
 			jsonTemplate = JSON.parse(this.settings.additionalJsonTemplate)
 			jsonTemplateDescription = JSON.parse(
 				this.settings.additionalJsonTemplateDescription
@@ -409,6 +415,13 @@ export default class StrapiExporterPlugin extends Plugin {
 			stop: null,
 		})
 
+		const imageFullPathProperty = useAdditionalCallAPI
+			? this.settings.additionalButtonImageFullPathProperty
+			: this.settings.mainButtonImageFullPathProperty
+		const galeryFullPathProperty = useAdditionalCallAPI
+			? this.settings.additionalButtonGaleryFullPathProperty
+			: this.settings.mainButtonGaleryFullPathProperty
+
 		/**
 		 * Parse the generated article content
 		 */
@@ -418,6 +431,23 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Add the content to the article content
 		 */
+		if (imageBlob) {
+			articleContent = {
+				data: {
+					...articleContent.data,
+					[imageFullPathProperty]: imageBlob.path,
+				},
+			}
+		}
+		if (galeryImageBlobs.length > 0) {
+			articleContent = {
+				data: {
+					...articleContent.data,
+					[galeryFullPathProperty]: galeryImageBlobs.map(blob => blob.path),
+				},
+			}
+		}
+
 		articleContent = {
 			data: {
 				...articleContent.data,
@@ -668,6 +698,53 @@ export default class StrapiExporterPlugin extends Plugin {
 
 		return JSON.parse(completion.choices[0].message.content?.trim() || '{}')
 	}
+
+	/**
+	 * Get the image blobs from the image paths
+	 * @param imagePath
+	 */
+	async getImageBlob(
+		imagePath: string
+	): Promise<{ path: string; blob: Blob; name: string } | null> {
+		const file = this.app.vault.getAbstractFileByPath(imagePath)
+		if (file instanceof TFile) {
+			const blob = await this.app.vault.readBinary(file)
+			return {
+				name: file.name,
+				blob: new Blob([blob], { type: 'image/png' }),
+				path: file.path,
+			}
+		}
+		return null
+	}
+
+	/**
+	 * Get the image blobs from the image paths
+	 * @param folderPath
+	 */
+	async getGaleryImageBlobs(
+		folderPath: string
+	): Promise<{ path: string; blob: Blob; name: string }[]> {
+		const folder = this.app.vault.getAbstractFileByPath(folderPath)
+		if (folder instanceof TFolder) {
+			const files = folder.children.filter(
+				file =>
+					file instanceof TFile &&
+					file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
+			)
+			return Promise.all(
+				files.map(async file => {
+					const blob = await this.app.vault.readBinary(file as TFile)
+					return {
+						name: file.name,
+						blob: new Blob([blob], { type: 'image/png' }),
+						path: file.path,
+					}
+				})
+			)
+		}
+		return []
+	}
 }
 
 class StrapiExporterSettingTab extends PluginSettingTab {
@@ -796,11 +873,11 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h3', { text: 'Main Button Image Settings' })
+		containerEl.createEl('h3', { text: 'Main Image Settings' })
 
 		new Setting(containerEl)
-			.setName('Enable Main Button Image')
-			.setDesc('Toggle the main button image')
+			.setName('Enable Main Image')
+			.setDesc('Toggle the main image')
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.mainButtonImageEnabled)
@@ -811,8 +888,8 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Main Button Image Folder')
-			.setDesc('Enter the folder containing the main button image')
+			.setName('Main Image Folder')
+			.setDesc('Enter the folder containing the main image')
 			.addText(text =>
 				text
 					.setPlaceholder('main-image')
@@ -823,11 +900,26 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h3', { text: 'Main Button Galery Settings' })
+		new Setting(containerEl)
+			.setName('Main Image Full Path Property')
+			.setDesc(
+				'Enter the full path property for the main image in the final call'
+			)
+			.addText(text =>
+				text
+					.setPlaceholder('data.attributes.image')
+					.setValue(this.plugin.settings.mainButtonImageFullPathProperty)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonImageFullPathProperty = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		containerEl.createEl('h3', { text: 'Main Galery Settings' })
 
 		new Setting(containerEl)
-			.setName('Enable Main Button Galery')
-			.setDesc('Toggle the main button galery')
+			.setName('Enable Main Galery')
+			.setDesc('Toggle the main galery')
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.mainButtonGaleryEnabled)
@@ -838,14 +930,29 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Main Button Galery Folder')
-			.setDesc('Enter the folder containing the main button galery images')
+			.setName('Main Galery Folder')
+			.setDesc('Enter the folder containing the main galery images')
 			.addText(text =>
 				text
 					.setPlaceholder('main-galery')
 					.setValue(this.plugin.settings.mainButtonGalery)
 					.onChange(async value => {
 						this.plugin.settings.mainButtonGalery = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Main Galery Full Path Property')
+			.setDesc(
+				'Enter the full path property for the main galery in the final call'
+			)
+			.addText(text =>
+				text
+					.setPlaceholder('data.attributes.galery')
+					.setValue(this.plugin.settings.mainButtonGaleryFullPathProperty)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonGaleryFullPathProperty = value
 						await this.plugin.saveSettings()
 					})
 			)
@@ -858,8 +965,10 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 		})
 
 		new Setting(containerEl)
-			.setName('Enable Additional Button')
-			.setDesc('Toggle the additional button in the ribbon menu')
+			.setName('Enable Additional Call API')
+			.setDesc(
+				'Toggle the additional Call API, and display a new icon in the ribbon menu'
+			)
 			.addToggle(toggle =>
 				toggle
 					.setValue(this.plugin.settings.enableAdditionalApiCall)
@@ -929,11 +1038,11 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 						})
 				)
 
-			containerEl.createEl('h3', { text: 'Additional Button Image Settings' })
+			containerEl.createEl('h3', { text: 'Additional Call api Image Settings' })
 
 			new Setting(containerEl)
-				.setName('Enable Additional Button Image')
-				.setDesc('Toggle the additional button image')
+				.setName('Enable Additional Call API Image')
+				.setDesc('Toggle the additional Call API image')
 				.addToggle(toggle =>
 					toggle
 						.setValue(this.plugin.settings.additionalButtonImageEnabled)
@@ -944,8 +1053,8 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 
 			new Setting(containerEl)
-				.setName('Additional Button Image Folder')
-				.setDesc('Enter the folder containing the additional button image')
+				.setName('Additional Call API Image Folder')
+				.setDesc('Enter the folder containing the additional Call API image')
 				.addText(text =>
 					text
 						.setPlaceholder('additional-image')
@@ -956,11 +1065,30 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 						})
 				)
 
-			containerEl.createEl('h3', { text: 'Additional Button Galery Settings' })
+			new Setting(containerEl)
+				.setName('Additional Call API Image Full Path Property')
+				.setDesc(
+					'Enter the full path property for the additional Call API image in the final call'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('data.attributes.image')
+						.setValue(
+							this.plugin.settings.additionalButtonImageFullPathProperty
+						)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonImageFullPathProperty = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			containerEl.createEl('h3', {
+				text: 'Additional Call API Galery Settings',
+			})
 
 			new Setting(containerEl)
-				.setName('Enable Additional Button Galery')
-				.setDesc('Toggle the additional button galery')
+				.setName('Enable Additional Call API Galery')
+				.setDesc('Toggle the additional Call API galery')
 				.addToggle(toggle =>
 					toggle
 						.setValue(this.plugin.settings.additionalButtonGaleryEnabled)
@@ -971,9 +1099,9 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 
 			new Setting(containerEl)
-				.setName('Additional Button Galery Folder')
+				.setName('Additional Call API Galery Folder')
 				.setDesc(
-					'Enter the folder containing the additional button galery images'
+					'Enter the folder containing the additional Call API galery images'
 				)
 				.addText(text =>
 					text
@@ -981,6 +1109,25 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.additionalButtonGalery)
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonGalery = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Call API Galery Full Path Property')
+				.setDesc(
+					'Enter the full path property for the additional Call API galery in the final call'
+				)
+
+				.addText(text =>
+					text
+						.setPlaceholder('data.attributes.galery')
+						.setValue(
+							this.plugin.settings.additionalButtonGaleryFullPathProperty
+						)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonGaleryFullPathProperty =
+								value
 							await this.plugin.saveSettings()
 						})
 				)
