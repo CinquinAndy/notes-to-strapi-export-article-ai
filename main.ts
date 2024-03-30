@@ -1,14 +1,5 @@
 import OpenAI from 'openai'
-import {
-	App,
-	MarkdownView,
-	Notice,
-	Plugin,
-	PluginSettingTab,
-	Setting,
-	TFile,
-	TFolder,
-} from 'obsidian'
+import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian'
 
 /**
  * The settings for the Strapi Exporter plugin
@@ -444,14 +435,20 @@ export default class StrapiExporterPlugin extends Plugin {
 		}
 
 		/**
-		 * Add the content, image, and gallery to the article content
+		 * Add the content, image, and gallery to the article content based on the settings
 		 */
 		articleContent = {
 			data: {
 				...articleContent.data,
 				[contentAttributeName]: content,
-				[imageFullPathProperty]: imageBlob ? imageBlob.path : null,
-				[galeryFullPathProperty]: galeryUploadedImageIds,
+				...(imageBlob &&
+					imageFullPathProperty && {
+						[imageFullPathProperty]: imageBlob.path,
+					}),
+				...(galeryUploadedImageIds.length > 0 &&
+					galeryFullPathProperty && {
+						[galeryFullPathProperty]: galeryUploadedImageIds,
+					}),
 			},
 		}
 
