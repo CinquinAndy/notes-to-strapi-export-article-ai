@@ -26,6 +26,14 @@ interface StrapiExporterSettings {
 	additionalJsonTemplateDescription: string
 	additionalUrl: string
 	additionalContentAttributeName: string
+	mainButtonImage: string
+	mainButtonImageEnabled: boolean
+	mainButtonGalery: string
+	mainButtonGaleryEnabled: boolean
+	additionalButtonImage: string
+	additionalButtonImageEnabled: boolean
+	additionalButtonGalery: string
+	additionalButtonGaleryEnabled: boolean
 }
 
 /**
@@ -84,6 +92,14 @@ const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	additionalJsonTemplateDescription: '',
 	additionalUrl: '',
 	additionalContentAttributeName: '',
+	mainButtonImage: '',
+	mainButtonImageEnabled: false,
+	mainButtonGalery: '',
+	mainButtonGaleryEnabled: false,
+	additionalButtonImage: '',
+	additionalButtonImageEnabled: false,
+	additionalButtonGalery: '',
+	additionalButtonGaleryEnabled: false,
 }
 
 /**
@@ -241,6 +257,23 @@ export default class StrapiExporterPlugin extends Plugin {
 			new Notice('No file found in active view...')
 			return
 		}
+
+		/************************************************************
+		 * Check if the content has any images to process
+		 ************************************************************/
+		const imageP
+		const imageFolder = useAdditionalButton
+			? this.settings.additionalButtonImage
+			: this.settings.mainButtonImage
+		const galeryFolder = useAdditionalButton
+			? this.settings.additionalButtonGalery
+			: this.settings.mainButtonGalery
+		const imageBlobs = await this.getImageBlobs(
+			imagePaths.filter(
+				path => path.startsWith(imageFolder) || path.startsWith(galeryFolder)
+			)
+		)
+
 		/**
 		 * Read the content of the file
 		 */
@@ -763,6 +796,60 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
+		containerEl.createEl('h3', { text: 'Main Button Image Settings' })
+
+		new Setting(containerEl)
+			.setName('Enable Main Button Image')
+			.setDesc('Toggle the main button image')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mainButtonImageEnabled)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonImageEnabled = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Main Button Image Folder')
+			.setDesc('Enter the folder containing the main button image')
+			.addText(text =>
+				text
+					.setPlaceholder('main-image')
+					.setValue(this.plugin.settings.mainButtonImage)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonImage = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		containerEl.createEl('h3', { text: 'Main Button Galery Settings' })
+
+		new Setting(containerEl)
+			.setName('Enable Main Button Galery')
+			.setDesc('Toggle the main button galery')
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.mainButtonGaleryEnabled)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonGaleryEnabled = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Main Button Galery Folder')
+			.setDesc('Enter the folder containing the main button galery images')
+			.addText(text =>
+				text
+					.setPlaceholder('main-galery')
+					.setValue(this.plugin.settings.mainButtonGalery)
+					.onChange(async value => {
+						this.plugin.settings.mainButtonGalery = value
+						await this.plugin.saveSettings()
+					})
+			)
+
 		containerEl.createEl('h2', {
 			text: 'Strapi Settings - Call 2 - Additional call',
 		})
@@ -838,6 +925,62 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.additionalContentAttributeName)
 						.onChange(async value => {
 							this.plugin.settings.additionalContentAttributeName = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			containerEl.createEl('h3', { text: 'Additional Button Image Settings' })
+
+			new Setting(containerEl)
+				.setName('Enable Additional Button Image')
+				.setDesc('Toggle the additional button image')
+				.addToggle(toggle =>
+					toggle
+						.setValue(this.plugin.settings.additionalButtonImageEnabled)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonImageEnabled = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Button Image Folder')
+				.setDesc('Enter the folder containing the additional button image')
+				.addText(text =>
+					text
+						.setPlaceholder('additional-image')
+						.setValue(this.plugin.settings.additionalButtonImage)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonImage = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			containerEl.createEl('h3', { text: 'Additional Button Galery Settings' })
+
+			new Setting(containerEl)
+				.setName('Enable Additional Button Galery')
+				.setDesc('Toggle the additional button galery')
+				.addToggle(toggle =>
+					toggle
+						.setValue(this.plugin.settings.additionalButtonGaleryEnabled)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonGaleryEnabled = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
+				.setName('Additional Button Galery Folder')
+				.setDesc(
+					'Enter the folder containing the additional button galery images'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('additional-galery')
+						.setValue(this.plugin.settings.additionalButtonGalery)
+						.onChange(async value => {
+							this.plugin.settings.additionalButtonGalery = value
 							await this.plugin.saveSettings()
 						})
 				)
