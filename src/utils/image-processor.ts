@@ -175,7 +175,9 @@ export async function processMarkdownContent(
 		const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
 		galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
 			galleryImageBlobs,
-			settings
+			settings,
+			app,
+			galleryFolderPath
 		)
 	}
 
@@ -233,17 +235,6 @@ export async function processMarkdownContent(
 	)
 
 	console.log('articleContent', articleContent)
-
-	// /** ****************************************************************************
-	//  * Upload gallery images to Strapi
-	//  * *****************************************************************************
-	//  */
-	// const galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
-	// 	galleryImageBlobs,
-	// 	settings
-	// )
-	//
-	// console.log('galleryUploadedImageIds', galleryUploadedImageIds)
 
 	/** ****************************************************************************
 	 * Rename the gallery folder to "gallery_alreadyUpload"

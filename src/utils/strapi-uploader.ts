@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian'
+import { App, Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
@@ -6,10 +6,14 @@ import { ImageBlob, ImageDescription } from '../types/image'
  * Upload images to Strapi
  * @param imageDescriptions
  * @param settings
+ * @param app
+ * @param imageFolderPath
  */
 export async function uploadImagesToStrapi(
 	imageDescriptions: ImageDescription[],
-	settings: StrapiExporterSettings
+	settings: StrapiExporterSettings,
+	app: any = null,
+	imageFolderPath: string = ''
 ): Promise<{ [key: string]: { url: string; data: any } }> {
 	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
 
@@ -48,6 +52,11 @@ export async function uploadImagesToStrapi(
 		}
 	}
 
+	if (imageFolderPath && app) {
+		// Save metadata to a file
+		const metadataFile = `${imageFolderPath}/metadata.json`
+		await app.vault.adapter.write(metadataFile, JSON.stringify(uploadedImages))
+	}
 	return uploadedImages
 }
 
@@ -55,12 +64,17 @@ export async function uploadImagesToStrapi(
  * Upload gallery images to Strapi
  * @param imageBlobs
  * @param settings
+ * @param app
+ * @param galleryFolderPath
  */
 export async function uploadGalleryImagesToStrapi(
 	imageBlobs: ImageBlob[],
-	settings: StrapiExporterSettings
+	settings: StrapiExporterSettings,
+	app: App,
+	galleryFolderPath: string
 ): Promise<number[]> {
 	const uploadedImageIds: number[] = []
+	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
 
 	for (const imageBlob of imageBlobs) {
 		const formData = new FormData()
@@ -78,6 +92,10 @@ export async function uploadGalleryImagesToStrapi(
 			if (response.ok) {
 				const data = await response.json()
 				uploadedImageIds.push(data[0].id)
+				uploadedImages[imageBlob.name] = {
+					url: data[0].url,
+					data: data[0],
+				}
 			} else {
 				new Notice(`Failed to upload gallery image: ${imageBlob.name}`)
 			}
@@ -85,6 +103,10 @@ export async function uploadGalleryImagesToStrapi(
 			new Notice(`Error uploading gallery image: ${imageBlob.name}`)
 		}
 	}
+
+	// Save metadata to a file
+	const metadataFile = `${galleryFolderPath}/metadata.json`
+	await app.vault.adapter.write(metadataFile, JSON.stringify(uploadedImages))
 
 	return uploadedImageIds
 }
