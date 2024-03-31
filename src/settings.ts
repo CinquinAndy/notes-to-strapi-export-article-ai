@@ -142,6 +142,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainButtonImageEnabled = value
 						await this.plugin.saveSettings()
+						this.updateImageCounts()
 					})
 			)
 
@@ -157,6 +158,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainImage = value
 						await this.plugin.saveSettings()
+						this.updateImageCounts()
 					})
 			)
 
@@ -190,6 +192,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainButtonGaleryEnabled = value
 						await this.plugin.saveSettings()
+						this.updateImageCounts()
 					})
 			)
 
@@ -205,6 +208,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainGalery = value
 						await this.plugin.saveSettings()
+						this.updateImageCounts()
 					})
 			)
 		this.mainGaleryCountEl = containerEl.createEl('p', {
@@ -318,6 +322,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonImageEnabled = value
 							await this.plugin.saveSettings()
+							this.updateImageCounts()
 						})
 				)
 
@@ -331,6 +336,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalImage = value
 							await this.plugin.saveSettings()
+							this.updateImageCounts()
 						})
 				)
 
@@ -366,6 +372,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonGaleryEnabled = value
 							await this.plugin.saveSettings()
+							this.updateImageCounts()
 						})
 				)
 
@@ -381,6 +388,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalGalery = value
 							await this.plugin.saveSettings()
+							this.updateImageCounts()
 						})
 				)
 
@@ -403,6 +411,8 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						})
 				)
 		}
+
+		this.updateImageCounts()
 	}
 
 	async countImagesInFolder(folderPath: string): Promise<number> {
@@ -419,26 +429,48 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 	}
 
 	async updateImageCounts() {
-		const mainImageCount = await this.countImagesInFolder(
+		const mainImageFolder = this.app.vault.getAbstractFileByPath(
 			this.plugin.settings.mainImage
 		)
-		const mainGaleryCount = await this.countImagesInFolder(
+		if (mainImageFolder instanceof TFolder) {
+			const mainImageCount = await this.countImagesInFolder(
+				this.plugin.settings.mainImage
+			)
+			this.mainImageCountEl.setText(`Detected images: ${mainImageCount}`)
+		}
+
+		const mainGaleryFolder = this.app.vault.getAbstractFileByPath(
 			this.plugin.settings.mainGalery
 		)
-		const additionalImageCount = await this.countImagesInFolder(
+		if (mainGaleryFolder instanceof TFolder) {
+			const mainGaleryCount = await this.countImagesInFolder(
+				this.plugin.settings.mainGalery
+			)
+			this.mainGaleryCountEl.setText(`Detected images: ${mainGaleryCount}`)
+		}
+
+		const additionalImageFolder = this.app.vault.getAbstractFileByPath(
 			this.plugin.settings.additionalImage
 		)
-		const additionalGaleryCount = await this.countImagesInFolder(
+		if (additionalImageFolder instanceof TFolder) {
+			const additionalImageCount = await this.countImagesInFolder(
+				this.plugin.settings.additionalImage
+			)
+			this.additionalImageCountEl.setText(
+				`Detected images: ${additionalImageCount}`
+			)
+		}
+
+		const additionalGaleryFolder = this.app.vault.getAbstractFileByPath(
 			this.plugin.settings.additionalGalery
 		)
-
-		this.mainImageCountEl.setText(`Detected images: ${mainImageCount}`)
-		this.mainGaleryCountEl.setText(`Detected images: ${mainGaleryCount}`)
-		this.additionalImageCountEl.setText(
-			`Detected images: ${additionalImageCount}`
-		)
-		this.additionalGaleryCountEl.setText(
-			`Detected images: ${additionalGaleryCount}`
-		)
+		if (additionalGaleryFolder instanceof TFolder) {
+			const additionalGaleryCount = await this.countImagesInFolder(
+				this.plugin.settings.additionalGalery
+			)
+			this.additionalGaleryCountEl.setText(
+				`Detected images: ${additionalGaleryCount}`
+			)
+		}
 	}
 }
