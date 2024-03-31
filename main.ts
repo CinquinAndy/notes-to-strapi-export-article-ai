@@ -1,5 +1,14 @@
 import OpenAI from 'openai'
-import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian'
+import {
+	App,
+	MarkdownView,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	TFile,
+	TFolder,
+} from 'obsidian'
 
 /**
  * The settings for the Strapi Exporter plugin
@@ -18,18 +27,18 @@ interface StrapiExporterSettings {
 	additionalJsonTemplateDescription: string
 	additionalUrl: string
 	additionalContentAttributeName: string
-	mainButtonImage: string
+	mainImage: string
 	mainButtonImageEnabled: boolean
-	mainButtonGalery: string
+	mainGalery: string
 	mainButtonGaleryEnabled: boolean
-	additionalButtonImage: string
+	additionalImage: string
 	additionalButtonImageEnabled: boolean
-	additionalButtonGalery: string
+	additionalGalery: string
 	additionalButtonGaleryEnabled: boolean
-	mainButtonImageFullPathProperty: string
-	mainButtonGaleryFullPathProperty: string
-	additionalButtonImageFullPathProperty: string
-	additionalButtonGaleryFullPathProperty: string
+	mainImageFullPathProperty: string
+	mainGaleryFullPathProperty: string
+	additionalImageFullPathProperty: string
+	additionalGaleryFullPathProperty: string
 }
 
 /**
@@ -88,18 +97,18 @@ const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	additionalJsonTemplateDescription: '',
 	additionalUrl: '',
 	additionalContentAttributeName: '',
-	mainButtonImage: '',
+	mainImage: '',
 	mainButtonImageEnabled: false,
-	mainButtonGalery: '',
+	mainGalery: '',
 	mainButtonGaleryEnabled: false,
-	additionalButtonImage: '',
+	additionalImage: '',
 	additionalButtonImageEnabled: false,
-	additionalButtonGalery: '',
+	additionalGalery: '',
 	additionalButtonGaleryEnabled: false,
-	mainButtonImageFullPathProperty: '',
-	mainButtonGaleryFullPathProperty: '',
-	additionalButtonImageFullPathProperty: '',
-	additionalButtonGaleryFullPathProperty: '',
+	mainImageFullPathProperty: '',
+	mainGaleryFullPathProperty: '',
+	additionalImageFullPathProperty: '',
+	additionalGaleryFullPathProperty: '',
 }
 
 /**
@@ -262,11 +271,11 @@ export default class StrapiExporterPlugin extends Plugin {
 		 * Check if the content has any images to process
 		 ************************************************************/
 		const imagePath = useAdditionalCallAPI
-			? this.settings.additionalButtonImage
-			: this.settings.mainButtonImage
+			? this.settings.additionalImage
+			: this.settings.mainImage
 		const galeryFolderPath = useAdditionalCallAPI
-			? this.settings.additionalButtonGalery
-			: this.settings.mainButtonGalery
+			? this.settings.additionalGalery
+			: this.settings.mainGalery
 
 		const imageBlob = await this.getImageBlob(imagePath)
 		const galeryImageBlobs = await this.getGaleryImageBlobs(galeryFolderPath)
@@ -407,11 +416,11 @@ export default class StrapiExporterPlugin extends Plugin {
 		})
 
 		const imageFullPathProperty = useAdditionalCallAPI
-			? this.settings.additionalButtonImageFullPathProperty
-			: this.settings.mainButtonImageFullPathProperty
+			? this.settings.additionalImageFullPathProperty
+			: this.settings.mainImageFullPathProperty
 		const galeryFullPathProperty = useAdditionalCallAPI
-			? this.settings.additionalButtonGaleryFullPathProperty
-			: this.settings.mainButtonGaleryFullPathProperty
+			? this.settings.additionalGaleryFullPathProperty
+			: this.settings.mainGaleryFullPathProperty
 
 		/**
 		 * Parse the generated article content
@@ -778,6 +787,10 @@ export default class StrapiExporterPlugin extends Plugin {
 }
 
 class StrapiExporterSettingTab extends PluginSettingTab {
+	mainImageCountEl: HTMLElement
+	mainGaleryCountEl: HTMLElement
+	additionalImageCountEl: HTMLElement
+	additionalGaleryCountEl: HTMLElement
 	plugin: StrapiExporterPlugin
 
 	constructor(app: App, plugin: StrapiExporterPlugin) {
@@ -919,16 +932,22 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Main Image Folder')
-			.setDesc('Enter the folder containing the main image')
+			.setDesc(
+				'Enter the folder containing the main (absolute path from the root of the vault)'
+			)
 			.addText(text =>
 				text
 					.setPlaceholder('main-image')
-					.setValue(this.plugin.settings.mainButtonImage)
+					.setValue(this.plugin.settings.mainImage)
 					.onChange(async value => {
-						this.plugin.settings.mainButtonImage = value
+						this.plugin.settings.mainImage = value
 						await this.plugin.saveSettings()
 					})
 			)
+
+		this.mainImageCountEl = containerEl.createEl('p', {
+			text: 'Detected images: 0',
+		})
 
 		new Setting(containerEl)
 			.setName('Main Image Full Path Property')
@@ -938,9 +957,9 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 			.addText(text =>
 				text
 					.setPlaceholder('data.attributes.image')
-					.setValue(this.plugin.settings.mainButtonImageFullPathProperty)
+					.setValue(this.plugin.settings.mainImageFullPathProperty)
 					.onChange(async value => {
-						this.plugin.settings.mainButtonImageFullPathProperty = value
+						this.plugin.settings.mainImageFullPathProperty = value
 						await this.plugin.saveSettings()
 					})
 			)
@@ -961,16 +980,21 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Main Galery Folder')
-			.setDesc('Enter the folder containing the main galery images')
+			.setDesc(
+				'Enter the folder containing the main galery images (absolute path from the root of the vault)'
+			)
 			.addText(text =>
 				text
 					.setPlaceholder('main-galery')
-					.setValue(this.plugin.settings.mainButtonGalery)
+					.setValue(this.plugin.settings.mainGalery)
 					.onChange(async value => {
-						this.plugin.settings.mainButtonGalery = value
+						this.plugin.settings.mainGalery = value
 						await this.plugin.saveSettings()
 					})
 			)
+		this.mainGaleryCountEl = containerEl.createEl('p', {
+			text: 'Detected images: 0',
+		})
 
 		new Setting(containerEl)
 			.setName('Main Galery Full Path Property')
@@ -980,9 +1004,9 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 			.addText(text =>
 				text
 					.setPlaceholder('data.attributes.galery')
-					.setValue(this.plugin.settings.mainButtonGaleryFullPathProperty)
+					.setValue(this.plugin.settings.mainGaleryFullPathProperty)
 					.onChange(async value => {
-						this.plugin.settings.mainButtonGaleryFullPathProperty = value
+						this.plugin.settings.mainGaleryFullPathProperty = value
 						await this.plugin.saveSettings()
 					})
 			)
@@ -1088,12 +1112,16 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 				.addText(text =>
 					text
 						.setPlaceholder('additional-image')
-						.setValue(this.plugin.settings.additionalButtonImage)
+						.setValue(this.plugin.settings.additionalImage)
 						.onChange(async value => {
-							this.plugin.settings.additionalButtonImage = value
+							this.plugin.settings.additionalImage = value
 							await this.plugin.saveSettings()
 						})
 				)
+
+			this.additionalImageCountEl = containerEl.createEl('p', {
+				text: 'Detected images: 0',
+			})
 
 			new Setting(containerEl)
 				.setName('Additional Call API Image Full Path Property')
@@ -1103,11 +1131,9 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 				.addText(text =>
 					text
 						.setPlaceholder('data.attributes.image')
-						.setValue(
-							this.plugin.settings.additionalButtonImageFullPathProperty
-						)
+						.setValue(this.plugin.settings.additionalImageFullPathProperty)
 						.onChange(async value => {
-							this.plugin.settings.additionalButtonImageFullPathProperty = value
+							this.plugin.settings.additionalImageFullPathProperty = value
 							await this.plugin.saveSettings()
 						})
 				)
@@ -1136,31 +1162,72 @@ class StrapiExporterSettingTab extends PluginSettingTab {
 				.addText(text =>
 					text
 						.setPlaceholder('additional-galery')
-						.setValue(this.plugin.settings.additionalButtonGalery)
+						.setValue(this.plugin.settings.additionalGalery)
 						.onChange(async value => {
-							this.plugin.settings.additionalButtonGalery = value
+							this.plugin.settings.additionalGalery = value
 							await this.plugin.saveSettings()
 						})
 				)
+
+			this.additionalGaleryCountEl = containerEl.createEl('p', {
+				text: 'Detected images: 0',
+			})
 
 			new Setting(containerEl)
 				.setName('Additional Call API Galery Full Path Property')
 				.setDesc(
 					'Enter the full path property for the additional Call API galery in the final call'
 				)
-
 				.addText(text =>
 					text
 						.setPlaceholder('data.attributes.galery')
-						.setValue(
-							this.plugin.settings.additionalButtonGaleryFullPathProperty
-						)
+						.setValue(this.plugin.settings.additionalGaleryFullPathProperty)
 						.onChange(async value => {
-							this.plugin.settings.additionalButtonGaleryFullPathProperty =
-								value
+							this.plugin.settings.additionalGaleryFullPathProperty = value
 							await this.plugin.saveSettings()
 						})
 				)
 		}
+	}
+
+	// Update image counts
+	updateImageCounts()
+
+	// @ts-ignore
+	async countImagesInFolder(folderPath: string): Promise<number> {
+		const folder = this.app.vault.getAbstractFileByPath(folderPath)
+		if (folder instanceof TFolder) {
+			const files = folder.children.filter(
+				file =>
+					file instanceof TFile &&
+					file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
+			)
+			return files.length
+		}
+		return 0
+	}
+
+	async updateImageCounts() {
+		const mainImageCount = await this.countImagesInFolder(
+			this.plugin.settings.mainImage
+		)
+		const mainGaleryCount = await this.countImagesInFolder(
+			this.plugin.settings.mainGalery
+		)
+		const additionalImageCount = await this.countImagesInFolder(
+			this.plugin.settings.additionalImage
+		)
+		const additionalGaleryCount = await this.countImagesInFolder(
+			this.plugin.settings.additionalGalery
+		)
+
+		this.mainImageCountEl.setText(`Detected images: ${mainImageCount}`)
+		this.mainGaleryCountEl.setText(`Detected images: ${mainGaleryCount}`)
+		this.additionalImageCountEl.setText(
+			`Detected images: ${additionalImageCount}`
+		)
+		this.additionalGaleryCountEl.setText(
+			`Detected images: ${additionalGaleryCount}`
+		)
 	}
 }
