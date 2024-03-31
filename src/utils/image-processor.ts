@@ -28,67 +28,68 @@ export async function processMarkdownContent(
 	 * Check if all the settings are configured
 	 * *****************************************************************************
 	 */
-	if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
+	console.log(settings)
+	if (!settings.strapiUrl || !settings.strapiApiToken) {
 		new Notice(
 			'Please configure Strapi URL and API token in the plugin settings'
 		)
 		return
 	}
 
-	if (!this.settings.openaiApiKey) {
+	if (!settings.openaiApiKey) {
 		new Notice('Please configure OpenAI API key in the plugin settings')
 		return
 	}
 
 	if (useAdditionalCallAPI) {
-		if (!this.settings.additionalJsonTemplate) {
+		if (!settings.additionalJsonTemplate) {
 			new Notice(
 				'Please configure the additional call api JSON template in the plugin settings'
 			)
 			return
 		}
 
-		if (!this.settings.additionalJsonTemplateDescription) {
+		if (!settings.additionalJsonTemplateDescription) {
 			new Notice(
 				'Please configure the additional call api JSON template description in the plugin settings'
 			)
 			return
 		}
 
-		if (!this.settings.additionalUrl) {
+		if (!settings.additionalUrl) {
 			new Notice(
 				'Please configure the additional call api URL in the plugin settings'
 			)
 			return
 		}
 
-		if (!this.settings.additionalContentAttributeName) {
+		if (!settings.additionalContentAttributeName) {
 			new Notice(
 				'Please configure the additional call api content attribute name in the plugin settings'
 			)
 			return
 		}
 	} else {
-		if (!this.settings.jsonTemplate) {
+		if (!settings.jsonTemplate) {
 			new Notice('Please configure JSON template in the plugin settings')
 			return
 		}
 
-		if (!this.settings.jsonTemplateDescription) {
+		if (!settings.jsonTemplateDescription) {
 			new Notice(
 				'Please configure JSON template description in the plugin settings'
 			)
 			return
 		}
 
-		if (!this.settings.strapiArticleCreateUrl) {
+		if (!settings.strapiArticleCreateUrl) {
 			new Notice(
 				'Please configure Strapi article create URL in the plugin settings'
 			)
 			return
 		}
 
-		if (!this.settings.strapiContentAttributeName) {
+		if (!settings.strapiContentAttributeName) {
 			new Notice(
 				'Please configure Strapi content attribute name in the plugin settings'
 			)
