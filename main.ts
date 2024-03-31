@@ -252,7 +252,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Parse the generated article content
 		 */
-		let articleContent = JSON.parse(
+		const articleContent = JSON.parse(
 			completion.choices[0].message.content ?? '{}'
 		)
 		/**
@@ -260,33 +260,6 @@ export default class StrapiExporterPlugin extends Plugin {
 		 */
 		const galeryUploadedImageIds =
 			await this.uploadGaleryImagesToStrapi(galeryImageBlobs)
-
-		// Rename the galery folder to "alreadyUpload"
-		const galeryFolder = this.app.vault.getAbstractFileByPath(galeryFolderPath)
-		if (galeryFolder instanceof TFolder) {
-			await this.app.vault.rename(
-				galeryFolder,
-				galeryFolderPath.replace(/\/[^/]*$/, '/alreadyUpload')
-			)
-		}
-
-		/**
-		 * Add the content, image, and gallery to the article content based on the settings
-		 */
-		articleContent = {
-			data: {
-				...articleContent.data,
-				[contentAttributeName]: content,
-				...(imageBlob &&
-					imageFullPathProperty && {
-						[imageFullPathProperty]: imageBlob.path,
-					}),
-				...(galeryUploadedImageIds.length > 0 &&
-					galeryFullPathProperty && {
-						[galeryFullPathProperty]: galeryUploadedImageIds,
-					}),
-			},
-		}
 
 		new Notice('Article content generated successfully!')
 		try {

@@ -2,6 +2,7 @@ import { Plugin } from 'obsidian'
 import { StrapiExporterSettingTab } from './settings'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
 import { processMarkdownContent } from './utils/image-processor'
+import { StrapiExporterSettings } from './types/settings'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
