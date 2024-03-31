@@ -185,6 +185,10 @@ export default class StrapiExporterPlugin extends Plugin {
 			content = replaceImagePaths(content, uploadedImages)
 			await this.app.vault.modify(file, content)
 			new Notice('Images uploaded and links updated successfully!')
+		} else {
+			new Notice(
+				'No local images found in the content... Skip the image processing...'
+			)
 		}
 
 		/**
