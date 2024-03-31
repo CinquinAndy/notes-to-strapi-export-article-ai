@@ -1,4 +1,4 @@
-import { App, Notice } from 'obsidian'
+import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
@@ -9,9 +9,7 @@ import { ImageBlob, ImageDescription } from '../types/image'
  */
 export async function uploadImagesToStrapi(
 	imageDescriptions: ImageDescription[],
-	settings: StrapiExporterSettings,
-	app: App,
-	imageFolderPath: string
+	settings: StrapiExporterSettings
 ): Promise<{ [key: string]: { url: string; data: any } }> {
 	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
 
@@ -49,12 +47,6 @@ export async function uploadImagesToStrapi(
 			new Notice(`Error uploading image: ${imageDescription.name}`)
 		}
 	}
-
-	/**
-	 * Save metadata to a file
-	 */
-	const metadataFile = `${imageFolderPath}/metadata.json`
-	await app.vault.adapter.write(metadataFile, JSON.stringify(uploadedImages))
 
 	return uploadedImages
 }

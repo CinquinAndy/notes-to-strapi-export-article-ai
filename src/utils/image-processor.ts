@@ -99,6 +99,12 @@ export async function processMarkdownContent(
 
 	new Notice('All settings are ok, processing Markdown content...')
 
+	// Initialize OpenAI API
+	const openai = new OpenAI({
+		apiKey: settings.openaiApiKey,
+		dangerouslyAllowBrowser: true,
+	})
+
 	/** ****************************************************************************
 	 * Process the markdown content
 	 * *****************************************************************************
@@ -114,27 +120,68 @@ export async function processMarkdownContent(
 	 * Check if the content has any images to process
 	 * *****************************************************************************
 	 */
+	let imageBlob: { path: string; blob: Blob; name: string } | null = null
+	let galleryUploadedImageIds: number[] = []
 	const articleFolderPath = file.parent?.path
 	const imageFolderPath = `${articleFolderPath}/image`
 	const galleryFolderPath = `${articleFolderPath}/gallery`
+	const imageMetadataFile = `${articleFolderPath}/image/metadata.json`
+	const galleryMetadataFile = `${articleFolderPath}/gallery/metadata.json`
 	console.log('articleFolderPath', articleFolderPath)
 	console.log('imageFolderPath', imageFolderPath)
 	console.log('galleryFolderPath', galleryFolderPath)
 
-	const imageBlob = await getImageBlob(app, imageFolderPath)
-	console.log('imageBlob', imageBlob)
-	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
-	console.log('galleryImageBlobs', galleryImageBlobs)
+	// Check if metadata files exist
+	if (await app.vault.adapter.exists(imageMetadataFile)) {
+		const imageMetadata = JSON.parse(
+			await app.vault.adapter.read(imageMetadataFile)
+		)
+		if (Object.keys(imageMetadata).length > 0) {
+			imageBlob = {
+				path: imageMetadata[Object.keys(imageMetadata)[0]].data.url,
+				blob: new Blob(),
+				name: Object.keys(imageMetadata)[0],
+			}
+		}
+	}
+
+	if (await app.vault.adapter.exists(galleryMetadataFile)) {
+		const galleryMetadata = JSON.parse(
+			await app.vault.adapter.read(galleryMetadataFile)
+		)
+		if (Object.keys(galleryMetadata).length > 0) {
+			galleryUploadedImageIds = Object.values(galleryMetadata).map(
+				(item: any) => item.data.id
+			)
+		}
+	}
+
+	// If metadata doesn't exist, get image blobs and upload to Strapi
+	if (!imageBlob) {
+		imageBlob = await getImageBlob(app, imageFolderPath)
+		if (imageBlob) {
+			const imageDescription = await getImageDescription(imageBlob.blob, openai)
+			const uploadedImage = await uploadImagesToStrapi(
+				[{ ...imageBlob, description: imageDescription }],
+				settings,
+				app,
+				imageFolderPath
+			)
+			imageBlob.path = uploadedImage[imageBlob.name].url
+		}
+	}
+
+	if (galleryUploadedImageIds.length === 0) {
+		const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
+		galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
+			galleryImageBlobs,
+			settings
+		)
+	}
 
 	content = await app.vault.read(file)
 
 	const flag = hasUnexportedImages(content)
-
-	// Initialize OpenAI API
-	const openai = new OpenAI({
-		apiKey: settings.openaiApiKey,
-		dangerouslyAllowBrowser: true,
-	})
 
 	/** ****************************************************************************
 	 * Process the images
@@ -187,23 +234,23 @@ export async function processMarkdownContent(
 
 	console.log('articleContent', articleContent)
 
-	/** ****************************************************************************
-	 * Upload gallery images to Strapi
-	 * *****************************************************************************
-	 */
-	const galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
-		galleryImageBlobs,
-		settings
-	)
-
-	console.log('galleryUploadedImageIds', galleryUploadedImageIds)
+	// /** ****************************************************************************
+	//  * Upload gallery images to Strapi
+	//  * *****************************************************************************
+	//  */
+	// const galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
+	// 	galleryImageBlobs,
+	// 	settings
+	// )
+	//
+	// console.log('galleryUploadedImageIds', galleryUploadedImageIds)
 
 	/** ****************************************************************************
 	 * Rename the gallery folder to "gallery_alreadyUpload"
 	 * *****************************************************************************
 	 */
 	const galleryFolder = app.vault.getAbstractFileByPath(galleryFolderPath)
-	if (galleryFolder instanceof TFolder) {
+	if (galleryFolder instanceof TFolder && galleryUploadedImageIds.length > 0) {
 		await app.vault.rename(
 			galleryFolder,
 			galleryFolderPath.replace(/\/[^/]*$/, '/gallery_alreadyUpload')
@@ -216,7 +263,7 @@ export async function processMarkdownContent(
 	 * Rename the image folder to "file_alreadyUpload"
 	 */
 	const imageFolder = app.vault.getAbstractFileByPath(imageFolderPath)
-	if (imageFolder instanceof TFolder) {
+	if (imageFolder instanceof TFolder && imageBlob) {
 		await app.vault.rename(
 			imageFolder,
 			imageFolderPath.replace(/\/[^/]*$/, '/file_alreadyUpload')
