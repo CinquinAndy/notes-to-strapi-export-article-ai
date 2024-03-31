@@ -79,7 +79,8 @@ export async function uploadGalleryImagesToStrapi(
 	galleryFolderPath: string = ''
 ): Promise<number[]> {
 	const uploadedImageIds: number[] = []
-	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
+	const uploadedImages: { [key: string]: { url: string; data: any; id: any } } =
+		{}
 
 	for (const imageBlob of imageBlobs) {
 		const formData = new FormData()
@@ -96,9 +97,9 @@ export async function uploadGalleryImagesToStrapi(
 
 			if (response.ok) {
 				const data = await response.json()
-				uploadedImageIds.push(data[0].id)
 				uploadedImages[imageBlob.name] = {
 					url: data[0].url,
+					id: data[0].id,
 					data: data[0],
 				}
 			} else {

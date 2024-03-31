@@ -6,6 +6,7 @@ import {
 	uploadImagesToStrapi,
 } from './strapi-uploader'
 import { generateArticleContent, getImageDescription } from './openai-generator'
+import { ImageBlob } from '../types/image'
 
 /**
  * Process the markdown content
@@ -120,7 +121,7 @@ export async function processMarkdownContent(
 	 * Check if the content has any images to process
 	 * *****************************************************************************
 	 */
-	let imageBlob: { path: string; blob: Blob; name: string } | null = null
+	let imageBlob: ImageBlob | null = null
 	let galleryUploadedImageIds: number[] = []
 	const articleFolderPath = file.parent?.path
 	const imageFolderPath = `${articleFolderPath}/image`
@@ -141,6 +142,7 @@ export async function processMarkdownContent(
 				path: imageMetadata[Object.keys(imageMetadata)[0]].data.url,
 				blob: new Blob(),
 				name: Object.keys(imageMetadata)[0],
+				id: imageMetadata[Object.keys(imageMetadata)[0]].id,
 			}
 		}
 	}
@@ -149,6 +151,7 @@ export async function processMarkdownContent(
 		const galleryMetadata = JSON.parse(
 			await app.vault.adapter.read(galleryMetadataFile)
 		)
+		console.log('galleryMetadata', galleryMetadata)
 		if (Object.keys(galleryMetadata).length > 0) {
 			galleryUploadedImageIds = Object.values(galleryMetadata).map(
 				(item: any) => item.data.id
@@ -236,33 +239,6 @@ export async function processMarkdownContent(
 
 	console.log('articleContent', articleContent)
 
-	// /** ****************************************************************************
-	//  * Rename the gallery folder to "gallery_alreadyUpload"
-	//  * *****************************************************************************
-	//  */
-	// const galleryFolder = app.vault.getAbstractFileByPath(galleryFolderPath)
-	// if (galleryFolder instanceof TFolder && galleryUploadedImageIds.length > 0) {
-	// 	await app.vault.rename(
-	// 		galleryFolder,
-	// 		galleryFolderPath.replace(/\/[^/]*$/, '/gallery_alreadyUpload')
-	// 	)
-	// }
-	//
-	// console.log('galleryFolder', galleryFolder)
-
-	// /** ****************************************************************************
-	//  * Rename the image folder to "file_alreadyUpload"
-	//  */
-	// const imageFolder = app.vault.getAbstractFileByPath(imageFolderPath)
-	// if (imageFolder instanceof TFolder && imageBlob) {
-	// 	await app.vault.rename(
-	// 		imageFolder,
-	// 		imageFolderPath.replace(/\/[^/]*$/, '/file_alreadyUpload')
-	// 	)
-	// }
-	//
-	// console.log('imageFolder', imageFolder)
-
 	/** ****************************************************************************
 	 * Add the content, image, and gallery to the article content based on the settings
 	 * *****************************************************************************
@@ -277,10 +253,11 @@ export async function processMarkdownContent(
 	console.log('imageFullPathProperty', imageFullPathProperty)
 	console.log('galleryFullPathProperty', galleryFullPathProperty)
 
+	console.log('imageBlob', imageBlob)
 	articleContent.data = {
 		...articleContent.data,
 		...(imageBlob &&
-			imageFullPathProperty && { [imageFullPathProperty]: imageBlob.path }),
+			imageFullPathProperty && { [imageFullPathProperty]: imageBlob.id }),
 		...(galleryUploadedImageIds.length > 0 &&
 			galleryFullPathProperty && {
 				[galleryFullPathProperty]: galleryUploadedImageIds,
