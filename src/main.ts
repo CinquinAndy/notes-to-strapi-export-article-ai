@@ -192,30 +192,42 @@ export default class StrapiExporterPlugin extends Plugin {
 		}
 
 		/**
-		 * Upload the gallery images to Strapi
+		 * Generate article content using OpenAI
 		 */
-		const galeryUploadedImageIds = await uploadGaleryImagesToStrapi(
-			galeryImageBlobs,
-			this.settings.strapiUrl,
-			this.settings.strapiApiToken
-		)
+		new Notice('Generating article content...')
+		let jsonTemplate: any
+		let jsonTemplateDescription: any
+		let url: any
+		let contentAttributeName: any
 
-		// Rename the galery folder to "alreadyUpload"
-		const galeryFolder = this.app.vault.getAbstractFileByPath(galeryFolderPath)
-		if (galeryFolder instanceof TFolder) {
-			await this.app.vault.rename(
-				galeryFolder,
-				galeryFolderPath.replace(/\/[^/]*$/, '/alreadyUpload')
+		if (useAdditionalCallAPI) {
+			jsonTemplate = JSON.parse(this.settings.additionalJsonTemplate)
+			jsonTemplateDescription = JSON.parse(
+				this.settings.additionalJsonTemplateDescription
 			)
+			url = this.settings.additionalUrl
+			contentAttributeName = this.settings.additionalContentAttributeName
+		} else {
+			jsonTemplate = JSON.parse(this.settings.jsonTemplate)
+			jsonTemplateDescription = JSON.parse(
+				this.settings.jsonTemplateDescription
+			)
+			url = this.settings.strapiArticleCreateUrl
+			contentAttributeName = this.settings.strapiContentAttributeName
 		}
+
+		const imageFullPathProperty = useAdditionalCallAPI
+			? this.settings.additionalImageFullPathProperty
+			: this.settings.mainImageFullPathProperty
+		const galeryFullPathProperty = useAdditionalCallAPI
+			? this.settings.additionalGaleryFullPathProperty
+			: this.settings.mainGaleryFullPathProperty
 
 		/**
 		 * Add the content, image, and gallery to the article content based on the settings
 		 */
 		const articleContent = {
 			data: {
-				...articleContent.data,
-				[contentAttributeName]: content,
 				...(imageBlob &&
 					imageFullPathProperty && {
 						[imageFullPathProperty]: imageBlob.path,
@@ -235,7 +247,13 @@ export default class StrapiExporterPlugin extends Plugin {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${this.settings.strapiApiToken}`,
 				},
-				body: JSON.stringify(articleContent),
+				body: JSON.stringify({
+					...articleContent,
+					data: {
+						...articleContent.data,
+						[contentAttributeName]: content,
+					},
+				}),
 			})
 
 			if (response.ok) {
