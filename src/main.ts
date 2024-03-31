@@ -20,7 +20,15 @@ import {
 	replaceImagePaths,
 } from './utils/markdownUtils'
 import { getImageDescription } from './api/openaiAPI'
-import { uploadImagesToStrapi } from './api/strapiAPI'
+import {
+	uploadGaleryImagesToStrapi,
+	uploadImagesToStrapi,
+} from './api/strapiAPI'
+import {
+	getGaleryImageBlobs,
+	getImageBlob,
+	getImageBlobs,
+} from './utils/imageUtils'
 
 /**
  * The main plugin class
@@ -123,8 +131,11 @@ export default class StrapiExporterPlugin extends Plugin {
 			? this.settings.additionalGalery
 			: this.settings.mainGalery
 
-		const imageBlob = await this.getImageBlob(imagePath)
-		const galeryImageBlobs = await this.getGaleryImageBlobs(galeryFolderPath)
+		const imageBlob = await getImageBlob(this.app, imagePath)
+		const galeryImageBlobs = await getGaleryImageBlobs(
+			this.app,
+			galeryFolderPath
+		)
 
 		/**
 		 * Read the content of the file
@@ -148,7 +159,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		 */
 		if (flag) {
 			const imagePaths = extractImagePaths(content)
-			const imageBlobs = await this.getImageBlobs(imagePaths)
+			const imageBlobs = await getImageBlobs(this.app, imagePaths)
 
 			new Notice('Getting image descriptions...')
 			const imageDescriptions = await Promise.all(
@@ -179,8 +190,11 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Upload the gallery images to Strapi
 		 */
-		const galeryUploadedImageIds =
-			await this.uploadGaleryImagesToStrapi(galeryImageBlobs)
+		const galeryUploadedImageIds = await uploadGaleryImagesToStrapi(
+			galeryImageBlobs,
+			this.settings.strapiUrl,
+			this.settings.strapiApiToken
+		)
 
 		// Rename the galery folder to "alreadyUpload"
 		const galeryFolder = this.app.vault.getAbstractFileByPath(galeryFolderPath)
@@ -194,7 +208,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Add the content, image, and gallery to the article content based on the settings
 		 */
-		articleContent = {
+		const articleContent = {
 			data: {
 				...articleContent.data,
 				[contentAttributeName]: content,
