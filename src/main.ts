@@ -12,19 +12,8 @@ import {
 	DEFAULT_STRAPI_EXPORTER_SETTINGS,
 	StrapiExporterSettings,
 } from './settings/strapiExporterSettings'
-import OpenAI, { OpenAI } from 'openai'
-import * as url from 'node:url'
-import * as url from 'node:url'
-import * as url from 'node:url'
-import * as path from 'node:path'
-import * as path from 'node:path'
-import * as path from 'node:path'
-import * as url from 'node:url'
-import * as url from 'node:url'
-import * as url from 'node:url'
-import * as path from 'node:path'
-import * as path from 'node:path'
-import * as path from 'node:path'
+import { OpenAI } from 'openai'
+import { checkSettings } from './settings/settingsUtils'
 
 /**
  * The main plugin class
@@ -102,79 +91,14 @@ export default class StrapiExporterPlugin extends Plugin {
 		 * Check if all the settings are configured
 		 * *****************************************************************************
 		 */
-		if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
-			new Notice(
-				'Please configure Strapi URL and API token in the plugin settings'
-			)
+		if (!checkSettings(this.settings, useAdditionalCallAPI)) {
 			return
-		}
-
-		if (!this.settings.openaiApiKey) {
-			new Notice('Please configure OpenAI API key in the plugin settings')
-			return
-		}
-
-		if (useAdditionalCallAPI) {
-			if (!this.settings.additionalJsonTemplate) {
-				new Notice(
-					'Please configure the additional call api JSON template in the plugin settings'
-				)
-				return
-			}
-
-			if (!this.settings.additionalJsonTemplateDescription) {
-				new Notice(
-					'Please configure the additional call api JSON template description in the plugin settings'
-				)
-				return
-			}
-
-			if (!this.settings.additionalUrl) {
-				new Notice(
-					'Please configure the additional call api URL in the plugin settings'
-				)
-				return
-			}
-
-			if (!this.settings.additionalContentAttributeName) {
-				new Notice(
-					'Please configure the additional call api content attribute name in the plugin settings'
-				)
-				return
-			}
-		} else {
-			if (!this.settings.jsonTemplate) {
-				new Notice('Please configure JSON template in the plugin settings')
-				return
-			}
-
-			if (!this.settings.jsonTemplateDescription) {
-				new Notice(
-					'Please configure JSON template description in the plugin settings'
-				)
-				return
-			}
-
-			if (!this.settings.strapiArticleCreateUrl) {
-				new Notice(
-					'Please configure Strapi article create URL in the plugin settings'
-				)
-				return
-			}
-
-			if (!this.settings.strapiContentAttributeName) {
-				new Notice(
-					'Please configure Strapi content attribute name in the plugin settings'
-				)
-				return
-			}
 		}
 
 		/** ****************************************************************************
 		 * Process the Markdown content
 		 * *****************************************************************************
 		 */
-		new Notice('All settings are ok, processing Markdown content...')
 		const file = activeView.file
 		let content = ''
 		if (!file) {
@@ -540,7 +464,7 @@ export default class StrapiExporterPlugin extends Plugin {
 	 * @param imageBlob
 	 * @param openai
 	 */
-	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
+	getImageDescription = async (imageBlob: Blob, openai: OpenAI) => {
 		// Get the image description using the OpenAI API (using gpt 4 vision preview model)
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4-vision-preview',
