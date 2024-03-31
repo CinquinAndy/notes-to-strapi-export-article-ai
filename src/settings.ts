@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian'
+import { App, Notice, PluginSettingTab, Setting } from 'obsidian'
 import StrapiExporterPlugin from './main'
+import { validateJsonTemplate } from './utils/validators'
 
 export class StrapiExporterSettingTab extends PluginSettingTab {
 	plugin: StrapiExporterPlugin
@@ -18,7 +19,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		 * Add the settings for the plugin
 		 * *****************************************************************************
 		 */
-		containerEl.createEl('h2', { text: 'Strapi & OpenAI Settings' })
+		containerEl.createEl('h1', { text: 'Strapi & OpenAI Settings' })
 		new Setting(containerEl)
 			.setName('Strapi API Token')
 			.setDesc('Enter your Strapi API token')
@@ -60,7 +61,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h2', { text: 'Strapi Settings - Call 1' })
+		containerEl.createEl('h1', { text: 'Strapi Settings - Call 1' })
 
 		new Setting(containerEl)
 			.setName('Strapi URL')
@@ -83,8 +84,15 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.setPlaceholder('Enter your JSON template')
 					.setValue(this.plugin.settings.jsonTemplate)
 					.onChange(async value => {
-						this.plugin.settings.jsonTemplate = value
-						await this.plugin.saveSettings()
+						if (validateJsonTemplate(value)) {
+							this.plugin.settings.jsonTemplate = value
+							await this.plugin.saveSettings()
+							new Notice('JSON template saved successfully. (valid !)')
+						} else {
+							new Notice(
+								'Invalid JSON template. Please enter a valid JSON template.'
+							)
+						}
 					})
 			)
 
@@ -127,7 +135,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h3', { text: 'Main Image Settings' })
+		containerEl.createEl('h2', { text: 'Main Image Settings' })
 
 		new Setting(containerEl)
 			.setName('Enable Main Image')
@@ -138,40 +146,44 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainButtonImageEnabled = value
 						await this.plugin.saveSettings()
+						this.display()
 					})
 			)
 
-		containerEl.createEl('p', {
-			text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
-		})
+		if (this.plugin.settings.mainButtonImageEnabled) {
+			// Display main image settings
+			containerEl.createEl('p', {
+				text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
+			})
 
-		containerEl.createEl('ul', {
-			text: '- Article file (e.g., article.md)',
-		})
-		containerEl.createEl('ul', {
-			text: '- Main image folder (name: image)',
-		})
+			containerEl.createEl('ul', {
+				text: '- Article file (e.g., article.md)',
+			})
+			containerEl.createEl('ul', {
+				text: '- Main image folder (name: image)',
+			})
 
-		containerEl.createEl('p', {
-			text: 'The plugin will detect images in the main image (for this api call)',
-		})
+			containerEl.createEl('p', {
+				text: 'The plugin will detect images in the main image (for this api call)',
+			})
 
-		new Setting(containerEl)
-			.setName('Main Image Full Path Property')
-			.setDesc(
-				'Enter the full path property for the main image in the final call'
-			)
-			.addText(text =>
-				text
-					.setPlaceholder('data.attributes.image')
-					.setValue(this.plugin.settings.mainImageFullPathProperty)
-					.onChange(async value => {
-						this.plugin.settings.mainImageFullPathProperty = value
-						await this.plugin.saveSettings()
-					})
-			)
+			new Setting(containerEl)
+				.setName('Main Image Full Path Property')
+				.setDesc(
+					'Enter the full path property for the main image in the final call'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('data.attributes.image')
+						.setValue(this.plugin.settings.mainImageFullPathProperty)
+						.onChange(async value => {
+							this.plugin.settings.mainImageFullPathProperty = value
+							await this.plugin.saveSettings()
+						})
+				)
+		}
 
-		containerEl.createEl('h3', { text: 'Main Gallery Settings' })
+		containerEl.createEl('h2', { text: 'Main Gallery Settings' })
 
 		new Setting(containerEl)
 			.setName('Enable Main Gallery')
@@ -182,40 +194,43 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainButtonGalleryEnabled = value
 						await this.plugin.saveSettings()
+						this.display()
 					})
 			)
 
-		containerEl.createEl('p', {
-			text: 'For the plugin to detect galleries, ensure the following folder structure:',
-		})
+		if (this.plugin.settings.mainButtonGalleryEnabled) {
+			containerEl.createEl('p', {
+				text: 'For the plugin to detect galleries, ensure the following folder structure:',
+			})
 
-		containerEl.createEl('ul', {
-			text: '- Article file (e.g., article.md)',
-		})
-		containerEl.createEl('ul', {
-			text: '- Main gallery folder (name: gallery)',
-		})
+			containerEl.createEl('ul', {
+				text: '- Article file (e.g., article.md)',
+			})
+			containerEl.createEl('ul', {
+				text: '- Main gallery folder (name: gallery)',
+			})
 
-		containerEl.createEl('p', {
-			text: 'The plugin will detect images in the main gallery folders. (for this api call)',
-		})
+			containerEl.createEl('p', {
+				text: 'The plugin will detect images in the main gallery folders. (for this api call)',
+			})
 
-		new Setting(containerEl)
-			.setName('Main Gallery Full Path Property')
-			.setDesc(
-				'Enter the full path property for the main gallery in the final call'
-			)
-			.addText(text =>
-				text
-					.setPlaceholder('data.attributes.gallery')
-					.setValue(this.plugin.settings.mainGalleryFullPathProperty)
-					.onChange(async value => {
-						this.plugin.settings.mainGalleryFullPathProperty = value
-						await this.plugin.saveSettings()
-					})
-			)
+			new Setting(containerEl)
+				.setName('Main Gallery Full Path Property')
+				.setDesc(
+					'Enter the full path property for the main gallery in the final call'
+				)
+				.addText(text =>
+					text
+						.setPlaceholder('data.attributes.gallery')
+						.setValue(this.plugin.settings.mainGalleryFullPathProperty)
+						.onChange(async value => {
+							this.plugin.settings.mainGalleryFullPathProperty = value
+							await this.plugin.saveSettings()
+						})
+				)
+		}
 
-		containerEl.createEl('h2', {
+		containerEl.createEl('h1', {
 			text: 'Strapi Settings - Call 2 - Additional call',
 		})
 		containerEl.createEl('p', {
@@ -248,8 +263,15 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.setPlaceholder('Enter your JSON template')
 						.setValue(this.plugin.settings.additionalJsonTemplate)
 						.onChange(async value => {
-							this.plugin.settings.additionalJsonTemplate = value
-							await this.plugin.saveSettings()
+							if (validateJsonTemplate(value)) {
+								this.plugin.settings.additionalJsonTemplate = value
+								await this.plugin.saveSettings()
+								new Notice('JSON template saved successfully. (valid !)')
+							} else {
+								new Notice(
+									'Invalid additional JSON template. Please enter a valid JSON template.'
+								)
+							}
 						})
 				)
 
@@ -296,7 +318,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						})
 				)
 
-			containerEl.createEl('h3', { text: 'Additional Call api Image Settings' })
+			containerEl.createEl('h2', { text: 'Additional Call api Image Settings' })
 
 			new Setting(containerEl)
 				.setName('Enable Additional Call API Image')
@@ -307,40 +329,43 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonImageEnabled = value
 							await this.plugin.saveSettings()
+							this.display()
 						})
 				)
 
-			containerEl.createEl('p', {
-				text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
-			})
+			if (this.plugin.settings.additionalButtonImageEnabled) {
+				containerEl.createEl('p', {
+					text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
+				})
 
-			containerEl.createEl('ul', {
-				text: '- Article file (e.g., article.md)',
-			})
-			containerEl.createEl('ul', {
-				text: '- Main image folder (name: image)',
-			})
+				containerEl.createEl('ul', {
+					text: '- Article file (e.g., article.md)',
+				})
+				containerEl.createEl('ul', {
+					text: '- Main image folder (name: image)',
+				})
 
-			containerEl.createEl('p', {
-				text: 'The plugin will detect images in the main image (for this api call)',
-			})
+				containerEl.createEl('p', {
+					text: 'The plugin will detect images in the main image (for this api call)',
+				})
 
-			new Setting(containerEl)
-				.setName('Additional Call API Image Full Path Property')
-				.setDesc(
-					'Enter the full path property for the additional Call API image in the final call'
-				)
-				.addText(text =>
-					text
-						.setPlaceholder('data.attributes.image')
-						.setValue(this.plugin.settings.additionalImageFullPathProperty)
-						.onChange(async value => {
-							this.plugin.settings.additionalImageFullPathProperty = value
-							await this.plugin.saveSettings()
-						})
-				)
+				new Setting(containerEl)
+					.setName('Additional Call API Image Full Path Property')
+					.setDesc(
+						'Enter the full path property for the additional Call API image in the final call'
+					)
+					.addText(text =>
+						text
+							.setPlaceholder('data.image')
+							.setValue(this.plugin.settings.additionalImageFullPathProperty)
+							.onChange(async value => {
+								this.plugin.settings.additionalImageFullPathProperty = value
+								await this.plugin.saveSettings()
+							})
+					)
+			}
 
-			containerEl.createEl('h3', {
+			containerEl.createEl('h2', {
 				text: 'Additional Call API Gallery Settings',
 			})
 
@@ -353,38 +378,41 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonGalleryEnabled = value
 							await this.plugin.saveSettings()
+							this.display()
 						})
 				)
 
-			containerEl.createEl('p', {
-				text: 'For the plugin to detect galleries, ensure the following folder structure:',
-			})
+			if (this.plugin.settings.additionalButtonGalleryEnabled) {
+				containerEl.createEl('p', {
+					text: 'For the plugin to detect galleries, ensure the following folder structure:',
+				})
 
-			containerEl.createEl('ul', {
-				text: '- Article file (e.g., article.md)',
-			})
-			containerEl.createEl('ul', {
-				text: '- Main gallery folder (name: gallery)',
-			})
+				containerEl.createEl('ul', {
+					text: '- Article file (e.g., article.md)',
+				})
+				containerEl.createEl('ul', {
+					text: '- Main gallery folder (name: gallery)',
+				})
 
-			containerEl.createEl('p', {
-				text: 'The plugin will detect images in the main gallery folders. (for this api call)',
-			})
+				containerEl.createEl('p', {
+					text: 'The plugin will detect images in the main gallery folders. (for this api call)',
+				})
 
-			new Setting(containerEl)
-				.setName('Additional Call API Gallery Full Path Property')
-				.setDesc(
-					'Enter the full path property for the additional Call API gallery in the final call'
-				)
-				.addText(text =>
-					text
-						.setPlaceholder('data.attributes.gallery')
-						.setValue(this.plugin.settings.additionalGalleryFullPathProperty)
-						.onChange(async value => {
-							this.plugin.settings.additionalGalleryFullPathProperty = value
-							await this.plugin.saveSettings()
-						})
-				)
+				new Setting(containerEl)
+					.setName('Additional Call API Gallery Full Path Property')
+					.setDesc(
+						'Enter the full path property for the additional Call API gallery in the final call'
+					)
+					.addText(text =>
+						text
+							.setPlaceholder('data.gallery')
+							.setValue(this.plugin.settings.additionalGalleryFullPathProperty)
+							.onChange(async value => {
+								this.plugin.settings.additionalGalleryFullPathProperty = value
+								await this.plugin.saveSettings()
+							})
+					)
+			}
 		}
 	}
 }
