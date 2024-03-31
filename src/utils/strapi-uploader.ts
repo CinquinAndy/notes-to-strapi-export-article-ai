@@ -15,7 +15,8 @@ export async function uploadImagesToStrapi(
 	app: any = null,
 	imageFolderPath: string = ''
 ): Promise<{ [key: string]: { url: string; data: any } }> {
-	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
+	const uploadedImages: { [key: string]: { url: string; data: any; id: any } } =
+		{}
 
 	for (const imageDescription of imageDescriptions) {
 		const formData = new FormData()
@@ -43,6 +44,7 @@ export async function uploadImagesToStrapi(
 				uploadedImages[imageDescription.name] = {
 					url: data[0].url,
 					data: data[0],
+					id: data[0].id,
 				}
 			} else {
 				new Notice(`Failed to upload image: ${imageDescription.name}`)
@@ -97,6 +99,7 @@ export async function uploadGalleryImagesToStrapi(
 
 			if (response.ok) {
 				const data = await response.json()
+				console.log('data strapi uploader', data)
 				uploadedImages[imageBlob.name] = {
 					url: data[0].url,
 					id: data[0].id,

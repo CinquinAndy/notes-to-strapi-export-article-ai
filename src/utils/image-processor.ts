@@ -164,13 +164,14 @@ export async function processMarkdownContent(
 		imageBlob = await getImageBlob(app, imageFolderPath)
 		if (imageBlob) {
 			const imageDescription = await getImageDescription(imageBlob.blob, openai)
-			const uploadedImage = await uploadImagesToStrapi(
+			const uploadedImage: any = await uploadImagesToStrapi(
 				[{ ...imageBlob, description: imageDescription }],
 				settings,
 				app,
 				imageFolderPath
 			)
 			imageBlob.path = uploadedImage[imageBlob.name].url
+			imageBlob.id = uploadedImage[imageBlob.name].id
 		}
 	}
 
