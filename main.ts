@@ -20,10 +20,7 @@ import {
 	replaceImagePaths,
 } from './utils/markdownUtils'
 import { getImageDescription } from './api/openaiAPI'
-import {
-	uploadGaleryImagesToStrapi,
-	uploadImagesToStrapi,
-} from './api/strapiAPI'
+import { uploadImagesToStrapi } from './api/strapiAPI'
 import {
 	getGaleryImageBlobs,
 	getImageBlob,
