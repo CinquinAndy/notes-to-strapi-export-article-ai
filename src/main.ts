@@ -24,7 +24,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		ribbonIconEl.addClass('strapi-exporter-ribbon-class')
 
 		/**
-		 * Add an additional ribbon icon based on the settings
+		 * Add a ribbon icon based on the settings (if enabled)
 		 */
 		if (this.settings.enableAdditionalApiCall) {
 			const additionalRibbonIconEl = this.addRibbonIcon(
