@@ -18,8 +18,77 @@ export async function processMarkdownContent(
 		return
 	}
 
-	// Check if all the settings are configured
-	// ...
+	/** ****************************************************************************
+	 * Check if all the settings are configured
+	 * *****************************************************************************
+	 */
+	if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
+		new Notice(
+			'Please configure Strapi URL and API token in the plugin settings'
+		)
+		return
+	}
+
+	if (!this.settings.openaiApiKey) {
+		new Notice('Please configure OpenAI API key in the plugin settings')
+		return
+	}
+
+	if (useAdditionalCallAPI) {
+		if (!this.settings.additionalJsonTemplate) {
+			new Notice(
+				'Please configure the additional call api JSON template in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.additionalJsonTemplateDescription) {
+			new Notice(
+				'Please configure the additional call api JSON template description in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.additionalUrl) {
+			new Notice(
+				'Please configure the additional call api URL in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.additionalContentAttributeName) {
+			new Notice(
+				'Please configure the additional call api content attribute name in the plugin settings'
+			)
+			return
+		}
+	} else {
+		if (!this.settings.jsonTemplate) {
+			new Notice('Please configure JSON template in the plugin settings')
+			return
+		}
+
+		if (!this.settings.jsonTemplateDescription) {
+			new Notice(
+				'Please configure JSON template description in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.strapiArticleCreateUrl) {
+			new Notice(
+				'Please configure Strapi article create URL in the plugin settings'
+			)
+			return
+		}
+
+		if (!this.settings.strapiContentAttributeName) {
+			new Notice(
+				'Please configure Strapi content attribute name in the plugin settings'
+			)
+			return
+		}
+	}
 
 	new Notice('All settings are ok, processing Markdown content...')
 	const file = activeView.file
@@ -111,34 +180,95 @@ export async function processMarkdownContent(
 	)
 }
 
+/**
+ * Extract the image paths from the content
+ * @param content
+ */
 export function extractImagePaths(content: string): string[] {
 	// Extract image paths from the content
-	// ...
+	const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
+	const imagePaths: string[] = []
+	let match
+
+	while ((match = imageRegex.exec(content)) !== null) {
+		imagePaths.push(match[1])
+	}
+
+	return imagePaths
 }
 
+/**
+ * Check if the content has any unexported images
+ * @param content
+ */
 export function hasUnexportedImages(content: string): boolean {
 	// Check if the content has any unexported images
-	// ...
+	const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
+	return imageRegex.test(content)
 }
 
+/**
+ * Get the image blobs from the image paths
+ * @param app
+ * @param imagePaths
+ */
 export async function getImageBlobs(
 	app: App,
 	imagePaths: string[]
 ): Promise<{ path: string; blob: Blob; name: string }[]> {
 	// Get image blobs from the image paths
-	// ...
+	// Get all the files in the vault
+	const files = this.app.vault.getAllLoadedFiles()
+	// Get the image files name from the vault
+	const fileNames = files.map(file => file.name)
+	// Filter the image files, and get all the images files paths
+	const imageFiles = imagePaths.filter(path => fileNames.includes(path))
+	// Get the image blobs, find it, and return the blob
+	return await Promise.all(
+		imageFiles.map(async path => {
+			const file = files.find(file => file.name === path)
+			if (file instanceof TFile) {
+				const blob = await this.app.vault.readBinary(file)
+				return {
+					name: path,
+					blob: new Blob([blob], { type: 'image/png' }),
+					path: file.path,
+				}
+			}
+			return {
+				name: '',
+				blob: new Blob(),
+				path: '',
+			}
+		})
+	)
 }
 
+/**
+ * Get the image blobs from the image paths
+ * @param app
+ * @param imagePath
+ */
 export async function getImageBlob(
 	app: App,
 	imagePath: string
 ): Promise<{ path: string; blob: Blob; name: string } | null> {
 	// Get image blob from the image path
-	// ...
+	const file = this.app.vault.getAbstractFileByPath(imagePath)
+	if (file instanceof TFile) {
+		const blob = await this.app.vault.readBinary(file)
+		return {
+			name: file.name,
+			blob: new Blob([blob], { type: 'image/png' }),
+			path: file.path,
+		}
+	}
+	return null
 }
 
 /**
  * Get the image blobs from the image paths
+ * @param app
  * @param folderPath
  */
 export async function getGaleryImageBlobs(
