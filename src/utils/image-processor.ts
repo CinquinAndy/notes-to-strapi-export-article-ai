@@ -236,32 +236,32 @@ export async function processMarkdownContent(
 
 	console.log('articleContent', articleContent)
 
-	/** ****************************************************************************
-	 * Rename the gallery folder to "gallery_alreadyUpload"
-	 * *****************************************************************************
-	 */
-	const galleryFolder = app.vault.getAbstractFileByPath(galleryFolderPath)
-	if (galleryFolder instanceof TFolder && galleryUploadedImageIds.length > 0) {
-		await app.vault.rename(
-			galleryFolder,
-			galleryFolderPath.replace(/\/[^/]*$/, '/gallery_alreadyUpload')
-		)
-	}
+	// /** ****************************************************************************
+	//  * Rename the gallery folder to "gallery_alreadyUpload"
+	//  * *****************************************************************************
+	//  */
+	// const galleryFolder = app.vault.getAbstractFileByPath(galleryFolderPath)
+	// if (galleryFolder instanceof TFolder && galleryUploadedImageIds.length > 0) {
+	// 	await app.vault.rename(
+	// 		galleryFolder,
+	// 		galleryFolderPath.replace(/\/[^/]*$/, '/gallery_alreadyUpload')
+	// 	)
+	// }
+	//
+	// console.log('galleryFolder', galleryFolder)
 
-	console.log('galleryFolder', galleryFolder)
-
-	/** ****************************************************************************
-	 * Rename the image folder to "file_alreadyUpload"
-	 */
-	const imageFolder = app.vault.getAbstractFileByPath(imageFolderPath)
-	if (imageFolder instanceof TFolder && imageBlob) {
-		await app.vault.rename(
-			imageFolder,
-			imageFolderPath.replace(/\/[^/]*$/, '/file_alreadyUpload')
-		)
-	}
-
-	console.log('imageFolder', imageFolder)
+	// /** ****************************************************************************
+	//  * Rename the image folder to "file_alreadyUpload"
+	//  */
+	// const imageFolder = app.vault.getAbstractFileByPath(imageFolderPath)
+	// if (imageFolder instanceof TFolder && imageBlob) {
+	// 	await app.vault.rename(
+	// 		imageFolder,
+	// 		imageFolderPath.replace(/\/[^/]*$/, '/file_alreadyUpload')
+	// 	)
+	// }
+	//
+	// console.log('imageFolder', imageFolder)
 
 	/** ****************************************************************************
 	 * Add the content, image, and gallery to the article content based on the settings

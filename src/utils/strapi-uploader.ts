@@ -1,4 +1,4 @@
-import { App, Notice } from 'obsidian'
+import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
@@ -53,9 +53,14 @@ export async function uploadImagesToStrapi(
 	}
 
 	if (imageFolderPath && app) {
-		// Save metadata to a file
-		const metadataFile = `${imageFolderPath}/metadata.json`
-		await app.vault.adapter.write(metadataFile, JSON.stringify(uploadedImages))
+		// Save metadata to a file only if there are uploaded images
+		if (Object.keys(uploadedImages).length > 0) {
+			const metadataFile = `${imageFolderPath}/metadata.json`
+			await app.vault.adapter.write(
+				metadataFile,
+				JSON.stringify(uploadedImages)
+			)
+		}
 	}
 	return uploadedImages
 }
@@ -70,8 +75,8 @@ export async function uploadImagesToStrapi(
 export async function uploadGalleryImagesToStrapi(
 	imageBlobs: ImageBlob[],
 	settings: StrapiExporterSettings,
-	app: App,
-	galleryFolderPath: string
+	app: any = null,
+	galleryFolderPath: string = ''
 ): Promise<number[]> {
 	const uploadedImageIds: number[] = []
 	const uploadedImages: { [key: string]: { url: string; data: any } } = {}
@@ -104,9 +109,16 @@ export async function uploadGalleryImagesToStrapi(
 		}
 	}
 
-	// Save metadata to a file
-	const metadataFile = `${galleryFolderPath}/metadata.json`
-	await app.vault.adapter.write(metadataFile, JSON.stringify(uploadedImages))
+	if (galleryFolderPath && app) {
+		// Save metadata to a file only if there are uploaded images
+		if (Object.keys(uploadedImages).length > 0) {
+			const metadataFile = `${galleryFolderPath}/metadata.json`
+			await app.vault.adapter.write(
+				metadataFile,
+				JSON.stringify(uploadedImages)
+			)
+		}
+	}
 
 	return uploadedImageIds
 }
