@@ -356,7 +356,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					)
 					.addText(text =>
 						text
-							.setPlaceholder('data.image')
+							.setPlaceholder('image_presentation')
 							.setValue(this.plugin.settings.additionalImageFullPathProperty)
 							.onChange(async value => {
 								this.plugin.settings.additionalImageFullPathProperty = value
@@ -405,7 +405,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					)
 					.addText(text =>
 						text
-							.setPlaceholder('data.gallery')
+							.setPlaceholder('galery')
 							.setValue(this.plugin.settings.additionalGalleryFullPathProperty)
 							.onChange(async value => {
 								this.plugin.settings.additionalGalleryFullPathProperty = value

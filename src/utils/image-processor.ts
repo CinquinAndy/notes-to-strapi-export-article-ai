@@ -117,9 +117,14 @@ export async function processMarkdownContent(
 	const articleFolderPath = file.parent?.path
 	const imageFolderPath = `${articleFolderPath}/image`
 	const galleryFolderPath = `${articleFolderPath}/gallery`
+	console.log('articleFolderPath', articleFolderPath)
+	console.log('imageFolderPath', imageFolderPath)
+	console.log('galleryFolderPath', galleryFolderPath)
 
 	const imageBlob = await getImageBlob(app, imageFolderPath)
+	console.log('imageBlob', imageBlob)
 	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
+	console.log('galleryImageBlobs', galleryImageBlobs)
 
 	content = await app.vault.read(file)
 
@@ -180,6 +185,8 @@ export async function processMarkdownContent(
 		useAdditionalCallAPI
 	)
 
+	console.log('articleContent', articleContent)
+
 	/** ****************************************************************************
 	 * Upload gallery images to Strapi
 	 * *****************************************************************************
@@ -188,6 +195,8 @@ export async function processMarkdownContent(
 		galleryImageBlobs,
 		settings
 	)
+
+	console.log('galleryUploadedImageIds', galleryUploadedImageIds)
 
 	/** ****************************************************************************
 	 * Rename the gallery folder to "gallery_alreadyUpload"
@@ -201,6 +210,8 @@ export async function processMarkdownContent(
 		)
 	}
 
+	console.log('galleryFolder', galleryFolder)
+
 	/** ****************************************************************************
 	 * Rename the image folder to "file_alreadyUpload"
 	 */
@@ -212,6 +223,8 @@ export async function processMarkdownContent(
 		)
 	}
 
+	console.log('imageFolder', imageFolder)
+
 	/** ****************************************************************************
 	 * Add the content, image, and gallery to the article content based on the settings
 	 * *****************************************************************************
@@ -222,6 +235,9 @@ export async function processMarkdownContent(
 	const galleryFullPathProperty = useAdditionalCallAPI
 		? settings.additionalGalleryFullPathProperty
 		: settings.mainGalleryFullPathProperty
+
+	console.log('imageFullPathProperty', imageFullPathProperty)
+	console.log('galleryFullPathProperty', galleryFullPathProperty)
 
 	articleContent.data = {
 		...articleContent.data,
@@ -250,17 +266,15 @@ export async function processMarkdownContent(
 		)
 
 		if (response.ok) {
-			new Notice('Article created successfully in Strapi!')
+			new Notice(
+				'Check your API content now, the article is created & uploaded! 🎉'
+			)
 		} else {
 			new Notice('Failed to create article in Strapi.')
 		}
 	} catch (error) {
 		new Notice('Error creating article in Strapi.')
 	}
-
-	new Notice(
-		'Check your API content now, the article is created & uploaded! 🎉'
-	)
 }
 
 /**
