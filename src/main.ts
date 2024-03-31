@@ -14,6 +14,13 @@ import {
 } from './settings/strapiExporterSettings'
 import { OpenAI } from 'openai'
 import { checkSettings } from './settings/settingsUtils'
+import {
+	extractImagePaths,
+	hasUnexportedImages,
+	replaceImagePaths,
+} from './utils/markdownUtils'
+import { getImageDescription } from './api/openaiAPI'
+import { uploadImagesToStrapi } from './api/strapiAPI'
 
 /**
  * The main plugin class
@@ -125,7 +132,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		content = await this.app.vault.read(file)
 
 		// Check if the content has any images to process
-		const flag = this.hasUnexportedImages(content)
+		const flag = hasUnexportedImages(content)
 		/**
 		 * Initialize the OpenAI API
 		 */
@@ -140,26 +147,13 @@ export default class StrapiExporterPlugin extends Plugin {
 		 * that are not already uploaded to Strapi
 		 */
 		if (flag) {
-			/**
-			 * Extract the image paths from the content
-			 */
-			const imagePaths = this.extractImagePaths(content)
-
-			/**
-			 * Get the image blobs from the image paths
-			 */
+			const imagePaths = extractImagePaths(content)
 			const imageBlobs = await this.getImageBlobs(imagePaths)
 
-			/**
-			 * Get the image descriptions using the OpenAI API
-			 */
 			new Notice('Getting image descriptions...')
 			const imageDescriptions = await Promise.all(
 				imageBlobs.map(async imageBlob => {
-					const description = await this.getImageDescription(
-						imageBlob.blob,
-						openai
-					)
+					const description = await getImageDescription(imageBlob.blob, openai)
 					return {
 						blob: imageBlob.blob,
 						name: imageBlob.name,
@@ -169,104 +163,19 @@ export default class StrapiExporterPlugin extends Plugin {
 				})
 			)
 
-			/**
-			 * Upload the images to Strapi
-			 */
 			new Notice('Uploading images to Strapi...')
-			const uploadedImages = await this.uploadImagesToStrapi(imageDescriptions)
+			const uploadedImages = await uploadImagesToStrapi(
+				imageDescriptions,
+				this.settings.strapiUrl,
+				this.settings.strapiApiToken
+			)
 
-			/**
-			 * Replace the image paths in the content with the uploaded image URLs
-			 */
 			new Notice('Replacing image paths...')
-			content = this.replaceImagePaths(content, uploadedImages)
+			content = replaceImagePaths(content, uploadedImages)
 			await this.app.vault.modify(file, content)
 			new Notice('Images uploaded and links updated successfully!')
-		} else {
-			new Notice(
-				'No local images found in the content... Skip the image processing...'
-			)
 		}
 
-		/**
-		 * Generate article content using OpenAI
-		 */
-		new Notice('Generating article content...')
-		let jsonTemplate: any
-		let jsonTemplateDescription: any
-		let url: any
-		let contentAttributeName: any
-
-		if (useAdditionalCallAPI) {
-			jsonTemplate = JSON.parse(this.settings.additionalJsonTemplate)
-			jsonTemplateDescription = JSON.parse(
-				this.settings.additionalJsonTemplateDescription
-			)
-			url = this.settings.additionalUrl
-			contentAttributeName = this.settings.additionalContentAttributeName
-		} else {
-			jsonTemplate = JSON.parse(this.settings.jsonTemplate)
-			jsonTemplateDescription = JSON.parse(
-				this.settings.jsonTemplateDescription
-			)
-			url = this.settings.strapiArticleCreateUrl
-			contentAttributeName = this.settings.strapiContentAttributeName
-		}
-
-		/**
-		 * If the content is not present, get it from the active view
-		 */
-		content = await this.app.vault.read(file)
-
-		/**
-		 * Prompt for generating the article content
-		 */
-		const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
-
-		Template:
-		${JSON.stringify(jsonTemplate, null, 2)}
-		
-		Field Descriptions:
-		${JSON.stringify(jsonTemplateDescription, null, 2)}
-		
-		The main content of the article should be based on the following text and all the keywords around the domain of the text:
-		----- CONTENT -----
-		${content.substring(0, 500)}
-		----- END CONTENT -----
-		
-		Please provide the generated article content as a JSON object following the given template structure.
-		
-		${this.settings.additionalPrompt ? `Additional Prompt: ${this.settings.additionalPrompt}` : ''}`
-
-		/**
-		 * Generate the article content using OpenAI
-		 */
-		const completion = await openai.chat.completions.create({
-			model: 'gpt-3.5-turbo-0125',
-			messages: [
-				{
-					role: 'user',
-					content: articlePrompt,
-				},
-			],
-			max_tokens: 2000,
-			n: 1,
-			stop: null,
-		})
-
-		const imageFullPathProperty = useAdditionalCallAPI
-			? this.settings.additionalImageFullPathProperty
-			: this.settings.mainImageFullPathProperty
-		const galeryFullPathProperty = useAdditionalCallAPI
-			? this.settings.additionalGaleryFullPathProperty
-			: this.settings.mainGaleryFullPathProperty
-
-		/**
-		 * Parse the generated article content
-		 */
-		let articleContent = JSON.parse(
-			completion.choices[0].message.content ?? '{}'
-		)
 		/**
 		 * Upload the gallery images to Strapi
 		 */
@@ -326,15 +235,6 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	/**
-	 * Check if the content has any unexported images
-	 * @param content
-	 */
-	hasUnexportedImages(content: string): boolean {
-		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
-		return imageRegex.test(content)
-	}
-
-	/**
 	 * Get the image blobs from the image paths
 	 * @param imagePaths
 	 */
@@ -366,163 +266,6 @@ export default class StrapiExporterPlugin extends Plugin {
 				}
 			})
 		)
-	}
-
-	/**
-	 * Upload the images to Strapi
-	 * @param imageBlobs
-	 */
-	async uploadImagesToStrapi(
-		imageBlobs: {
-			path: string
-			blob: Blob
-			name: string
-			description: {
-				name: string
-				alternativeText: string
-				caption: string
-			}
-		}[]
-	): Promise<{ [key: string]: { url: string; data: any } }> {
-		// Upload the images to Strapi
-		const uploadedImages: {
-			[key: string]: { url: string; data: any }
-		} = {}
-
-		/**
-		 * Upload the images to Strapi
-		 */
-		for (const imageBlob of imageBlobs) {
-			const formData = new FormData()
-			/**
-			 * Append the image blob and the image description to the form data
-			 */
-			formData.append('files', imageBlob.blob, imageBlob.name)
-			formData.append(
-				'fileInfo',
-				JSON.stringify({
-					name: imageBlob.description.name,
-					alternativeText: imageBlob.description.alternativeText,
-					caption: imageBlob.description.caption,
-				})
-			)
-
-			// Upload the image to Strapi
-			try {
-				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${this.settings.strapiApiToken}`,
-					},
-					body: formData,
-				})
-
-				/**
-				 * If the response is ok, add the uploaded image to the uploaded images object
-				 */
-				if (response.ok) {
-					const data = await response.json()
-					uploadedImages[imageBlob.name] = {
-						url: data[0].url,
-						data: data[0],
-					}
-				} else {
-					new Notice(`Failed to upload image: ${imageBlob.name}`)
-				}
-			} catch (error) {
-				new Notice(`Error uploading image: ${imageBlob.name}`)
-			}
-		}
-
-		return uploadedImages
-	}
-
-	/**
-	 * Replace the image paths in the content with the uploaded image URLs
-	 * @param content
-	 * @param uploadedImages
-	 */
-	replaceImagePaths(
-		content: string,
-		uploadedImages: { [key: string]: { url: string; data: any } }
-	): string {
-		/**
-		 * Replace the image paths in the content with the uploaded image URLs
-		 */
-		for (const [localPath, imageData] of Object.entries(uploadedImages)) {
-			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
-			content = content.replace(
-				markdownImageRegex,
-				`![${imageData.data.alternativeText}](${imageData.url})`
-			)
-		}
-		return content
-	}
-
-	/**
-	 * Get the description of the image using OpenAI
-	 * @param imageBlob
-	 * @param openai
-	 */
-	getImageDescription = async (imageBlob: Blob, openai: OpenAI) => {
-		// Get the image description using the OpenAI API (using gpt 4 vision preview model)
-		const response = await openai.chat.completions.create({
-			model: 'gpt-4-vision-preview',
-			messages: [
-				{
-					role: 'user',
-					// @ts-ignore
-					content: [
-						{
-							type: 'text',
-							text: `What's in this image? make it simple, i just want the context and an idea(think about alt text)`,
-						},
-						{
-							type: 'image_url',
-							// Encode imageBlob as base64
-							image_url: `data:image/png;base64,${btoa(
-								new Uint8Array(await imageBlob.arrayBuffer()).reduce(
-									(data, byte) => data + String.fromCharCode(byte),
-									''
-								)
-							)}`,
-						},
-					],
-				},
-			],
-		})
-
-		new Notice(response.choices[0].message.content ?? 'no response content...')
-		new Notice(
-			`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
-		)
-
-		// gpt-3.5-turbo-0125
-		// Generate alt text, caption, and title for the image, based on the description of the image
-		const completion = await openai.chat.completions.create({
-			model: 'gpt-3.5-turbo-0125',
-			messages: [
-				{
-					role: 'user',
-					content: `You are an SEO expert and you are writing alt text, caption, and title for this image. The description of the image is: ${response.choices[0].message.content}.
-				Give me a title (name) for this image, an SEO-friendly alternative text, and a caption for this image.
-				Generate this information and respond with a JSON object using the following fields: name, alternativeText, caption.
-				Use this JSON template: {"name": "string", "alternativeText": "string", "caption": "string"}.`,
-				},
-			],
-			max_tokens: 750,
-			n: 1,
-			stop: null,
-		})
-
-		new Notice(
-			completion.choices[0].message.content ?? 'no response content...'
-		)
-		new Notice(
-			`prompt_tokens: ${completion.usage?.prompt_tokens} // completion_tokens: ${completion.usage?.completion_tokens} // total_tokens: ${completion.usage?.total_tokens}`
-		)
-
-		return JSON.parse(completion.choices[0].message.content?.trim() || '{}')
 	}
 
 	/**
