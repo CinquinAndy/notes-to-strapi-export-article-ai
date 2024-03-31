@@ -7,6 +7,12 @@ import {
 } from './strapi-uploader'
 import { generateArticleContent, getImageDescription } from './openai-generator'
 
+/**
+ * Process the markdown content
+ * @param app
+ * @param settings
+ * @param useAdditionalCallAPI
+ */
 export async function processMarkdownContent(
 	app: App,
 	settings: StrapiExporterSettings,
@@ -18,7 +24,6 @@ export async function processMarkdownContent(
 		return
 	}
 
-	// Check if all the settings are configured
 	/** ****************************************************************************
 	 * Check if all the settings are configured
 	 * *****************************************************************************
@@ -92,6 +97,11 @@ export async function processMarkdownContent(
 	}
 
 	new Notice('All settings are ok, processing Markdown content...')
+
+	/** ****************************************************************************
+	 * Process the markdown content
+	 * *****************************************************************************
+	 */
 	const file = activeView.file
 	let content = ''
 	if (!file) {
@@ -99,7 +109,10 @@ export async function processMarkdownContent(
 		return
 	}
 
-	// Check if the content has any images to process
+	/** ****************************************************************************
+	 * Check if the content has any images to process
+	 * *****************************************************************************
+	 */
 	const imagePath = useAdditionalCallAPI
 		? settings.additionalImage
 		: settings.mainImage
@@ -114,11 +127,16 @@ export async function processMarkdownContent(
 
 	const flag = hasUnexportedImages(content)
 
+	// Initialize OpenAI API
 	const openai = new OpenAI({
 		apiKey: settings.openaiApiKey,
 		dangerouslyAllowBrowser: true,
 	})
 
+	/** ****************************************************************************
+	 * Process the images
+	 * *****************************************************************************
+	 */
 	if (flag) {
 		const imagePaths = extractImagePaths(content)
 		const imageBlobs = await getImageBlobs(app, imagePaths)
@@ -152,6 +170,10 @@ export async function processMarkdownContent(
 		)
 	}
 
+	/** ****************************************************************************
+	 * Generate article content
+	 * *****************************************************************************
+	 */
 	new Notice('Generating article content...')
 	const articleContent = await generateArticleContent(
 		content,
@@ -160,22 +182,42 @@ export async function processMarkdownContent(
 		useAdditionalCallAPI
 	)
 
-	// Upload gallery images to Strapi
+	/** ****************************************************************************
+	 * Upload gallery images to Strapi
+	 * *****************************************************************************
+	 */
 	const galeryUploadedImageIds = await uploadGaleryImagesToStrapi(
 		galeryImageBlobs,
 		settings
 	)
 
-	// Rename the gallery folder to "alreadyUpload"
+	/** ****************************************************************************
+	 * Rename the gallery folder to "galery_alreadyUpload"
+	 * *****************************************************************************
+	 */
 	const galeryFolder = app.vault.getAbstractFileByPath(galeryFolderPath)
 	if (galeryFolder instanceof TFolder) {
 		await app.vault.rename(
 			galeryFolder,
-			galeryFolderPath.replace(/\/[^/]*$/, '/alreadyUpload')
+			galeryFolderPath.replace(/\/[^/]*$/, '/galery_alreadyUpload')
 		)
 	}
 
-	// Add the content, image, and gallery to the article content based on the settings
+	/** ****************************************************************************
+	 * Rename the image folder to "file_alreadyUpload"
+	 */
+	const imageFolder = app.vault.getAbstractFileByPath(imagePath)
+	if (imageFolder instanceof TFolder) {
+		await app.vault.rename(
+			imageFolder,
+			imagePath.replace(/\/[^/]*$/, '/file_alreadyUpload')
+		)
+	}
+
+	/** ****************************************************************************
+	 * Add the content, image, and gallery to the article content based on the settings
+	 * *****************************************************************************
+	 */
 	const imageFullPathProperty = useAdditionalCallAPI
 		? settings.additionalImageFullPathProperty
 		: settings.mainImageFullPathProperty
@@ -223,6 +265,10 @@ export async function processMarkdownContent(
 	)
 }
 
+/**
+ * Extract image paths from the markdown content
+ * @param content
+ */
 export function extractImagePaths(content: string): string[] {
 	const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 	const imagePaths: string[] = []
@@ -235,11 +281,20 @@ export function extractImagePaths(content: string): string[] {
 	return imagePaths
 }
 
+/**
+ * Check if the markdown content has unexported images
+ * @param content
+ */
 export function hasUnexportedImages(content: string): boolean {
 	const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
 	return imageRegex.test(content)
 }
 
+/**
+ * Get the image blobs from the image paths
+ * @param app
+ * @param imagePaths
+ */
 export async function getImageBlobs(
 	app: App,
 	imagePaths: string[]
@@ -267,6 +322,11 @@ export async function getImageBlobs(
 	)
 }
 
+/**
+ * Get the image blob from the image path
+ * @param app
+ * @param imagePath
+ */
 export async function getImageBlob(
 	app: App,
 	imagePath: string
@@ -283,6 +343,11 @@ export async function getImageBlob(
 	return null
 }
 
+/**
+ * Get the gallery image blobs from the folder path
+ * @param app
+ * @param folderPath
+ */
 export async function getGaleryImageBlobs(
 	app: App,
 	folderPath: string
@@ -309,6 +374,11 @@ export async function getGaleryImageBlobs(
 	return []
 }
 
+/**
+ * Replace the image paths in the content with the uploaded images
+ * @param content
+ * @param uploadedImages
+ */
 export function replaceImagePaths(
 	content: string,
 	uploadedImages: { [key: string]: { url: string; data: any } }

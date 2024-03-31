@@ -22,7 +22,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		 * Add the settings for the plugin
 		 * *****************************************************************************
 		 */
-
 		containerEl.createEl('h2', { text: 'Strapi & OpenAI Settings' })
 		new Setting(containerEl)
 			.setName('Strapi API Token')
@@ -406,7 +405,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		}
 	}
 
-	// @ts-ignore
 	async countImagesInFolder(folderPath: string): Promise<number> {
 		const folder = this.app.vault.getAbstractFileByPath(folderPath)
 		if (folder instanceof TFolder) {

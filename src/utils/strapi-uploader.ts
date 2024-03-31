@@ -2,6 +2,11 @@ import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
+/**
+ * Upload images to Strapi
+ * @param imageDescriptions
+ * @param settings
+ */
 export async function uploadImagesToStrapi(
 	imageDescriptions: ImageDescription[],
 	settings: StrapiExporterSettings
@@ -46,6 +51,11 @@ export async function uploadImagesToStrapi(
 	return uploadedImages
 }
 
+/**
+ * Upload gallery images to Strapi
+ * @param imageBlobs
+ * @param settings
+ */
 export async function uploadGaleryImagesToStrapi(
 	imageBlobs: ImageBlob[],
 	settings: StrapiExporterSettings

@@ -3,6 +3,13 @@ import { StrapiExporterSettings } from '../types/settings'
 import { ArticleContent } from '../types/article'
 import { Notice } from 'obsidian'
 
+/**
+ * Generate article content using OpenAI
+ * @param content
+ * @param openai
+ * @param settings
+ * @param useAdditionalCallAPI
+ */
 export async function generateArticleContent(
 	content: string,
 	openai: OpenAI,
