@@ -2,7 +2,7 @@ import { App, MarkdownView, Notice, TFile, TFolder } from 'obsidian'
 import { OpenAI } from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
 import {
-	uploadGaleryImagesToStrapi,
+	uploadGalleryImagesToStrapi,
 	uploadImagesToStrapi,
 } from './strapi-uploader'
 import { generateArticleContent, getImageDescription } from './openai-generator'
@@ -113,15 +113,17 @@ export async function processMarkdownContent(
 	 * Check if the content has any images to process
 	 * *****************************************************************************
 	 */
-	const imagePath = useAdditionalCallAPI
-		? settings.additionalImage
-		: settings.mainImage
-	const galeryFolderPath = useAdditionalCallAPI
-		? settings.additionalGalery
-		: settings.mainGalery
+	const articleFolderPath = file?.parent?.path
+	const imageFolderName = useAdditionalCallAPI ? 'additionalImage' : 'mainImage'
+	const galleryFolderName = useAdditionalCallAPI
+		? 'additionalGallery'
+		: 'mainGallery'
 
-	const imageBlob = await getImageBlob(app, imagePath)
-	const galeryImageBlobs = await getGaleryImageBlobs(app, galeryFolderPath)
+	const imageFolderPath = `${articleFolderPath}/${imageFolderName}`
+	const galleryFolderPath = `${articleFolderPath}/${galleryFolderName}`
+
+	const imageBlob = await getImageBlob(app, imageFolderPath)
+	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
 
 	content = await app.vault.read(file)
 
@@ -186,31 +188,31 @@ export async function processMarkdownContent(
 	 * Upload gallery images to Strapi
 	 * *****************************************************************************
 	 */
-	const galeryUploadedImageIds = await uploadGaleryImagesToStrapi(
-		galeryImageBlobs,
+	const galleryUploadedImageIds = await uploadGalleryImagesToStrapi(
+		galleryImageBlobs,
 		settings
 	)
 
 	/** ****************************************************************************
-	 * Rename the gallery folder to "galery_alreadyUpload"
+	 * Rename the gallery folder to "gallery_alreadyUpload"
 	 * *****************************************************************************
 	 */
-	const galeryFolder = app.vault.getAbstractFileByPath(galeryFolderPath)
-	if (galeryFolder instanceof TFolder) {
+	const galleryFolder = app.vault.getAbstractFileByPath(galleryFolderPath)
+	if (galleryFolder instanceof TFolder) {
 		await app.vault.rename(
-			galeryFolder,
-			galeryFolderPath.replace(/\/[^/]*$/, '/galery_alreadyUpload')
+			galleryFolder,
+			galleryFolderPath.replace(/\/[^/]*$/, '/gallery_alreadyUpload')
 		)
 	}
 
 	/** ****************************************************************************
 	 * Rename the image folder to "file_alreadyUpload"
 	 */
-	const imageFolder = app.vault.getAbstractFileByPath(imagePath)
+	const imageFolder = app.vault.getAbstractFileByPath(imageFolderPath)
 	if (imageFolder instanceof TFolder) {
 		await app.vault.rename(
 			imageFolder,
-			imagePath.replace(/\/[^/]*$/, '/file_alreadyUpload')
+			imageFolderPath.replace(/\/[^/]*$/, '/file_alreadyUpload')
 		)
 	}
 
@@ -221,17 +223,17 @@ export async function processMarkdownContent(
 	const imageFullPathProperty = useAdditionalCallAPI
 		? settings.additionalImageFullPathProperty
 		: settings.mainImageFullPathProperty
-	const galeryFullPathProperty = useAdditionalCallAPI
-		? settings.additionalGaleryFullPathProperty
-		: settings.mainGaleryFullPathProperty
+	const galleryFullPathProperty = useAdditionalCallAPI
+		? settings.additionalGalleryFullPathProperty
+		: settings.mainGalleryFullPathProperty
 
 	articleContent.data = {
 		...articleContent.data,
 		...(imageBlob &&
 			imageFullPathProperty && { [imageFullPathProperty]: imageBlob.path }),
-		...(galeryUploadedImageIds.length > 0 &&
-			galeryFullPathProperty && {
-				[galeryFullPathProperty]: galeryUploadedImageIds,
+		...(galleryUploadedImageIds.length > 0 &&
+			galleryFullPathProperty && {
+				[galleryFullPathProperty]: galleryUploadedImageIds,
 			}),
 	}
 
@@ -325,19 +327,27 @@ export async function getImageBlobs(
 /**
  * Get the image blob from the image path
  * @param app
- * @param imagePath
+ * @param imageFolderPath
  */
 export async function getImageBlob(
 	app: App,
-	imagePath: string
+	imageFolderPath: string
 ): Promise<{ path: string; blob: Blob; name: string } | null> {
-	const file = app.vault.getAbstractFileByPath(imagePath)
-	if (file instanceof TFile) {
-		const blob = await app.vault.readBinary(file)
-		return {
-			name: file.name,
-			blob: new Blob([blob], { type: 'image/png' }),
-			path: file.path,
+	const folder = app.vault.getAbstractFileByPath(imageFolderPath)
+	if (folder instanceof TFolder) {
+		const files = folder.children.filter(
+			file =>
+				file instanceof TFile &&
+				file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
+		)
+		if (files.length > 0) {
+			const file = files[0] as TFile
+			const blob = await app.vault.readBinary(file)
+			return {
+				name: file.name,
+				blob: new Blob([blob], { type: 'image/png' }),
+				path: file.path,
+			}
 		}
 	}
 	return null
@@ -346,19 +356,18 @@ export async function getImageBlob(
 /**
  * Get the gallery image blobs from the folder path
  * @param app
- * @param folderPath
+ * @param galleryFolderPath
  */
-export async function getGaleryImageBlobs(
+export async function getGalleryImageBlobs(
 	app: App,
-	folderPath: string
+	galleryFolderPath: string
 ): Promise<{ path: string; blob: Blob; name: string }[]> {
-	const folder = app.vault.getAbstractFileByPath(folderPath)
+	const folder = app.vault.getAbstractFileByPath(galleryFolderPath)
 	if (folder instanceof TFolder) {
 		const files = folder.children.filter(
 			file =>
 				file instanceof TFile &&
-				file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i) &&
-				!file.parent?.name.includes('alreadyUpload')
+				file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
 		)
 		return Promise.all(
 			files.map(async file => {

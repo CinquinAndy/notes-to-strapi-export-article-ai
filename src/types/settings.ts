@@ -15,16 +15,14 @@ export interface StrapiExporterSettings {
 	additionalJsonTemplateDescription: string
 	additionalUrl: string
 	additionalContentAttributeName: string
-	mainImage: string
+	// enable elements
 	mainButtonImageEnabled: boolean
-	mainGalery: string
-	mainButtonGaleryEnabled: boolean
-	additionalImage: string
+	mainButtonGalleryEnabled: boolean
 	additionalButtonImageEnabled: boolean
-	additionalGalery: string
-	additionalButtonGaleryEnabled: boolean
+	additionalButtonGalleryEnabled: boolean
+	// images and galleries paths (for the body api call)
 	mainImageFullPathProperty: string
-	mainGaleryFullPathProperty: string
+	mainGalleryFullPathProperty: string
 	additionalImageFullPathProperty: string
-	additionalGaleryFullPathProperty: string
+	additionalGalleryFullPathProperty: string
 }

@@ -1,11 +1,7 @@
-import { App, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian'
+import { App, PluginSettingTab, Setting } from 'obsidian'
 import StrapiExporterPlugin from './main'
 
 export class StrapiExporterSettingTab extends PluginSettingTab {
-	mainImageCountEl: HTMLElement
-	mainGaleryCountEl: HTMLElement
-	additionalImageCountEl: HTMLElement
-	additionalGaleryCountEl: HTMLElement
 	plugin: StrapiExporterPlugin
 
 	constructor(app: App, plugin: StrapiExporterPlugin) {
@@ -142,28 +138,22 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.onChange(async value => {
 						this.plugin.settings.mainButtonImageEnabled = value
 						await this.plugin.saveSettings()
-						this.updateImageCounts()
 					})
 			)
 
-		new Setting(containerEl)
-			.setName('Main Image Folder')
-			.setDesc(
-				'Enter the folder containing the main (absolute path from the root of the vault)'
-			)
-			.addText(text =>
-				text
-					.setPlaceholder('main-image')
-					.setValue(this.plugin.settings.mainImage)
-					.onChange(async value => {
-						this.plugin.settings.mainImage = value
-						await this.plugin.saveSettings()
-						this.updateImageCounts()
-					})
-			)
+		containerEl.createEl('p', {
+			text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
+		})
 
-		this.mainImageCountEl = containerEl.createEl('p', {
-			text: 'Detected images: 0',
+		containerEl.createEl('ul', {
+			text: '- Article file (e.g., article.md)',
+		})
+		containerEl.createEl('ul', {
+			text: '- Main image folder (name: image)',
+		})
+
+		containerEl.createEl('p', {
+			text: 'The plugin will detect images in the main image (for this api call)',
 		})
 
 		new Setting(containerEl)
@@ -181,51 +171,46 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h3', { text: 'Main Galery Settings' })
+		containerEl.createEl('h3', { text: 'Main Gallery Settings' })
 
 		new Setting(containerEl)
-			.setName('Enable Main Galery')
-			.setDesc('Toggle the main galery')
+			.setName('Enable Main Gallery')
+			.setDesc('Toggle the main gallery')
 			.addToggle(toggle =>
 				toggle
-					.setValue(this.plugin.settings.mainButtonGaleryEnabled)
+					.setValue(this.plugin.settings.mainButtonGalleryEnabled)
 					.onChange(async value => {
-						this.plugin.settings.mainButtonGaleryEnabled = value
+						this.plugin.settings.mainButtonGalleryEnabled = value
 						await this.plugin.saveSettings()
-						this.updateImageCounts()
 					})
 			)
 
-		new Setting(containerEl)
-			.setName('Main Galery Folder')
-			.setDesc(
-				'Enter the folder containing the main galery images (absolute path from the root of the vault)'
-			)
-			.addText(text =>
-				text
-					.setPlaceholder('main-galery')
-					.setValue(this.plugin.settings.mainGalery)
-					.onChange(async value => {
-						this.plugin.settings.mainGalery = value
-						await this.plugin.saveSettings()
-						this.updateImageCounts()
-					})
-			)
-		this.mainGaleryCountEl = containerEl.createEl('p', {
-			text: 'Detected images: 0',
+		containerEl.createEl('p', {
+			text: 'For the plugin to detect galleries, ensure the following folder structure:',
+		})
+
+		containerEl.createEl('ul', {
+			text: '- Article file (e.g., article.md)',
+		})
+		containerEl.createEl('ul', {
+			text: '- Main gallery folder (name: gallery)',
+		})
+
+		containerEl.createEl('p', {
+			text: 'The plugin will detect images in the main gallery folders. (for this api call)',
 		})
 
 		new Setting(containerEl)
-			.setName('Main Galery Full Path Property')
+			.setName('Main Gallery Full Path Property')
 			.setDesc(
-				'Enter the full path property for the main galery in the final call'
+				'Enter the full path property for the main gallery in the final call'
 			)
 			.addText(text =>
 				text
-					.setPlaceholder('data.attributes.galery')
-					.setValue(this.plugin.settings.mainGaleryFullPathProperty)
+					.setPlaceholder('data.attributes.gallery')
+					.setValue(this.plugin.settings.mainGalleryFullPathProperty)
 					.onChange(async value => {
-						this.plugin.settings.mainGaleryFullPathProperty = value
+						this.plugin.settings.mainGalleryFullPathProperty = value
 						await this.plugin.saveSettings()
 					})
 			)
@@ -322,26 +307,22 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.additionalButtonImageEnabled = value
 							await this.plugin.saveSettings()
-							this.updateImageCounts()
 						})
 				)
 
-			new Setting(containerEl)
-				.setName('Additional Call API Image Folder')
-				.setDesc('Enter the folder containing the additional Call API image')
-				.addText(text =>
-					text
-						.setPlaceholder('additional-image')
-						.setValue(this.plugin.settings.additionalImage)
-						.onChange(async value => {
-							this.plugin.settings.additionalImage = value
-							await this.plugin.saveSettings()
-							this.updateImageCounts()
-						})
-				)
+			containerEl.createEl('p', {
+				text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
+			})
 
-			this.additionalImageCountEl = containerEl.createEl('p', {
-				text: 'Detected images: 0',
+			containerEl.createEl('ul', {
+				text: '- Article file (e.g., article.md)',
+			})
+			containerEl.createEl('ul', {
+				text: '- Main image folder (name: image)',
+			})
+
+			containerEl.createEl('p', {
+				text: 'The plugin will detect images in the main image (for this api call)',
 			})
 
 			new Setting(containerEl)
@@ -360,117 +341,50 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 
 			containerEl.createEl('h3', {
-				text: 'Additional Call API Galery Settings',
+				text: 'Additional Call API Gallery Settings',
 			})
 
 			new Setting(containerEl)
-				.setName('Enable Additional Call API Galery')
-				.setDesc('Toggle the additional Call API galery')
+				.setName('Enable Additional Call API Gallery')
+				.setDesc('Toggle the additional Call API gallery')
 				.addToggle(toggle =>
 					toggle
-						.setValue(this.plugin.settings.additionalButtonGaleryEnabled)
+						.setValue(this.plugin.settings.additionalButtonGalleryEnabled)
 						.onChange(async value => {
-							this.plugin.settings.additionalButtonGaleryEnabled = value
+							this.plugin.settings.additionalButtonGalleryEnabled = value
 							await this.plugin.saveSettings()
-							this.updateImageCounts()
 						})
 				)
 
-			new Setting(containerEl)
-				.setName('Additional Call API Galery Folder')
-				.setDesc(
-					'Enter the folder containing the additional Call API galery images'
-				)
-				.addText(text =>
-					text
-						.setPlaceholder('additional-galery')
-						.setValue(this.plugin.settings.additionalGalery)
-						.onChange(async value => {
-							this.plugin.settings.additionalGalery = value
-							await this.plugin.saveSettings()
-							this.updateImageCounts()
-						})
-				)
+			containerEl.createEl('p', {
+				text: 'For the plugin to detect galleries, ensure the following folder structure:',
+			})
 
-			this.additionalGaleryCountEl = containerEl.createEl('p', {
-				text: 'Detected images: 0',
+			containerEl.createEl('ul', {
+				text: '- Article file (e.g., article.md)',
+			})
+			containerEl.createEl('ul', {
+				text: '- Main gallery folder (name: gallery)',
+			})
+
+			containerEl.createEl('p', {
+				text: 'The plugin will detect images in the main gallery folders. (for this api call)',
 			})
 
 			new Setting(containerEl)
-				.setName('Additional Call API Galery Full Path Property')
+				.setName('Additional Call API Gallery Full Path Property')
 				.setDesc(
-					'Enter the full path property for the additional Call API galery in the final call'
+					'Enter the full path property for the additional Call API gallery in the final call'
 				)
 				.addText(text =>
 					text
-						.setPlaceholder('data.attributes.galery')
-						.setValue(this.plugin.settings.additionalGaleryFullPathProperty)
+						.setPlaceholder('data.attributes.gallery')
+						.setValue(this.plugin.settings.additionalGalleryFullPathProperty)
 						.onChange(async value => {
-							this.plugin.settings.additionalGaleryFullPathProperty = value
+							this.plugin.settings.additionalGalleryFullPathProperty = value
 							await this.plugin.saveSettings()
 						})
 				)
-		}
-
-		this.updateImageCounts()
-	}
-
-	async countImagesInFolder(folderPath: string): Promise<number> {
-		const folder = this.app.vault.getAbstractFileByPath(folderPath)
-		if (folder instanceof TFolder) {
-			const files = folder.children.filter(
-				file =>
-					file instanceof TFile &&
-					file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
-			)
-			return files.length
-		}
-		return 0
-	}
-
-	async updateImageCounts() {
-		const mainImageFolder = this.app.vault.getAbstractFileByPath(
-			this.plugin.settings.mainImage
-		)
-		if (mainImageFolder instanceof TFolder) {
-			const mainImageCount = await this.countImagesInFolder(
-				this.plugin.settings.mainImage
-			)
-			this.mainImageCountEl.setText(`Detected images: ${mainImageCount}`)
-		}
-
-		const mainGaleryFolder = this.app.vault.getAbstractFileByPath(
-			this.plugin.settings.mainGalery
-		)
-		if (mainGaleryFolder instanceof TFolder) {
-			const mainGaleryCount = await this.countImagesInFolder(
-				this.plugin.settings.mainGalery
-			)
-			this.mainGaleryCountEl.setText(`Detected images: ${mainGaleryCount}`)
-		}
-
-		const additionalImageFolder = this.app.vault.getAbstractFileByPath(
-			this.plugin.settings.additionalImage
-		)
-		if (additionalImageFolder instanceof TFolder) {
-			const additionalImageCount = await this.countImagesInFolder(
-				this.plugin.settings.additionalImage
-			)
-			this.additionalImageCountEl.setText(
-				`Detected images: ${additionalImageCount}`
-			)
-		}
-
-		const additionalGaleryFolder = this.app.vault.getAbstractFileByPath(
-			this.plugin.settings.additionalGalery
-		)
-		if (additionalGaleryFolder instanceof TFolder) {
-			const additionalGaleryCount = await this.countImagesInFolder(
-				this.plugin.settings.additionalGalery
-			)
-			this.additionalGaleryCountEl.setText(
-				`Detected images: ${additionalGaleryCount}`
-			)
 		}
 	}
 }

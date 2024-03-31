@@ -56,7 +56,7 @@ export async function uploadImagesToStrapi(
  * @param imageBlobs
  * @param settings
  */
-export async function uploadGaleryImagesToStrapi(
+export async function uploadGalleryImagesToStrapi(
 	imageBlobs: ImageBlob[],
 	settings: StrapiExporterSettings
 ): Promise<number[]> {
