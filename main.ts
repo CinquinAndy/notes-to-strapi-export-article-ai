@@ -1,3 +1,4 @@
+import OpenAI from 'openai'
 import {
 	App,
 	MarkdownView,
@@ -8,24 +9,107 @@ import {
 	TFile,
 	TFolder,
 } from 'obsidian'
-import {
-	DEFAULT_STRAPI_EXPORTER_SETTINGS,
-	StrapiExporterSettings,
-} from './settings/strapiExporterSettings'
-import { OpenAI } from 'openai'
-import { checkSettings } from './settings/settingsUtils'
-import {
-	extractImagePaths,
-	hasUnexportedImages,
-	replaceImagePaths,
-} from './utils/markdownUtils'
-import { getImageDescription } from './api/openaiAPI'
-import { uploadImagesToStrapi } from './api/strapiAPI'
-import {
-	getGaleryImageBlobs,
-	getImageBlob,
-	getImageBlobs,
-} from './utils/imageUtils'
+
+/**
+ * The settings for the Strapi Exporter plugin
+ */
+interface StrapiExporterSettings {
+	strapiUrl: string
+	strapiApiToken: string
+	openaiApiKey: string
+	jsonTemplate: string
+	jsonTemplateDescription: string
+	strapiArticleCreateUrl: string
+	strapiContentAttributeName: string
+	additionalPrompt: string
+	enableAdditionalApiCall: boolean
+	additionalJsonTemplate: string
+	additionalJsonTemplateDescription: string
+	additionalUrl: string
+	additionalContentAttributeName: string
+	mainImage: string
+	mainButtonImageEnabled: boolean
+	mainGalery: string
+	mainButtonGaleryEnabled: boolean
+	additionalImage: string
+	additionalButtonImageEnabled: boolean
+	additionalGalery: string
+	additionalButtonGaleryEnabled: boolean
+	mainImageFullPathProperty: string
+	mainGaleryFullPathProperty: string
+	additionalImageFullPathProperty: string
+	additionalGaleryFullPathProperty: string
+}
+
+/**
+ * The default settings for the plugin
+ */
+const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
+	strapiUrl: '',
+	strapiApiToken: '',
+	openaiApiKey: '',
+	jsonTemplate: `{
+    "data": {
+      "title": "string",
+      "seo_title": "string",
+      "seo_description": "string",
+      "slug": "string",
+      "excerpt": "string",
+      "links": [
+        {
+          "id": "number",
+          "label": "string",
+          "url": "string"
+        }
+      ],
+      "subtitle": "string",
+      "type": "string",
+      "rank": "number",
+      "tags": [
+        {
+          "id": "number",
+          "name": "string"
+        }
+      ],
+      "locale": "string"
+    }
+  }`,
+	jsonTemplateDescription: `{
+    "data": {
+      "title": "Title of the item, as a short string",
+      "seo_title": "SEO optimized title, as a short string",
+      "seo_description": "SEO optimized description, as a short string",
+      "slug": "URL-friendly string derived from the title",
+      "excerpt": "A short preview or snippet from the content",
+      "links": "Array of related links with ID, label, and URL",
+      "subtitle": "Subtitle or secondary title, as a short string",
+      "type": "Category or type of the item, as a short string",
+      "rank": "Numerical ranking or order priority, as a number",
+      "tags": "Array of associated tags with ID and name",
+      "locale": "Locale or language code, as a short string"
+    }
+  }`,
+	strapiArticleCreateUrl: '',
+	strapiContentAttributeName: '',
+	additionalPrompt: '',
+	enableAdditionalApiCall: false,
+	additionalJsonTemplate: '',
+	additionalJsonTemplateDescription: '',
+	additionalUrl: '',
+	additionalContentAttributeName: '',
+	mainImage: '',
+	mainButtonImageEnabled: false,
+	mainGalery: '',
+	mainButtonGaleryEnabled: false,
+	additionalImage: '',
+	additionalButtonImageEnabled: false,
+	additionalGalery: '',
+	additionalButtonGaleryEnabled: false,
+	mainImageFullPathProperty: '',
+	mainGaleryFullPathProperty: '',
+	additionalImageFullPathProperty: '',
+	additionalGaleryFullPathProperty: '',
+}
 
 /**
  * The main plugin class
@@ -103,14 +187,79 @@ export default class StrapiExporterPlugin extends Plugin {
 		 * Check if all the settings are configured
 		 * *****************************************************************************
 		 */
-		if (!checkSettings(this.settings, useAdditionalCallAPI)) {
+		if (!this.settings.strapiUrl || !this.settings.strapiApiToken) {
+			new Notice(
+				'Please configure Strapi URL and API token in the plugin settings'
+			)
 			return
+		}
+
+		if (!this.settings.openaiApiKey) {
+			new Notice('Please configure OpenAI API key in the plugin settings')
+			return
+		}
+
+		if (useAdditionalCallAPI) {
+			if (!this.settings.additionalJsonTemplate) {
+				new Notice(
+					'Please configure the additional call api JSON template in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalJsonTemplateDescription) {
+				new Notice(
+					'Please configure the additional call api JSON template description in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalUrl) {
+				new Notice(
+					'Please configure the additional call api URL in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.additionalContentAttributeName) {
+				new Notice(
+					'Please configure the additional call api content attribute name in the plugin settings'
+				)
+				return
+			}
+		} else {
+			if (!this.settings.jsonTemplate) {
+				new Notice('Please configure JSON template in the plugin settings')
+				return
+			}
+
+			if (!this.settings.jsonTemplateDescription) {
+				new Notice(
+					'Please configure JSON template description in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.strapiArticleCreateUrl) {
+				new Notice(
+					'Please configure Strapi article create URL in the plugin settings'
+				)
+				return
+			}
+
+			if (!this.settings.strapiContentAttributeName) {
+				new Notice(
+					'Please configure Strapi content attribute name in the plugin settings'
+				)
+				return
+			}
 		}
 
 		/** ****************************************************************************
 		 * Process the Markdown content
 		 * *****************************************************************************
 		 */
+		new Notice('All settings are ok, processing Markdown content...')
 		const file = activeView.file
 		let content = ''
 		if (!file) {
@@ -128,11 +277,8 @@ export default class StrapiExporterPlugin extends Plugin {
 			? this.settings.additionalGalery
 			: this.settings.mainGalery
 
-		const imageBlob = await getImageBlob(this.app, imagePath)
-		const galeryImageBlobs = await getGaleryImageBlobs(
-			this.app,
-			galeryFolderPath
-		)
+		const imageBlob = await this.getImageBlob(imagePath)
+		const galeryImageBlobs = await this.getGaleryImageBlobs(galeryFolderPath)
 
 		/**
 		 * Read the content of the file
@@ -140,7 +286,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		content = await this.app.vault.read(file)
 
 		// Check if the content has any images to process
-		const flag = hasUnexportedImages(content)
+		const flag = this.hasUnexportedImages(content)
 		/**
 		 * Initialize the OpenAI API
 		 */
@@ -155,13 +301,26 @@ export default class StrapiExporterPlugin extends Plugin {
 		 * that are not already uploaded to Strapi
 		 */
 		if (flag) {
-			const imagePaths = extractImagePaths(content)
-			const imageBlobs = await getImageBlobs(this.app, imagePaths)
+			/**
+			 * Extract the image paths from the content
+			 */
+			const imagePaths = this.extractImagePaths(content)
 
+			/**
+			 * Get the image blobs from the image paths
+			 */
+			const imageBlobs = await this.getImageBlobs(imagePaths)
+
+			/**
+			 * Get the image descriptions using the OpenAI API
+			 */
 			new Notice('Getting image descriptions...')
 			const imageDescriptions = await Promise.all(
 				imageBlobs.map(async imageBlob => {
-					const description = await getImageDescription(imageBlob.blob, openai)
+					const description = await this.getImageDescription(
+						imageBlob.blob,
+						openai
+					)
 					return {
 						blob: imageBlob.blob,
 						name: imageBlob.name,
@@ -171,15 +330,17 @@ export default class StrapiExporterPlugin extends Plugin {
 				})
 			)
 
+			/**
+			 * Upload the images to Strapi
+			 */
 			new Notice('Uploading images to Strapi...')
-			const uploadedImages = await uploadImagesToStrapi(
-				imageDescriptions,
-				this.settings.strapiUrl,
-				this.settings.strapiApiToken
-			)
+			const uploadedImages = await this.uploadImagesToStrapi(imageDescriptions)
 
+			/**
+			 * Replace the image paths in the content with the uploaded image URLs
+			 */
 			new Notice('Replacing image paths...')
-			content = replaceImagePaths(content, uploadedImages)
+			content = this.replaceImagePaths(content, uploadedImages)
 			await this.app.vault.modify(file, content)
 			new Notice('Images uploaded and links updated successfully!')
 		} else {
@@ -213,6 +374,47 @@ export default class StrapiExporterPlugin extends Plugin {
 			contentAttributeName = this.settings.strapiContentAttributeName
 		}
 
+		/**
+		 * If the content is not present, get it from the active view
+		 */
+		content = await this.app.vault.read(file)
+
+		/**
+		 * Prompt for generating the article content
+		 */
+		const articlePrompt = `You are an SEO expert. Generate an article based on the following template and field descriptions:
+
+		Template:
+		${JSON.stringify(jsonTemplate, null, 2)}
+		
+		Field Descriptions:
+		${JSON.stringify(jsonTemplateDescription, null, 2)}
+		
+		The main content of the article should be based on the following text and all the keywords around the domain of the text:
+		----- CONTENT -----
+		${content.substring(0, 500)}
+		----- END CONTENT -----
+		
+		Please provide the generated article content as a JSON object following the given template structure.
+		
+		${this.settings.additionalPrompt ? `Additional Prompt: ${this.settings.additionalPrompt}` : ''}`
+
+		/**
+		 * Generate the article content using OpenAI
+		 */
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-3.5-turbo-0125',
+			messages: [
+				{
+					role: 'user',
+					content: articlePrompt,
+				},
+			],
+			max_tokens: 2000,
+			n: 1,
+			stop: null,
+		})
+
 		const imageFullPathProperty = useAdditionalCallAPI
 			? this.settings.additionalImageFullPathProperty
 			: this.settings.mainImageFullPathProperty
@@ -221,10 +423,33 @@ export default class StrapiExporterPlugin extends Plugin {
 			: this.settings.mainGaleryFullPathProperty
 
 		/**
+		 * Parse the generated article content
+		 */
+		let articleContent = JSON.parse(
+			completion.choices[0].message.content ?? '{}'
+		)
+		/**
+		 * Upload the gallery images to Strapi
+		 */
+		const galeryUploadedImageIds =
+			await this.uploadGaleryImagesToStrapi(galeryImageBlobs)
+
+		// Rename the galery folder to "alreadyUpload"
+		const galeryFolder = this.app.vault.getAbstractFileByPath(galeryFolderPath)
+		if (galeryFolder instanceof TFolder) {
+			await this.app.vault.rename(
+				galeryFolder,
+				galeryFolderPath.replace(/\/[^/]*$/, '/alreadyUpload')
+			)
+		}
+
+		/**
 		 * Add the content, image, and gallery to the article content based on the settings
 		 */
-		const articleContent = {
+		articleContent = {
 			data: {
+				...articleContent.data,
+				[contentAttributeName]: content,
 				...(imageBlob &&
 					imageFullPathProperty && {
 						[imageFullPathProperty]: imageBlob.path,
@@ -244,13 +469,7 @@ export default class StrapiExporterPlugin extends Plugin {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${this.settings.strapiApiToken}`,
 				},
-				body: JSON.stringify({
-					...articleContent,
-					data: {
-						...articleContent.data,
-						[contentAttributeName]: content,
-					},
-				}),
+				body: JSON.stringify(articleContent),
 			})
 
 			if (response.ok) {
@@ -265,6 +484,34 @@ export default class StrapiExporterPlugin extends Plugin {
 		new Notice(
 			'Check your API content now, the article is created & uploaded ! 🎉'
 		)
+	}
+
+	/**
+	 * Extract the image paths from the content
+	 * @param content
+	 */
+	extractImagePaths(content: string): string[] {
+		/**
+		 * Extract the image paths from the content
+		 */
+		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
+		const imagePaths: string[] = []
+		let match
+
+		while ((match = imageRegex.exec(content)) !== null) {
+			imagePaths.push(match[1])
+		}
+
+		return imagePaths
+	}
+
+	/**
+	 * Check if the content has any unexported images
+	 * @param content
+	 */
+	hasUnexportedImages(content: string): boolean {
+		const imageRegex = /!\[\[([^\[\]]*\.(png|jpe?g|gif|bmp|webp))\]\]/gi
+		return imageRegex.test(content)
 	}
 
 	/**
@@ -299,6 +546,163 @@ export default class StrapiExporterPlugin extends Plugin {
 				}
 			})
 		)
+	}
+
+	/**
+	 * Upload the images to Strapi
+	 * @param imageBlobs
+	 */
+	async uploadImagesToStrapi(
+		imageBlobs: {
+			path: string
+			blob: Blob
+			name: string
+			description: {
+				name: string
+				alternativeText: string
+				caption: string
+			}
+		}[]
+	): Promise<{ [key: string]: { url: string; data: any } }> {
+		// Upload the images to Strapi
+		const uploadedImages: {
+			[key: string]: { url: string; data: any }
+		} = {}
+
+		/**
+		 * Upload the images to Strapi
+		 */
+		for (const imageBlob of imageBlobs) {
+			const formData = new FormData()
+			/**
+			 * Append the image blob and the image description to the form data
+			 */
+			formData.append('files', imageBlob.blob, imageBlob.name)
+			formData.append(
+				'fileInfo',
+				JSON.stringify({
+					name: imageBlob.description.name,
+					alternativeText: imageBlob.description.alternativeText,
+					caption: imageBlob.description.caption,
+				})
+			)
+
+			// Upload the image to Strapi
+			try {
+				const response = await fetch(`${this.settings.strapiUrl}/api/upload`, {
+					method: 'POST',
+					headers: {
+						Authorization: `Bearer ${this.settings.strapiApiToken}`,
+					},
+					body: formData,
+				})
+
+				/**
+				 * If the response is ok, add the uploaded image to the uploaded images object
+				 */
+				if (response.ok) {
+					const data = await response.json()
+					uploadedImages[imageBlob.name] = {
+						url: data[0].url,
+						data: data[0],
+					}
+				} else {
+					new Notice(`Failed to upload image: ${imageBlob.name}`)
+				}
+			} catch (error) {
+				new Notice(`Error uploading image: ${imageBlob.name}`)
+			}
+		}
+
+		return uploadedImages
+	}
+
+	/**
+	 * Replace the image paths in the content with the uploaded image URLs
+	 * @param content
+	 * @param uploadedImages
+	 */
+	replaceImagePaths(
+		content: string,
+		uploadedImages: { [key: string]: { url: string; data: any } }
+	): string {
+		/**
+		 * Replace the image paths in the content with the uploaded image URLs
+		 */
+		for (const [localPath, imageData] of Object.entries(uploadedImages)) {
+			const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
+			content = content.replace(
+				markdownImageRegex,
+				`![${imageData.data.alternativeText}](${imageData.url})`
+			)
+		}
+		return content
+	}
+
+	/**
+	 * Get the description of the image using OpenAI
+	 * @param imageBlob
+	 * @param openai
+	 */
+	async getImageDescription(imageBlob: Blob, openai: OpenAI) {
+		// Get the image description using the OpenAI API (using gpt 4 vision preview model)
+		const response = await openai.chat.completions.create({
+			model: 'gpt-4-vision-preview',
+			messages: [
+				{
+					role: 'user',
+					// @ts-ignore
+					content: [
+						{
+							type: 'text',
+							text: `What's in this image? make it simple, i just want the context and an idea(think about alt text)`,
+						},
+						{
+							type: 'image_url',
+							// Encode imageBlob as base64
+							image_url: `data:image/png;base64,${btoa(
+								new Uint8Array(await imageBlob.arrayBuffer()).reduce(
+									(data, byte) => data + String.fromCharCode(byte),
+									''
+								)
+							)}`,
+						},
+					],
+				},
+			],
+		})
+
+		new Notice(response.choices[0].message.content ?? 'no response content...')
+		new Notice(
+			`prompt_tokens: ${response.usage?.prompt_tokens} // completion_tokens: ${response.usage?.completion_tokens} // total_tokens: ${response.usage?.total_tokens}`
+		)
+
+		// gpt-3.5-turbo-0125
+		// Generate alt text, caption, and title for the image, based on the description of the image
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-3.5-turbo-0125',
+			messages: [
+				{
+					role: 'user',
+					content: `You are an SEO expert and you are writing alt text, caption, and title for this image. The description of the image is: ${response.choices[0].message.content}.
+				Give me a title (name) for this image, an SEO-friendly alternative text, and a caption for this image.
+				Generate this information and respond with a JSON object using the following fields: name, alternativeText, caption.
+				Use this JSON template: {"name": "string", "alternativeText": "string", "caption": "string"}.`,
+				},
+			],
+			max_tokens: 750,
+			n: 1,
+			stop: null,
+		})
+
+		new Notice(
+			completion.choices[0].message.content ?? 'no response content...'
+		)
+		new Notice(
+			`prompt_tokens: ${completion.usage?.prompt_tokens} // completion_tokens: ${completion.usage?.completion_tokens} // total_tokens: ${completion.usage?.total_tokens}`
+		)
+
+		return JSON.parse(completion.choices[0].message.content?.trim() || '{}')
 	}
 
 	/**
