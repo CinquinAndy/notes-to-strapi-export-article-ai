@@ -113,14 +113,9 @@ export async function processMarkdownContent(
 	 * Check if the content has any images to process
 	 * *****************************************************************************
 	 */
-	const articleFolderPath = file?.parent?.path
-	const imageFolderName = useAdditionalCallAPI ? 'additionalImage' : 'mainImage'
-	const galleryFolderName = useAdditionalCallAPI
-		? 'additionalGallery'
-		: 'mainGallery'
-
-	const imageFolderPath = `${articleFolderPath}/${imageFolderName}`
-	const galleryFolderPath = `${articleFolderPath}/${galleryFolderName}`
+	const articleFolderPath = file.parent?.path
+	const imageFolderPath = `${articleFolderPath}/image`
+	const galleryFolderPath = `${articleFolderPath}/gallery`
 
 	const imageBlob = await getImageBlob(app, imageFolderPath)
 	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
@@ -349,6 +344,10 @@ export async function getImageBlob(
 				path: file.path,
 			}
 		}
+	} else {
+		new Notice(
+			'Image folder not found. Please create an "image" folder next to your article file.'
+		)
 	}
 	return null
 }
@@ -378,6 +377,10 @@ export async function getGalleryImageBlobs(
 					path: file.path,
 				}
 			})
+		)
+	} else {
+		new Notice(
+			'Gallery folder not found. Please create a "gallery" folder next to your article file.'
 		)
 	}
 	return []
