@@ -8,11 +8,13 @@ Strapi Exporter is a game-changing Obsidian plugin that streamlines your content
 
 ## ✨ Features
 
-- 🖼️ Automatically upload images from your notes to Strapi
+- 🗒️ Automatically upload images from your notes to Strapi
 - 🎨 Generate SEO-friendly alt text and captions for images using AI
-- 📝 Create SEO-optimized article content based on your notes
+- 😎 Create SEO-optimized article content based on your notes
 - 🔧 Customize the JSON template for the article fields in Strapi
 - ⚙️ Easy configuration for Strapi API URL, token, and content attribute name
+- 📷 Supports both single images and image galleries
+- 🔗 Additional API route for creating content in a different Strapi content type
 
 ## 🛠️ Installation
 
@@ -143,6 +145,28 @@ To get started with Strapi Exporter, you'll need to configure the following sett
   - to get the attribute name, you can go to the documentation of your Strapi API, and copy the attribute name of the article creation, (it need to be the name of the attribute that contain the main content of the article, for me it's "content", but it can be different for you)
 - **Additional Prompt** (optional): Additional prompt to provide context for GPT-3 when generating content. You can use this field to specify additional information or instructions for the AI model. Like your langage, the tone of the article, etc.
 
+### Image Settings (main), optional
+- **Enable Additional Call API Image**: Toggle this option to enable the image feature for the additional API route. The plugin will look for an image in the `image` folder next to your article file and upload it to Strapi.
+- **Additional Call API Image Full Path Property**: Specify the full path to the image property for the additional API route in your Strapi API (e.g., `image_presentation`).
+
+- **Enable Additional Call API Gallery**: Toggle this option to enable the gallery feature for the additional API route. The plugin will look for images in the `gallery` folder next to your article file and upload them to Strapi.
+- **Additional Call API Gallery Full Path Property**: Specify the full path to the gallery property for the additional API route in your Strapi API (e.g., `gallery`).
+- 
+### Additional API Route Settings
+⚠️ Warning: When enabling the additional API route feature, you'll need to restart Obsidian to see the additional button in the ribbon menu.
+- **Enable Additional Call API**: Toggle this option to enable the additional API route feature. This will display a new icon in the ribbon menu for creating content in a different Strapi content type.
+- **Additional JSON Template**: Enter the JSON template for the fields needed for the additional API route.
+- **Additional API JSON Template Description**: Enter the description for each field in the additional API JSON template.
+- **Additional API URL**: Enter the URL to create content for the additional API route (e.g., `https://your-strapi-url/api/additional-content`).
+- **Additional API Content Attribute Name**: Enter the attribute name for the content field for the additional API route.
+
+### Image Settings (additional), optional
+- **Enable Additional Call API Image**: Toggle this option to enable the image feature for the additional API route. The plugin will look for an image in the `image` folder next to your article file and upload it to Strapi.
+- **Additional Call API Image Full Path Property**: Specify the full path to the image property for the additional API route in your Strapi API (e.g., `image_presentation`).
+
+- **Enable Additional Call API Gallery**: Toggle this option to enable the gallery feature for the additional API route. The plugin will look for images in the `gallery` folder next to your article file and upload them to Strapi.
+- **Additional Call API Gallery Full Path Property**: Specify the full path to the gallery property for the additional API route in your Strapi API (e.g., `gallery`).
+
 ## 🚀 Usage
 
 1. Open a Markdown file in Obsidian.
@@ -154,6 +178,15 @@ To get started with Strapi Exporter, you'll need to configure the following sett
     - 📝 Creating SEO-optimized article content based on your notes
     - 🌐 Publishing the article to Strapi with the generated content and images
 4. Enjoy your freshly exported article in Strapi!
+
+For the plugin to detect images and galleries, ensure the following folder structure:
+
+- Article file (e.g., `article.md`)
+- Main image folder (name: `image`)
+- Main gallery folder (name: `gallery`)
+
+The plugin will detect images in the `image` and `gallery` folders and upload them to Strapi.
+
 
 ## 🤝 Contributing
 

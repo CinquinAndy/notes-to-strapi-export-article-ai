@@ -275,10 +275,13 @@ export async function processMarkdownContent(
 				'Check your API content now, the article is created & uploaded! 🎉'
 			)
 		} else {
-			new Notice('Failed to create article in Strapi.')
+			const errorData = await response.json()
+			new Notice(
+				`Failed to create article in Strapi. Error: ${errorData.error.message}`
+			)
 		}
 	} catch (error) {
-		new Notice('Error creating article in Strapi.')
+		new Notice(`Error creating article in Strapi. Error: ${error.message}`)
 	}
 }
 
