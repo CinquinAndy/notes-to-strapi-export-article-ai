@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GIT_TOKEN }}
+          token: ${{ secrets.GIT_TOKEN  }}
           ref: 'main'
 
       - name: Configure Git
@@ -65,7 +65,7 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+          GITHUB_TOKEN : ${{ secrets.GIT_TOKEN  }}
         with:
           tag_name: ${{ steps.version-bump.outputs.version }}
           release_name: Release ${{ steps.version-bump.outputs.version }}
@@ -75,7 +75,7 @@ jobs:
       - name: Upload main.js to Release
         uses: actions/upload-release-asset@v1
         env:
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+          GITHUB_TOKEN : ${{ secrets.GIT_TOKEN  }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./main.js
@@ -85,7 +85,7 @@ jobs:
       - name: Upload manifest.json to Release
         uses: actions/upload-release-asset@v1
         env:
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+          GITHUB_TOKEN : ${{ secrets.GIT_TOKEN  }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./manifest.json
