@@ -29,7 +29,6 @@ export async function processMarkdownContent(
 	 * Check if all the settings are configured
 	 * *****************************************************************************
 	 */
-	console.log(settings)
 	if (!settings.strapiUrl || !settings.strapiApiToken) {
 		new Notice(
 			'Please configure Strapi URL and API token in the plugin settings'
@@ -128,9 +127,6 @@ export async function processMarkdownContent(
 	const galleryFolderPath = `${articleFolderPath}/gallery`
 	const imageMetadataFile = `${articleFolderPath}/image/metadata.json`
 	const galleryMetadataFile = `${articleFolderPath}/gallery/metadata.json`
-	console.log('articleFolderPath', articleFolderPath)
-	console.log('imageFolderPath', imageFolderPath)
-	console.log('galleryFolderPath', galleryFolderPath)
 
 	// Check if metadata files exist
 	if (await app.vault.adapter.exists(imageMetadataFile)) {
@@ -151,7 +147,6 @@ export async function processMarkdownContent(
 		const galleryMetadata = JSON.parse(
 			await app.vault.adapter.read(galleryMetadataFile)
 		)
-		console.log('galleryMetadata', galleryMetadata)
 		if (Object.keys(galleryMetadata).length > 0) {
 			galleryUploadedImageIds = Object.values(galleryMetadata).map(
 				(item: any) => item.data.id
@@ -238,8 +233,6 @@ export async function processMarkdownContent(
 		useAdditionalCallAPI
 	)
 
-	console.log('articleContent', articleContent)
-
 	/** ****************************************************************************
 	 * Add the content, image, and gallery to the article content based on the settings
 	 * *****************************************************************************
@@ -251,10 +244,6 @@ export async function processMarkdownContent(
 		? settings.additionalGalleryFullPathProperty
 		: settings.mainGalleryFullPathProperty
 
-	console.log('imageFullPathProperty', imageFullPathProperty)
-	console.log('galleryFullPathProperty', galleryFullPathProperty)
-
-	console.log('imageBlob', imageBlob)
 	articleContent.data = {
 		...articleContent.data,
 		...(imageBlob &&

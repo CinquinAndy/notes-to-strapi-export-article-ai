@@ -99,7 +99,6 @@ export async function uploadGalleryImagesToStrapi(
 
 			if (response.ok) {
 				const data = await response.json()
-				console.log('data strapi uploader', data)
 				uploadedImages[imageBlob.name] = {
 					url: data[0].url,
 					id: data[0].id,
