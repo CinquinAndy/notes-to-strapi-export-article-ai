@@ -1,7 +1,7 @@
 {
 	"id": "notes-to-strapi-export-article-ai",
 	"name": "Strapi Exporter, Notes to Strapi article AI enhanced",
-	"version": "1.0.14",
+	"version": "1.0.15",
 	"minAppVersion": "1.5.0",
 	"description": "Effortlessly export your notes to Strapi CMS with AI-powered image handling and SEO optimization. Replace all the images in your notes by uploaded images in Strapi, and add SEO metadata to uploaded images.",
 	"author": "Cinquin Andy",
