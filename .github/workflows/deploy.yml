@@ -1,59 +1,93 @@
-name: Auto Deploy, install dependencies, increment version and push tag
+name: Auto Deploy, install dependencies, increment version, push tag, and create release
 
 on:
-    pull_request:
-        branches: [ main ]
-        types: [ closed ]
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
 
 jobs:
-    publish:
-        if: github.event.pull_request.merged == true
-        runs-on: ubuntu-latest
-        steps:
-            -   name: Checkout
-                uses: actions/checkout@v4
-                with:
-                    fetch-depth: 0
-                    token: ${{ secrets.GIT_TOKEN }}
-                    ref: 'main'
+  publish:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GIT_TOKEN }}
+          ref: 'main'
 
-            -   name: Configure Git
-                run: |
-                    git config --local user.email "cinquin.andy@gmail.com"
-                    git config --local user.name "CINQUIN Andy"
+      - name: Configure Git
+        run: |
+          git config --local user.email "cinquin.andy@gmail.com"
+          git config --local user.name "CINQUIN Andy"
 
-            -   name: Use Node.js
-                uses: actions/setup-node@v4
-                with:
-                    node-version: '20'
-                    registry-url: 'https://registry.npmjs.org'
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
 
-            -   name: Install Dependencies
-                run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-            -   name: Increment Package Version and Update Tag
-                id: version-bump
-                run: |
-                    git fetch --tags
-                    current_version=$(npm pkg get version | sed 's/"//g')
-                    echo "Current version: $current_version"
-                    
-                    new_version=$(npx semver -i patch $current_version)
-                    echo "New version: $new_version"
-                    
-                    while git rev-parse $new_version >/dev/null 2>&1; do
-                      new_version=$(npx semver -i patch $new_version)
-                      echo "Tag $new_version already exists. Trying next version..."
-                    done
-                    
-                    npm version $new_version --no-git-tag-version
-                    sed -i "s/\"version\": \".*\"/\"version\": \"$new_version\"/" manifest.json
-                    echo "version=$new_version" >> $GITHUB_OUTPUT
+      - name: Build TypeScript
+        run: npm run build
 
-            -   name: Commit and Push Version Update
-                run: |
-                    git add package.json manifest.json
-                    git commit -m "chore(release): ${{ steps.version-bump.outputs.version }}"
-                    git tag ${{ steps.version-bump.outputs.version }}
-                    git push origin main --follow-tags
-                    git push origin refs/tags/${{ steps.version-bump.outputs.version }}
+      - name: Increment Package Version and Update Tag
+        id: version-bump
+        run: |
+          git fetch --tags
+          current_version=$(npm pkg get version | sed 's/"//g')
+          echo "Current version: $current_version"
+          
+          new_version=$(npx semver -i patch $current_version)
+          echo "New version: $new_version"
+          
+          while git rev-parse $new_version >/dev/null 2>&1; do
+            new_version=$(npx semver -i patch $new_version)
+            echo "Tag $new_version already exists. Trying next version..."
+          done
+          
+          npm version $new_version --no-git-tag-version
+          sed -i "s/\"version\": \".*\"/\"version\": \"$new_version\"/" manifest.json
+          echo "version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: Commit and Push Version Update
+        run: |
+          git add package.json manifest.json
+          git commit -m "chore(release): ${{ steps.version-bump.outputs.version }}"
+          git tag ${{ steps.version-bump.outputs.version }}
+          git push origin main --follow-tags
+          git push origin refs/tags/${{ steps.version-bump.outputs.version }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version-bump.outputs.version }}
+          release_name: Release ${{ steps.version-bump.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Upload main.js to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./main.js
+          asset_name: main.js
+          asset_content_type: application/javascript
+
+      - name: Upload manifest.json to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./manifest.json
+          asset_name: manifest.json
+          asset_content_type: application/json

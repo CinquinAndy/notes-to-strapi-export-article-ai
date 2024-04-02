@@ -43,29 +43,29 @@ To install Strapi Exporter, follow these steps (coming soon to the Obsidian plug
 To get started with Strapi Exporter, you'll need to configure the following settings:
 
 - **Strapi URL**: The URL of your Strapi instance (e.g., `https://your-strapi-url`).
-![img.png](img.png)
+![img.png](images/img.png)
 - **Strapi API Token**: Your Strapi API token for authentication. You can create an API token in your Strapi admin panel under "Settings" > "API Tokens".
-![img_1.png](img_1.png)
-![img_2.png](img_2.png)
+![img_1.png](images/img_1.png)
+![img_2.png](images/img_2.png)
 - You need, at least, to have the following permissions:
   - article: create
   - upload: create
   - (you can also add full permissions, but it's not really recommended for security reasons)
-![img_3.png](img_3.png)
+![img_3.png](images/img_3.png)
   - (the token in the screenshot is not valid, don't try to use it 😌)
 - **OpenAI API Key**: Your OpenAI API key for using GPT-3 to generate SEO-friendly content. You can get your API key from the [OpenAI website](https://platform.openai.com/account/api-keys).
-![img_4.png](img_4.png)
+![img_4.png](images/img_4.png)
   - this key is needed to use the GPT-3 API, which is used to generate the content of the article
   - (it need to access to "Model capabilities" with "write" permission)
-![img_5.png](img_5.png)
+![img_5.png](images/img_5.png)
   - (or with the "all" permission)
 - **JSON Template**: The JSON template for the article fields in Strapi. Customize this according to your Strapi content type structure. You can find the JSON template in your Strapi API documentation (Swagger).
-![img_6.png](img_6.png)
+![img_6.png](images/img_6.png)
   - to get the JSON template, you can go to the documentation of your Strapi API, and copy the JSON template of the article creation
   - it should look like this: ``https://{api_url}/documentation/v1.0.0``
   - then, go to the article creation, and copy the JSON template
-![img_7.png](img_7.png)
-![img_8.png](img_8.png)
+![img_7.png](images/img_7.png)
+![img_8.png](images/img_8.png)
   - it should look like this for example:
 ```json
 {
@@ -147,7 +147,7 @@ To get started with Strapi Exporter, you'll need to configure the following sett
 
 1. Open a Markdown file in Obsidian.
 2. Click on the plugin's ribbon icon to start the magic.
-![img_9.png](img_9.png)
+![img_9.png](images/img_9.png)
 3. Sit back and relax while Strapi Exporter does the heavy lifting:
     - 🖼️ Extracting and uploading images to Strapi
     - 🎨 Generating SEO-friendly alt text and captions for images
