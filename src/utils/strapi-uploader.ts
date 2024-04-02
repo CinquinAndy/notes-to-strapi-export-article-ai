@@ -47,10 +47,15 @@ export async function uploadImagesToStrapi(
 					id: data[0].id,
 				}
 			} else {
-				new Notice(`Failed to upload image: ${imageDescription.name}`)
+				const errorData = await response.json()
+				new Notice(
+					`Failed to upload image: ${imageDescription.name}. Error: ${errorData.error.message}`
+				)
 			}
 		} catch (error) {
-			new Notice(`Error uploading image: ${imageDescription.name}`)
+			new Notice(
+				`Error uploading image: ${imageDescription.name}. Error: ${error.message}`
+			)
 		}
 	}
 
@@ -105,10 +110,15 @@ export async function uploadGalleryImagesToStrapi(
 					data: data[0],
 				}
 			} else {
-				new Notice(`Failed to upload gallery image: ${imageBlob.name}`)
+				const errorData = await response.json()
+				new Notice(
+					`Failed to upload gallery image: ${imageBlob.name}. Error: ${errorData.error.message}`
+				)
 			}
 		} catch (error) {
-			new Notice(`Error uploading gallery image: ${imageBlob.name}`)
+			new Notice(
+				`Error uploading gallery image: ${imageBlob.name}. Error: ${error.message}`
+			)
 		}
 	}
 
