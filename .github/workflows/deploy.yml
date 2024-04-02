@@ -57,7 +57,7 @@ jobs:
           git tag ${{ steps.version-bump.outputs.version }}
           git push origin main --follow-tags
           git push origin refs/tags/${{ steps.version-bump.outputs.version }}
-                    
+
       - name: Create Release
         uses: actions/create-release@v1
         env:
