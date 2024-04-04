@@ -14,27 +14,25 @@ export default class StrapiExporterPlugin extends Plugin {
 		/**
 		 * Add a ribbon icon to the Markdown view (the little icon on the left side bar)
 		 */
-		const ribbonIconEl = this.addRibbonIcon(
+		this.addRibbonIcon(
 			'upload',
-			'Upload images to Strapi and update links in Markdown content, then generate article content using OpenAI',
-			async (evt: MouseEvent) => {
+			'Upload to Strapi and generate content with AI',
+			async () => {
 				await this.processMarkdownContent()
 			}
 		)
-		ribbonIconEl.addClass('strapi-exporter-ribbon-class')
 
 		/**
 		 * Add a ribbon icon based on the settings (if enabled)
 		 */
 		if (this.settings.enableAdditionalApiCall) {
-			const additionalRibbonIconEl = this.addRibbonIcon(
+			this.addRibbonIcon(
 				'link',
-				'Upload images to Strapi and update links in Markdown content, then generate additional content using OpenAI',
-				async (evt: MouseEvent) => {
+				'Upload to Strapi and generate additional content with AI',
+				async () => {
 					await this.processMarkdownContent(true)
 				}
 			)
-			additionalRibbonIconEl.addClass('strapi-exporter-additional-ribbon-class')
 		}
 
 		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
