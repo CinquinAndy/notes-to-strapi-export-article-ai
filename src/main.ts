@@ -16,7 +16,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		 */
 		this.addRibbonIcon(
 			'upload',
-			'Upload images to Strapi and update links in Markdown content, then generate article content using OpenAI',
+			'Upload to Strapi and generate content with AI',
 			async () => {
 				await this.processMarkdownContent()
 			}
@@ -28,7 +28,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		if (this.settings.enableAdditionalApiCall) {
 			this.addRibbonIcon(
 				'link',
-				'Upload images to Strapi and update links in Markdown content, then generate additional content using OpenAI',
+				'Upload to Strapi and generate additional content with AI',
 				async () => {
 					await this.processMarkdownContent(true)
 				}
