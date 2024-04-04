@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian'
+import { App, PluginSettingTab, Setting } from 'obsidian'
 import StrapiExporterPlugin from './main'
 import { validateJsonTemplate } from './utils/validators'
 
@@ -11,16 +11,11 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		// Display settings fields
 		const { containerEl } = this
 		containerEl.empty()
 
-		/** ****************************************************************************
-		 * Add the settings for the plugin
-		 * *****************************************************************************
-		 */
 		new Setting(containerEl)
-			.setName('Strapi API Token')
+			.setName('Strapi API token')
 			.setDesc('Enter your Strapi API token')
 			.addText(text =>
 				text
@@ -33,7 +28,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('OpenAI API Key')
+			.setName('OpenAI API key')
 			.setDesc('Enter your OpenAI API key for GPT-3')
 			.addText(text =>
 				text
@@ -46,7 +41,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Additional Prompt')
+			.setName('Additional prompt')
 			.setDesc(
 				'Enter an optional additional prompt to customize the article content generation'
 			)
@@ -60,7 +55,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h1', { text: 'Strapi Settings - Call 1' })
+		new Setting(containerEl).setName('Strapi settings - Call 1').setHeading()
 
 		new Setting(containerEl)
 			.setName('Strapi URL')
@@ -76,7 +71,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('JSON Template')
+			.setName('JSON template')
 			.setDesc('Enter the JSON template for the fields needed')
 			.addTextArea(text =>
 				text
@@ -86,17 +81,12 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						if (validateJsonTemplate(value)) {
 							this.plugin.settings.jsonTemplate = value
 							await this.plugin.saveSettings()
-							new Notice('JSON template saved successfully. (valid !)')
-						} else {
-							new Notice(
-								'Invalid JSON template. Please enter a valid JSON template.'
-							)
 						}
 					})
 			)
 
 		new Setting(containerEl)
-			.setName('JSON Template Description')
+			.setName('JSON template description')
 			.setDesc('Enter the description for each field in the JSON template')
 			.addTextArea(text =>
 				text
@@ -109,7 +99,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Strapi Article Create URL')
+			.setName('Strapi article create URL')
 			.setDesc('Enter the URL to create articles in Strapi')
 			.addText(text =>
 				text
@@ -122,7 +112,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
-			.setName('Strapi Content Attribute Name')
+			.setName('Strapi content attribute name')
 			.setDesc('Enter the attribute name for the content field in Strapi')
 			.addText(text =>
 				text
@@ -134,10 +124,10 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					})
 			)
 
-		containerEl.createEl('h2', { text: 'Main Image Settings' })
+		new Setting(containerEl).setName('Main image settings').setHeading()
 
 		new Setting(containerEl)
-			.setName('Enable Main Image')
+			.setName('Enable main image')
 			.setDesc('Toggle the main image')
 			.addToggle(toggle =>
 				toggle
@@ -150,7 +140,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		if (this.plugin.settings.mainButtonImageEnabled) {
-			// Display main image settings
 			containerEl.createEl('p', {
 				text: 'For the plugin to detect images and galleries, ensure the following folder structure:',
 			})
@@ -167,7 +156,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			})
 
 			new Setting(containerEl)
-				.setName('Main Image Full Path Property')
+				.setName('Main image full path property')
 				.setDesc(
 					'Enter the full path property for the main image in the final call'
 				)
@@ -182,10 +171,10 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 		}
 
-		containerEl.createEl('h2', { text: 'Main Gallery Settings' })
+		new Setting(containerEl).setName('Main gallery settings').setHeading()
 
 		new Setting(containerEl)
-			.setName('Enable Main Gallery')
+			.setName('Enable main gallery')
 			.setDesc('Toggle the main gallery')
 			.addToggle(toggle =>
 				toggle
@@ -214,7 +203,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			})
 
 			new Setting(containerEl)
-				.setName('Main Gallery Full Path Property')
+				.setName('Main gallery full path property')
 				.setDesc(
 					'Enter the full path property for the main gallery in the final call'
 				)
@@ -229,15 +218,16 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 		}
 
-		containerEl.createEl('h1', {
-			text: 'Strapi Settings - Call 2 - Additional call',
-		})
+		new Setting(containerEl)
+			.setName('Strapi settings - Call 2 - Additional call')
+			.setHeading()
+
 		containerEl.createEl('p', {
 			text: `(Be careful, when enabling this feature, you'll need to restart Obsidian to see the additional button in the ribbon menu.)`,
 		})
 
 		new Setting(containerEl)
-			.setName('Enable Additional Call API')
+			.setName('Enable additional call API')
 			.setDesc(
 				'Toggle the additional Call API, and display a new icon in the ribbon menu'
 			)
@@ -253,7 +243,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.enableAdditionalApiCall) {
 			new Setting(containerEl)
-				.setName('Additional JSON Template')
+				.setName('Additional JSON template')
 				.setDesc(
 					'Enter the JSON template for the fields needed for the additional api'
 				)
@@ -265,17 +255,12 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 							if (validateJsonTemplate(value)) {
 								this.plugin.settings.additionalJsonTemplate = value
 								await this.plugin.saveSettings()
-								new Notice('JSON template saved successfully. (valid !)')
-							} else {
-								new Notice(
-									'Invalid additional JSON template. Please enter a valid JSON template.'
-								)
 							}
 						})
 				)
 
 			new Setting(containerEl)
-				.setName('Additional API JSON Template Description')
+				.setName('Additional API JSON template description')
 				.setDesc(
 					'Enter the description for each field in the additional API JSON template'
 				)
@@ -303,7 +288,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				)
 
 			new Setting(containerEl)
-				.setName('Additional API Content Attribute Name')
+				.setName('Additional API content attribute name')
 				.setDesc(
 					'Enter the attribute name for the content field for the additional API'
 				)
@@ -317,10 +302,12 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						})
 				)
 
-			containerEl.createEl('h2', { text: 'Additional Call api Image Settings' })
+			new Setting(containerEl)
+				.setName('Additional call API image settings')
+				.setHeading()
 
 			new Setting(containerEl)
-				.setName('Enable Additional Call API Image')
+				.setName('Enable additional call API image')
 				.setDesc('Toggle the additional Call API image')
 				.addToggle(toggle =>
 					toggle
@@ -349,7 +336,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				})
 
 				new Setting(containerEl)
-					.setName('Additional Call API Image Full Path Property')
+					.setName('Additional call API image full path property')
 					.setDesc(
 						'Enter the full path property for the additional Call API image in the final call'
 					)
@@ -364,12 +351,12 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					)
 			}
 
-			containerEl.createEl('h2', {
-				text: 'Additional Call API Gallery Settings',
-			})
+			new Setting(containerEl)
+				.setName('Additional call API gallery settings')
+				.setHeading()
 
 			new Setting(containerEl)
-				.setName('Enable Additional Call API Gallery')
+				.setName('Enable additional call API gallery')
 				.setDesc('Toggle the additional Call API gallery')
 				.addToggle(toggle =>
 					toggle
@@ -398,7 +385,7 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 				})
 
 				new Setting(containerEl)
-					.setName('Additional Call API Gallery Full Path Property')
+					.setName('Additional call API gallery full path property')
 					.setDesc(
 						'Enter the full path property for the additional Call API gallery in the final call'
 					)
