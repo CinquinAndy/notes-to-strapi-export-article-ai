@@ -15,6 +15,19 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		containerEl.empty()
 
 		new Setting(containerEl)
+			.setName('Strapi URL')
+			.setDesc('Enter your Strapi instance URL')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url')
+					.setValue(this.plugin.settings.strapiUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
 			.setName('Strapi API token')
 			.setDesc('Enter your Strapi API token')
 			.addText(text =>
@@ -56,19 +69,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl).setName('Strapi settings - Call 1').setHeading()
-
-		new Setting(containerEl)
-			.setName('Strapi URL')
-			.setDesc('Enter your Strapi instance URL')
-			.addText(text =>
-				text
-					.setPlaceholder('https://your-strapi-url')
-					.setValue(this.plugin.settings.strapiUrl)
-					.onChange(async value => {
-						this.plugin.settings.strapiUrl = value
-						await this.plugin.saveSettings()
-					})
-			)
 
 		new Setting(containerEl)
 			.setName('Strapi article create URL')
