@@ -19,7 +19,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		 * Add the settings for the plugin
 		 * *****************************************************************************
 		 */
-		containerEl.createEl('h1', { text: 'Strapi & OpenAI Settings' })
 		new Setting(containerEl)
 			.setName('Strapi API Token')
 			.setDesc('Enter your Strapi API token')
