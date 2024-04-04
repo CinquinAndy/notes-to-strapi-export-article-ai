@@ -71,6 +71,19 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 			)
 
 		new Setting(containerEl)
+			.setName('Strapi article create URL')
+			.setDesc('Enter the URL to create articles in Strapi')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url/api/articles')
+					.setValue(this.plugin.settings.strapiArticleCreateUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiArticleCreateUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
 			.setName('JSON template')
 			.setDesc('Enter the JSON template for the fields needed')
 			.addTextArea(text =>
@@ -94,19 +107,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.jsonTemplateDescription)
 					.onChange(async value => {
 						this.plugin.settings.jsonTemplateDescription = value
-						await this.plugin.saveSettings()
-					})
-			)
-
-		new Setting(containerEl)
-			.setName('Strapi article create URL')
-			.setDesc('Enter the URL to create articles in Strapi')
-			.addText(text =>
-				text
-					.setPlaceholder('https://your-strapi-url/api/articles')
-					.setValue(this.plugin.settings.strapiArticleCreateUrl)
-					.onChange(async value => {
-						this.plugin.settings.strapiArticleCreateUrl = value
 						await this.plugin.saveSettings()
 					})
 			)
@@ -243,6 +243,19 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.enableAdditionalApiCall) {
 			new Setting(containerEl)
+				.setName('Additional API URL')
+				.setDesc('Enter the URL to create content for the additional API')
+				.addText(text =>
+					text
+						.setPlaceholder('https://your-strapi-url/api/additional-content')
+						.setValue(this.plugin.settings.additionalUrl)
+						.onChange(async value => {
+							this.plugin.settings.additionalUrl = value
+							await this.plugin.saveSettings()
+						})
+				)
+
+			new Setting(containerEl)
 				.setName('Additional JSON template')
 				.setDesc(
 					'Enter the JSON template for the fields needed for the additional api'
@@ -270,19 +283,6 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.additionalJsonTemplateDescription)
 						.onChange(async value => {
 							this.plugin.settings.additionalJsonTemplateDescription = value
-							await this.plugin.saveSettings()
-						})
-				)
-
-			new Setting(containerEl)
-				.setName('Additional API URL')
-				.setDesc('Enter the URL to create content for the additional API')
-				.addText(text =>
-					text
-						.setPlaceholder('https://your-strapi-url/api/additional-content')
-						.setValue(this.plugin.settings.additionalUrl)
-						.onChange(async value => {
-							this.plugin.settings.additionalUrl = value
 							await this.plugin.saveSettings()
 						})
 				)
