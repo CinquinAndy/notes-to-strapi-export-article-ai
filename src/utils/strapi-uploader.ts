@@ -1,4 +1,4 @@
-import { Notice, requestUrl } from 'obsidian'
+import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
