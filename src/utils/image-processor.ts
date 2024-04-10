@@ -256,24 +256,26 @@ export async function processMarkdownContent(
 
 	new Notice('Article content generated successfully!')
 	try {
-		const response = await this.app.requestUrl({
-			url: useAdditionalCallAPI
+		const response = await fetch(
+			useAdditionalCallAPI
 				? settings.additionalUrl
 				: settings.strapiArticleCreateUrl,
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${settings.strapiApiToken}`,
-			},
-			body: JSON.stringify(articleContent),
-		})
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${settings.strapiApiToken}`,
+				},
+				body: JSON.stringify(articleContent),
+			}
+		)
 
-		if (response.status === 200) {
+		if (response.ok) {
 			new Notice(
 				'Check your API content now, the article is created & uploaded! 🎉'
 			)
 		} else {
-			const errorData = await response.json
+			const errorData = await response.json()
 			new Notice(
 				`Failed to create article in Strapi. Error: ${errorData.error.message}`
 			)
