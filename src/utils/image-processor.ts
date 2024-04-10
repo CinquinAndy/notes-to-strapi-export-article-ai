@@ -357,7 +357,12 @@ export async function getImageBlob(
 				file.extension.match(/^(jpg|jpeg|png|gif|bmp|webp)$/i)
 		)
 		if (files.length > 0) {
-			const file = files[0] as TFile
+			// check the TFILE type, and not cast it to TFILE
+			if (!(files[0] instanceof TFile)) {
+				return null
+			}
+			const file = files[0]
+
 			const blob = await app.vault.readBinary(file)
 			return {
 				name: file.name,
@@ -391,7 +396,15 @@ export async function getGalleryImageBlobs(
 		)
 		return Promise.all(
 			files.map(async file => {
-				const blob = await app.vault.readBinary(file as TFile)
+				// check the TFILE type, and not cast it to TFILE
+				if (!(file instanceof TFile)) {
+					return {
+						name: '',
+						blob: new Blob(),
+						path: '',
+					}
+				}
+				const blob = await app.vault.readBinary(file)
 				return {
 					name: file.name,
 					blob: new Blob([blob], { type: 'image/png' }),
