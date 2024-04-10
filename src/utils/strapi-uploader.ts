@@ -31,8 +31,7 @@ export async function uploadImagesToStrapi(
 		)
 
 		try {
-			const response = await this.app.requestUrl({
-				url: `${settings.strapiUrl}/api/upload`,
+			const response = await fetch(`${settings.strapiUrl}/api/upload`, {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${settings.strapiApiToken}`,
@@ -40,15 +39,15 @@ export async function uploadImagesToStrapi(
 				body: formData,
 			})
 
-			if (response.status === 200) {
-				const data = await response.json
+			if (response.ok) {
+				const data = await response.json()
 				uploadedImages[imageDescription.name] = {
 					url: data[0].url,
 					data: data[0],
 					id: data[0].id,
 				}
 			} else {
-				const errorData = await response.json
+				const errorData = await response.json()
 				new Notice(
 					`Failed to upload image: ${imageDescription.name}. Error: ${errorData.error.message}`
 				)
@@ -95,8 +94,7 @@ export async function uploadGalleryImagesToStrapi(
 		formData.append('files', imageBlob.blob, imageBlob.name)
 
 		try {
-			const response = await this.app.requestUrl({
-				url: `${settings.strapiUrl}/api/upload`,
+			const response = await fetch(`${settings.strapiUrl}/api/upload`, {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${settings.strapiApiToken}`,
@@ -104,15 +102,15 @@ export async function uploadGalleryImagesToStrapi(
 				body: formData,
 			})
 
-			if (response.status === 200) {
-				const data = await response.json
+			if (response.ok) {
+				const data = await response.json()
 				uploadedImages[imageBlob.name] = {
 					url: data[0].url,
 					id: data[0].id,
 					data: data[0],
 				}
 			} else {
-				const errorData = await response.json
+				const errorData = await response.json()
 				new Notice(
 					`Failed to upload gallery image: ${imageBlob.name}. Error: ${errorData.error.message}`
 				)
