@@ -19,7 +19,7 @@
 		"obsidian": "latest",
 		"prettier": "3.3.3",
 		"tslib": "2.6.3",
-		"typescript": "5.5.3"
+		"typescript": "5.5.4"
 	},
 	"dependencies": {
 		"openai": "^4.0.0",
