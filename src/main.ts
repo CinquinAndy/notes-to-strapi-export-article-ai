@@ -11,6 +11,7 @@ export default class StrapiExporterPlugin extends Plugin {
 	settingsTab: UnifiedSettingsTab
 
 	async onload() {
+		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
 
 		this.settingsTab = new UnifiedSettingsTab(this.app, this)
@@ -18,44 +19,31 @@ export default class StrapiExporterPlugin extends Plugin {
 
 		this.updateRibbonIcons()
 
-		this.registerEvent(
-			this.app.workspace.on('file-menu', (menu, file) => {
-				menu.addItem(item => {
-					item
-						.setTitle('Export to Strapi')
-						.setIcon('upload')
-						.onClick(async () => {
-							if (file) {
-								await this.processMarkdownContent(file)
-							}
-						})
-				})
-			})
-		)
+		console.log('StrapiExporterPlugin loaded')
 	}
 
 	onunload() {
-		// Clean up code here
+		console.log('StrapiExporterPlugin unloaded')
 	}
 
 	async loadSettings() {
+		console.log('Loading settings')
 		this.settings = Object.assign(
 			{},
 			DEFAULT_STRAPI_EXPORTER_SETTINGS,
 			await this.loadData()
 		)
+		console.log('Settings loaded:', this.settings)
 	}
 
 	async saveSettings() {
+		console.log('Saving settings')
 		await this.saveData(this.settings)
-	}
-
-	async processMarkdownContent(file: TFile) {
-		// Call processMarkdownContent from image-processor.ts
-		await processMarkdownContent(this.app, this.settings, file)
+		console.log('Settings saved')
 	}
 
 	updateRibbonIcons() {
+		console.log('Updating ribbon icons')
 		// Remove existing icons
 		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
 		this.ribbonIcons = {}
@@ -63,6 +51,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		// Add icons for each enabled route
 		this.settings.routes.forEach(route => {
 			if (route.enabled) {
+				console.log(`Adding ribbon icon for route: ${route.name}`)
 				this.ribbonIcons[route.id] = this.addRibbonIcon(
 					route.icon,
 					route.name,
@@ -75,12 +64,8 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	async exportToStrapi(route: RouteConfig) {
+		console.log(`Exporting to Strapi using route: ${route.name}`)
 		new Notice(`Exporting to Strapi using route: ${route.name}`)
-		const activeFile = this.app.workspace.getActiveFile()
-		if (activeFile) {
-			await this.processMarkdownContent(activeFile)
-		} else {
-			new Notice('No active file to export')
-		}
+		// Implement export logic here
 	}
 }

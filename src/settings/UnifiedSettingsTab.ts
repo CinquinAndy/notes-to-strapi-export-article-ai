@@ -16,9 +16,11 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	constructor(app: App, plugin: StrapiExporterPlugin) {
 		super(app, plugin)
 		this.plugin = plugin
+		console.log('UnifiedSettingsTab constructed')
 	}
 
 	display(): void {
+		console.log('UnifiedSettingsTab display called')
 		const { containerEl } = this
 		containerEl.empty()
 
@@ -29,16 +31,29 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	}
 
 	createTabButtons(containerEl: HTMLElement): void {
+		console.log('Creating tab buttons')
 		const tabsContainer = containerEl.createDiv('nav-buttons-container')
 		tabsContainer.style.marginBottom = '20px'
+		tabsContainer.style.display = 'flex'
+		tabsContainer.style.justifyContent = 'space-around'
 
 		const createTabButton = (id: string, name: string) => {
-			const btn = new Setting(tabsContainer).setName(name).addButton(button =>
+			console.log(`Creating button for ${id}`)
+			const btn = new Setting(tabsContainer).addButton(button =>
 				button.setButtonText(name).onClick(() => {
+					console.log(`${id} button clicked`)
 					this.plugin.settings.currentTab = id
 					this.display()
 				})
 			)
+
+			// Remove the setting name and description
+			btn.nameEl.remove()
+			btn.descEl.remove()
+
+			// Style the button
+			btn.settingEl.style.border = 'none'
+			btn.settingEl.style.padding = '0'
 
 			if (this.plugin.settings.currentTab === id) {
 				btn.settingEl.addClass('is-active')
@@ -52,6 +67,7 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	}
 
 	updateContent(containerEl: HTMLElement): void {
+		console.log(`Updating content for tab: ${this.plugin.settings.currentTab}`)
 		switch (this.plugin.settings.currentTab) {
 			case 'dashboard':
 				if (!this.dashboard) {
@@ -77,6 +93,8 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 				}
 				this.routes.display()
 				break
+			default:
+				console.error(`Unknown tab: ${this.plugin.settings.currentTab}`)
 		}
 	}
 }
