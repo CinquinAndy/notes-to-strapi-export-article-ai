@@ -106,6 +106,8 @@ export default class StrapiExporterPlugin extends Plugin {
 	removeAllIcons() {
 		console.log('Removing all icons')
 		this.ribbonIcons.forEach((icon, routeId) => {
+			console.log(icon)
+			console.log(`Removing icon for route: ${routeId}`)
 			icon.remove()
 		})
 		this.ribbonIcons.clear()
