@@ -1,5 +1,5 @@
 // src/settings/UnifiedSettingsTab.ts
-import { App, PluginSettingTab, Setting } from 'obsidian'
+import { App, PluginSettingTab } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { Dashboard } from '../components/Dashboard'
 import { Configuration } from '../components/Configuration'
@@ -27,37 +27,30 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 
 		this.createTabButtons(containerEl)
 
-		this.contentContainer = containerEl.createDiv('content-container')
+		this.contentContainer = containerEl.createDiv('strapi-exporter-content')
 		this.updateContent()
 	}
 
 	createTabButtons(containerEl: HTMLElement): void {
 		console.log('Creating tab buttons')
-		const tabsContainer = containerEl.createDiv('nav-buttons-container')
-		tabsContainer.style.marginBottom = '20px'
-		tabsContainer.style.display = 'flex'
-		tabsContainer.style.justifyContent = 'space-around'
+		const tabsContainer = containerEl.createDiv('strapi-exporter-nav')
 
 		const createTabButton = (id: string, name: string) => {
 			console.log(`Creating button for ${id}`)
-			const btn = new Setting(tabsContainer).addButton(button =>
-				button.setButtonText(name).onClick(() => {
-					console.log(`${id} button clicked`)
-					this.plugin.settings.currentTab = id
-					this.updateContent()
-				})
-			)
+			const btn = tabsContainer.createEl('button', {
+				text: name,
+				cls: 'strapi-exporter-nav-button',
+			})
 
-			// Remove the setting name and description
-			btn.nameEl.remove()
-			btn.descEl.remove()
-
-			// Style the button
-			btn.settingEl.style.border = 'none'
-			btn.settingEl.style.padding = '0'
+			btn.addEventListener('click', () => {
+				console.log(`${id} button clicked`)
+				this.plugin.settings.currentTab = id
+				this.updateContent()
+				this.updateActiveButton(tabsContainer, btn)
+			})
 
 			if (this.plugin.settings.currentTab === id) {
-				btn.settingEl.addClass('is-active')
+				btn.addClass('is-active')
 			}
 		}
 
@@ -65,6 +58,16 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 		createTabButton('configuration', 'Configuration')
 		createTabButton('apiKeys', 'API Keys')
 		createTabButton('routes', 'Routes')
+	}
+
+	updateActiveButton(
+		tabsContainer: HTMLElement,
+		activeButton: HTMLElement
+	): void {
+		tabsContainer.findAll('.strapi-exporter-nav-button').forEach(btn => {
+			btn.removeClass('is-active')
+		})
+		activeButton.addClass('is-active')
 	}
 
 	updateContent(): void {

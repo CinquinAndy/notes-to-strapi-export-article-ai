@@ -14,6 +14,9 @@ export default class StrapiExporterPlugin extends Plugin {
 		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
 
+		// Load CSS
+		this.loadStyles()
+
 		this.settingsTab = new UnifiedSettingsTab(this.app, this)
 		this.addSettingTab(this.settingsTab)
 
@@ -40,6 +43,44 @@ export default class StrapiExporterPlugin extends Plugin {
 		console.log('Saving settings')
 		await this.saveData(this.settings)
 		console.log('Settings saved')
+	}
+
+	loadStyles() {
+		const styleElement = document.createElement('style')
+		styleElement.id = 'strapi-exporter-styles'
+		document.head.appendChild(styleElement)
+
+		styleElement.textContent = `
+            .strapi-exporter-nav {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+
+            .strapi-exporter-nav-button {
+                padding: 10px 15px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                font-size: 14px;
+                color: var(--text-muted);
+                transition: all 0.3s ease;
+            }
+
+            .strapi-exporter-nav-button:hover {
+                color: var(--text-normal);
+            }
+
+            .strapi-exporter-nav-button.is-active {
+                color: var(--text-accent);
+                border-bottom: 2px solid var(--text-accent);
+            }
+
+            .strapi-exporter-content {
+                padding: 20px;
+            }
+        `
 	}
 
 	updateRibbonIcons() {
