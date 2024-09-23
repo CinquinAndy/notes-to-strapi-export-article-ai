@@ -1,10 +1,8 @@
 import { Plugin } from 'obsidian'
-import { StrapiExporterSettingTab } from './settings'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
 import { processMarkdownContent } from './utils/image-processor'
 import { StrapiExporterSettings } from './types/settings'
-import { IconConfigTab } from './settings/IconConfigTab'
-import { SchemaConfigTab } from './settings/SchemaConfigTab'
+import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
@@ -15,13 +13,10 @@ export default class StrapiExporterPlugin extends Plugin {
 
 		await this.loadSettings()
 
-		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
-		this.addSettingTab(new IconConfigTab(this.app, this))
-		this.addSettingTab(new SchemaConfigTab(this.app, this))
+		// Remove other setting tabs and add only the UnifiedSettingsTab
+		this.addSettingTab(new UnifiedSettingsTab(this.app, this))
 
 		this.updateRibbonIcons()
-
-		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
 	}
 
 	onunload() {}

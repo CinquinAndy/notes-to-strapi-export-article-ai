@@ -1,8 +1,17 @@
-import { App, PluginSettingTab, Setting, TextAreaComponent } from 'obsidian'
+// src/settings/UnifiedSettingsTab.ts
+
+import {
+	App,
+	PluginSettingTab,
+	Setting,
+	TextAreaComponent,
+	Notice,
+} from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { OpenAI } from 'openai'
+import { IconConfig } from '../types/settings'
 
-export class SchemaConfigTab extends PluginSettingTab {
+export class UnifiedSettingsTab extends PluginSettingTab {
 	plugin: StrapiExporterPlugin
 	schemaInput: TextAreaComponent
 	descriptionInput: TextAreaComponent
@@ -17,9 +26,56 @@ export class SchemaConfigTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
-		containerEl.createEl('h2', {
-			text: 'Strapi Schema Configuration Assistant',
-		})
+		this.addGeneralSettings(containerEl)
+		this.addSchemaConfigSection(containerEl)
+		this.addIconConfigSection(containerEl)
+	}
+
+	addGeneralSettings(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'General Settings' })
+
+		new Setting(containerEl)
+			.setName('Strapi URL')
+			.setDesc('Enter your Strapi instance URL')
+			.addText(text =>
+				text
+					.setPlaceholder('https://your-strapi-url')
+					.setValue(this.plugin.settings.strapiUrl)
+					.onChange(async value => {
+						this.plugin.settings.strapiUrl = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Strapi API token')
+			.setDesc('Enter your Strapi API token')
+			.addText(text =>
+				text
+					.setPlaceholder('Enter your token')
+					.setValue(this.plugin.settings.strapiApiToken)
+					.onChange(async value => {
+						this.plugin.settings.strapiApiToken = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('OpenAI API key')
+			.setDesc('Enter your OpenAI API key for GPT-3')
+			.addText(text =>
+				text
+					.setPlaceholder('Enter your OpenAI API key')
+					.setValue(this.plugin.settings.openaiApiKey)
+					.onChange(async value => {
+						this.plugin.settings.openaiApiKey = value
+						await this.plugin.saveSettings()
+					})
+			)
+	}
+
+	addSchemaConfigSection(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'Strapi Schema Configuration' })
 
 		new Setting(containerEl)
 			.setName('Strapi Schema')
@@ -91,6 +147,81 @@ export class SchemaConfigTab extends PluginSettingTab {
 			)
 	}
 
+	addIconConfigSection(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'Icon Configuration' })
+
+		this.plugin.settings.icons.forEach((iconConfig, index) => {
+			this.createIconConfigSettings(containerEl, iconConfig, index)
+		})
+
+		new Setting(containerEl)
+			.setName('Add New Icon')
+			.setDesc('Add a new icon configuration')
+			.addButton(button =>
+				button.setButtonText('+').onClick(async () => {
+					this.plugin.settings.icons.push({
+						id: `icon-${Date.now()}`,
+						icon: 'star',
+						title: 'New Icon',
+						enabled: true,
+					})
+					await this.plugin.saveSettings()
+					this.display()
+				})
+			)
+	}
+
+	createIconConfigSettings(
+		containerEl: HTMLElement,
+		iconConfig: IconConfig,
+		index: number
+	): void {
+		const iconSetting = new Setting(containerEl)
+			.setName(`Icon ${index + 1}`)
+			.setDesc('Configure icon settings')
+			.addText(text =>
+				text
+					.setPlaceholder('Icon name')
+					.setValue(iconConfig.icon)
+					.onChange(async value => {
+						iconConfig.icon = value
+						await this.plugin.saveSettings()
+						this.plugin.updateRibbonIcons()
+					})
+			)
+			.addText(text =>
+				text
+					.setPlaceholder('Icon title')
+					.setValue(iconConfig.title)
+					.onChange(async value => {
+						iconConfig.title = value
+						await this.plugin.saveSettings()
+						this.plugin.updateRibbonIcons()
+					})
+			)
+			.addToggle(toggle =>
+				toggle.setValue(iconConfig.enabled).onChange(async value => {
+					iconConfig.enabled = value
+					await this.plugin.saveSettings()
+					this.plugin.updateRibbonIcons()
+				})
+			)
+
+		if (index > 1) {
+			iconSetting.addButton(button =>
+				button
+					.setIcon('trash')
+					.setTooltip('Delete this icon')
+					.onClick(async () => {
+						this.plugin.settings.icons.splice(index, 1)
+						await this.plugin.saveSettings()
+						this.plugin.updateRibbonIcons()
+						this.display()
+					})
+			)
+		}
+	}
+
 	async generateConfiguration() {
 		const openai = new OpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
@@ -121,7 +252,7 @@ export class SchemaConfigTab extends PluginSettingTab {
 
 		try {
 			const response = await openai.chat.completions.create({
-				model: 'gpt-4o-mini',
+				model: 'gpt-3.5-turbo',
 				messages: [{ role: 'user', content: prompt }],
 				max_tokens: 1000,
 			})
