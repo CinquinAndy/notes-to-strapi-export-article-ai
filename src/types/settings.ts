@@ -4,6 +4,7 @@
 export interface StrapiExporterSettings {
 	strapiUrl: string
 	strapiApiToken: string
+	forvoyezApiKey: string
 	openaiApiKey: string
 	jsonTemplate: string
 	jsonTemplateDescription: string
