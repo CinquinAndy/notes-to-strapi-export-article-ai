@@ -1,21 +1,23 @@
 // src/main.ts
 import { Notice, Plugin } from 'obsidian'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
-import { processMarkdownContent } from './utils/image-processor'
 import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
+import { debounce } from './utils/debounce'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
-	ribbonIcons: { [key: string]: HTMLElement } = {}
 	settingsTab: UnifiedSettingsTab
+	debouncedUpdateRibbonIcons: () => Promise<void>
 
 	async onload() {
 		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
 
-		// Load CSS
-		this.loadStyles()
+		this.debouncedUpdateRibbonIcons = debounce(
+			this.updateRibbonIcons.bind(this),
+			300
+		)
 
 		this.settingsTab = new UnifiedSettingsTab(this.app, this)
 		this.addSettingTab(this.settingsTab)
@@ -85,44 +87,21 @@ export default class StrapiExporterPlugin extends Plugin {
 
 	updateRibbonIcons() {
 		console.log('Updating ribbon icons')
-		// Remove existing icons
-		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
-		this.ribbonIcons = {}
+		this.removeRibbonIcons()
 
-		// Add icons for each enabled route
 		this.settings.routes.forEach(route => {
 			if (route.enabled) {
 				console.log(`Adding ribbon icon for route: ${route.name}`)
-				this.ribbonIcons[route.id] = this.addRibbonIcon(
-					route.icon,
-					route.name,
-					() => {
-						this.exportToStrapi(route)
-					}
-				)
+				this.addRibbonIcon(route.icon, route.name, () => {
+					this.exportToStrapi(route)
+				})
 			}
 		})
 	}
 
-	updateRibbonLabels() {
-		console.log('Updating ribbon labels')
-		// Remove existing icons
-		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
-		this.ribbonIcons = {}
-
-		// Add icons for each enabled route
-		this.settings.routes.forEach(route => {
-			if (route.enabled && route.icon) {
-				console.log(`Adding ribbon icon for route: ${route.name}`)
-				this.ribbonIcons[route.id] = this.addRibbonIcon(
-					route.icon,
-					route.name,
-					() => {
-						this.exportToStrapi(route)
-					}
-				)
-			}
-		})
+	removeRibbonIcons() {
+		// Remove all ribbon icons added by this plugin
+		// This is a placeholder - implement according to your ribbon icon management
 	}
 
 	async exportToStrapi(route: RouteConfig) {

@@ -87,10 +87,8 @@ export class Routes {
 		return text.setValue(route[field] as string).onChange(async value => {
 			route[field] = value
 			await this.plugin.saveSettings()
-			if (field === 'icon') {
-				this.plugin.updateRibbonIcons()
-			} else {
-				this.plugin.updateRibbonLabels()
+			if (field === 'name' || field === 'icon') {
+				this.plugin.debouncedUpdateRibbonIcons()
 			}
 		})
 	}
