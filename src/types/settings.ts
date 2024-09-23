@@ -33,4 +33,6 @@ export interface RouteConfig {
 	schemaDescription: string
 	generatedConfig: string
 	language: string
+	imageProperty?: string
+	galleryProperty?: string
 }

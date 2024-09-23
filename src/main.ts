@@ -1,10 +1,10 @@
-// src/main.ts
 import { Notice, Plugin } from 'obsidian'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
-import { processMarkdownContent } from './utils/image-processor'
 import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 import { debounce } from './utils/debounce'
+import { processMarkdownContent } from './utils/image-processor'
+import { generateArticleContent } from './utils/forvoyez-generator'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
@@ -16,7 +16,6 @@ export default class StrapiExporterPlugin extends Plugin {
 		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
 
-		// Load CSS
 		this.loadStyles()
 
 		this.debouncedUpdateRibbonIcons = debounce(
@@ -114,24 +113,95 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	addIconForRoute(route: RouteConfig) {
-		// Remove existing icon for this route if it exists
 		const existingIcon = this.ribbonIcons.get(route.id)
 		if (existingIcon && existingIcon.parentNode) {
 			existingIcon.parentNode.removeChild(existingIcon)
 		}
 
-		// Create the new icon
 		const ribbonIconEl = this.addRibbonIcon(route.icon, route.name, () => {
-			this.exportToStrapi(route)
+			this.exportToStrapi(route.id)
 		})
 
-		// Store the new icon
 		this.ribbonIcons.set(route.id, ribbonIconEl)
 	}
 
-	async exportToStrapi(route: RouteConfig) {
+	async exportToStrapi(routeId: string) {
+		const route = this.settings.routes.find(r => r.id === routeId)
+		if (!route) {
+			new Notice('Route not found')
+			return
+		}
+
 		console.log(`Exporting to Strapi using route: ${route.name}`)
 		new Notice(`Exporting to Strapi using route: ${route.name}`)
-		// Implement export logic here
+
+		const processedContent = await processMarkdownContent(
+			this.app,
+			this.settings,
+			routeId
+		)
+		if (!processedContent) {
+			new Notice('Failed to process content')
+			return
+		}
+
+		const articleContent = await generateArticleContent(
+			processedContent.content,
+			this.settings,
+			false
+		)
+
+		const finalContent = this.prepareFinalContent(
+			articleContent,
+			processedContent,
+			route
+		)
+
+		await this.sendToStrapi(finalContent, route)
+	}
+
+	private prepareFinalContent(
+		articleContent: any,
+		processedContent: any,
+		route: RouteConfig
+	) {
+		const imageProperty = route.imageProperty || 'image'
+		const galleryProperty = route.galleryProperty || 'gallery'
+
+		return {
+			data: {
+				...articleContent.data,
+				...(processedContent.mainImage && {
+					[imageProperty]: processedContent.mainImage.id,
+				}),
+				...(processedContent.galleryImages.length > 0 && {
+					[galleryProperty]: processedContent.galleryImages,
+				}),
+			},
+		}
+	}
+
+	private async sendToStrapi(data: any, route: RouteConfig) {
+		try {
+			const response = await fetch(route.url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${this.settings.strapiApiToken}`,
+				},
+				body: JSON.stringify(data),
+			})
+
+			if (response.ok) {
+				new Notice('Content successfully sent to Strapi!')
+			} else {
+				const errorData = await response.json()
+				new Notice(
+					`Failed to create content in Strapi. Error: ${errorData.error.message}`
+				)
+			}
+		} catch (error) {
+			new Notice(`Error sending to Strapi: ${error.message}`)
+		}
 	}
 }
