@@ -23,10 +23,10 @@ export interface StrapiExporterSettings {
 
 export interface RouteConfig {
 	id: string
-	icon: string
 	name: string
-	description: string
-	enabled: boolean
+	icon: string
 	url: string
-	language: string
+	description: string
+	subtitle: string
+	enabled: boolean
 }

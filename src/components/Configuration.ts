@@ -79,6 +79,13 @@ export class Configuration {
 					.addOption('es', 'Spanish')
 					.addOption('de', 'German')
 					.addOption('it', 'Italian')
+					.addOption('zh', 'Chinese')
+					.addOption('ja', 'Japanese')
+					.addOption('ko', 'Korean')
+					.addOption('pt', 'Portuguese')
+					.addOption('ru', 'Russian')
+					.addOption('ar', 'Arabic')
+					.addOption('hi', 'Hindi')
 					// Add more languages as needed
 					.setValue(this.plugin.settings.targetLanguage || 'en')
 					.onChange(async value => {
@@ -165,7 +172,7 @@ export class Configuration {
 		try {
 			new Notice('Generating configuration...')
 			const response = await openai.chat.completions.create({
-				model: 'gpt-4-mini',
+				model: 'gpt-4o-mini',
 				messages: [{ role: 'user', content: prompt }],
 				response_format: { type: 'json_object' },
 				max_tokens: 2000,

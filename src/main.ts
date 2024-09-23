@@ -104,6 +104,27 @@ export default class StrapiExporterPlugin extends Plugin {
 		})
 	}
 
+	updateRibbonLabels() {
+		console.log('Updating ribbon labels')
+		// Remove existing icons
+		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
+		this.ribbonIcons = {}
+
+		// Add icons for each enabled route
+		this.settings.routes.forEach(route => {
+			if (route.enabled && route.icon) {
+				console.log(`Adding ribbon icon for route: ${route.name}`)
+				this.ribbonIcons[route.id] = this.addRibbonIcon(
+					route.icon,
+					route.name,
+					() => {
+						this.exportToStrapi(route)
+					}
+				)
+			}
+		})
+	}
+
 	async exportToStrapi(route: RouteConfig) {
 		console.log(`Exporting to Strapi using route: ${route.name}`)
 		new Notice(`Exporting to Strapi using route: ${route.name}`)
