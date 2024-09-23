@@ -1,18 +1,23 @@
 // src/main.ts
 import { Notice, Plugin } from 'obsidian'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
+import { processMarkdownContent } from './utils/image-processor'
 import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 import { debounce } from './utils/debounce'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
+	ribbonIcons: Map<string, HTMLElement> = new Map()
 	settingsTab: UnifiedSettingsTab
 	debouncedUpdateRibbonIcons: () => Promise<void>
 
 	async onload() {
 		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
+
+		// Load CSS
+		this.loadStyles()
 
 		this.debouncedUpdateRibbonIcons = debounce(
 			this.updateRibbonIcons.bind(this),
@@ -28,7 +33,8 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log('StrapiExporterPlugin unloaded')
+		console.log('StrapiExporterPlugin unloading')
+		this.removeAllIcons()
 	}
 
 	async loadSettings() {
@@ -87,21 +93,38 @@ export default class StrapiExporterPlugin extends Plugin {
 
 	updateRibbonIcons() {
 		console.log('Updating ribbon icons')
-		this.removeRibbonIcons()
+		this.removeAllIcons()
 
 		this.settings.routes.forEach(route => {
 			if (route.enabled) {
 				console.log(`Adding ribbon icon for route: ${route.name}`)
-				this.addRibbonIcon(route.icon, route.name, () => {
-					this.exportToStrapi(route)
-				})
+				this.addIconForRoute(route)
 			}
 		})
 	}
 
-	removeRibbonIcons() {
-		// Remove all ribbon icons added by this plugin
-		// This is a placeholder - implement according to your ribbon icon management
+	removeAllIcons() {
+		console.log('Removing all icons')
+		this.ribbonIcons.forEach((icon, routeId) => {
+			icon.remove()
+		})
+		this.ribbonIcons.clear()
+	}
+
+	addIconForRoute(route: RouteConfig) {
+		// Remove existing icon for this route if it exists
+		const existingIcon = this.ribbonIcons.get(route.id)
+		if (existingIcon) {
+			existingIcon.remove()
+		}
+
+		// Create the new icon
+		const ribbonIconEl = this.addRibbonIcon(route.icon, route.name, () => {
+			this.exportToStrapi(route)
+		})
+
+		// Store the new icon
+		this.ribbonIcons.set(route.id, ribbonIconEl)
 	}
 
 	async exportToStrapi(route: RouteConfig) {
