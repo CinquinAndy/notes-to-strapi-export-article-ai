@@ -6,6 +6,7 @@ import { StrapiExporterSettings } from './types/settings'
 export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
+	forvoyezApiKey: '',
 	openaiApiKey: '',
 	jsonTemplate: `{
     "data": {
