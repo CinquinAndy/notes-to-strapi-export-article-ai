@@ -12,6 +12,7 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	private configuration: Configuration
 	private apiKeys: APIKeys
 	private routes: Routes
+	private contentContainer: HTMLElement
 
 	constructor(app: App, plugin: StrapiExporterPlugin) {
 		super(app, plugin)
@@ -26,8 +27,8 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 
 		this.createTabButtons(containerEl)
 
-		const contentContainer = containerEl.createDiv('content-container')
-		this.updateContent(contentContainer)
+		this.contentContainer = containerEl.createDiv('content-container')
+		this.updateContent()
 	}
 
 	createTabButtons(containerEl: HTMLElement): void {
@@ -43,7 +44,7 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 				button.setButtonText(name).onClick(() => {
 					console.log(`${id} button clicked`)
 					this.plugin.settings.currentTab = id
-					this.display()
+					this.updateContent()
 				})
 			)
 
@@ -66,30 +67,35 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 		createTabButton('routes', 'Routes')
 	}
 
-	updateContent(containerEl: HTMLElement): void {
+	updateContent(): void {
 		console.log(`Updating content for tab: ${this.plugin.settings.currentTab}`)
+		this.contentContainer.empty()
+
 		switch (this.plugin.settings.currentTab) {
 			case 'dashboard':
 				if (!this.dashboard) {
-					this.dashboard = new Dashboard(this.plugin, containerEl)
+					this.dashboard = new Dashboard(this.plugin, this.contentContainer)
 				}
 				this.dashboard.display()
 				break
 			case 'configuration':
 				if (!this.configuration) {
-					this.configuration = new Configuration(this.plugin, containerEl)
+					this.configuration = new Configuration(
+						this.plugin,
+						this.contentContainer
+					)
 				}
 				this.configuration.display()
 				break
 			case 'apiKeys':
 				if (!this.apiKeys) {
-					this.apiKeys = new APIKeys(this.plugin, containerEl)
+					this.apiKeys = new APIKeys(this.plugin, this.contentContainer)
 				}
 				this.apiKeys.display()
 				break
 			case 'routes':
 				if (!this.routes) {
-					this.routes = new Routes(this.plugin, containerEl)
+					this.routes = new Routes(this.plugin, this.contentContainer)
 				}
 				this.routes.display()
 				break
