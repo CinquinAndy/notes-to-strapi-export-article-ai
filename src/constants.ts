@@ -7,6 +7,9 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
 	forvoyezApiKey: '',
+	mainRibbonIconTitle: 'Upload to Strapi and generate content with AI',
+	additionalRibbonIconTitle:
+		'Upload to Strapi and generate additional content with AI',
 	openaiApiKey: '',
 	jsonTemplate: `{
     "data": {

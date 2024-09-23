@@ -15,6 +15,36 @@ export class StrapiExporterSettingTab extends PluginSettingTab {
 		containerEl.empty()
 
 		new Setting(containerEl)
+			.setName('Main Ribbon Icon Title')
+			.setDesc('Set the title for the main ribbon icon')
+			.addText(text =>
+				text
+					.setPlaceholder('Upload to Strapi')
+					.setValue(this.plugin.settings.mainRibbonIconTitle)
+					.onChange(async value => {
+						this.plugin.settings.mainRibbonIconTitle = value
+						await this.plugin.saveSettings()
+						this.plugin.updateRibbonIcons()
+					})
+			)
+
+		if (this.plugin.settings.enableAdditionalApiCall) {
+			new Setting(containerEl)
+				.setName('Additional Ribbon Icon Title')
+				.setDesc('Set the title for the additional ribbon icon')
+				.addText(text =>
+					text
+						.setPlaceholder('Upload additional content')
+						.setValue(this.plugin.settings.additionalRibbonIconTitle)
+						.onChange(async value => {
+							this.plugin.settings.additionalRibbonIconTitle = value
+							await this.plugin.saveSettings()
+							this.plugin.updateRibbonIcons()
+						})
+				)
+		}
+
+		new Setting(containerEl)
 			.setName('Strapi URL')
 			.setDesc('Enter your Strapi instance URL')
 			.addText(text =>

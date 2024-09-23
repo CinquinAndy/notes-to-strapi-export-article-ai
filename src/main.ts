@@ -6,9 +6,19 @@ import { StrapiExporterSettings } from './types/settings'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
+	mainRibbonIconEl: HTMLElement
+	additionalRibbonIconEl: HTMLElement
 
 	async onload() {
 		await this.loadSettings()
+
+		/**
+		 * Add the main ribbon icon to the top right corner of the Obsidian window
+		 */
+		this.addMainRibbonIcon()
+		if (this.settings.enableAdditionalApiCall) {
+			this.addAdditionalRibbonIcon()
+		}
 
 		// Add ribbon icons and event listeners
 		/**
@@ -55,5 +65,40 @@ export default class StrapiExporterPlugin extends Plugin {
 	async processMarkdownContent(useAdditionalCallAPI = false) {
 		// Call processMarkdownContent from image-processor.ts
 		await processMarkdownContent(this.app, this.settings, useAdditionalCallAPI)
+	}
+
+	addMainRibbonIcon() {
+		this.mainRibbonIconEl = this.addRibbonIcon(
+			'upload',
+			this.settings.mainRibbonIconTitle,
+			async () => {
+				await this.processMarkdownContent()
+			}
+		)
+	}
+
+	addAdditionalRibbonIcon() {
+		this.additionalRibbonIconEl = this.addRibbonIcon(
+			'link',
+			this.settings.additionalRibbonIconTitle,
+			async () => {
+				await this.processMarkdownContent(true)
+			}
+		)
+	}
+
+	updateRibbonIcons() {
+		if (this.mainRibbonIconEl) {
+			this.mainRibbonIconEl.setAttribute(
+				'aria-label',
+				this.settings.mainRibbonIconTitle
+			)
+		}
+		if (this.additionalRibbonIconEl) {
+			this.additionalRibbonIconEl.setAttribute(
+				'aria-label',
+				this.settings.additionalRibbonIconTitle
+			)
+		}
 	}
 }
