@@ -68,4 +68,18 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	mainGalleryFullPathProperty: '',
 	additionalImageFullPathProperty: '',
 	additionalGalleryFullPathProperty: '',
+	icons: [
+		{
+			id: 'main',
+			icon: 'upload',
+			title: 'Upload to Strapi',
+			enabled: true,
+		},
+		{
+			id: 'additional',
+			icon: 'link',
+			title: 'Additional Upload',
+			enabled: false,
+		},
+	],
 }

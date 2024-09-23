@@ -3,47 +3,23 @@ import { StrapiExporterSettingTab } from './settings'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
 import { processMarkdownContent } from './utils/image-processor'
 import { StrapiExporterSettings } from './types/settings'
+import { IconConfigTab } from './settings/IconConfigTab'
+import { SchemaConfigTab } from './settings/SchemaConfigTab'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
-	mainRibbonIconEl: HTMLElement
-	additionalRibbonIconEl: HTMLElement
+	ribbonIcons: { [key: string]: HTMLElement } = {}
 
 	async onload() {
 		await this.loadSettings()
 
-		/**
-		 * Add the main ribbon icon to the top right corner of the Obsidian window
-		 */
-		this.addMainRibbonIcon()
-		if (this.settings.enableAdditionalApiCall) {
-			this.addAdditionalRibbonIcon()
-		}
+		await this.loadSettings()
 
-		// Add ribbon icons and event listeners
-		/**
-		 * Add a ribbon icon to the Markdown view (the little icon on the left side bar)
-		 */
-		this.addRibbonIcon(
-			'upload',
-			'Upload to Strapi and generate content with AI',
-			async () => {
-				await this.processMarkdownContent()
-			}
-		)
+		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
+		this.addSettingTab(new IconConfigTab(this.app, this))
+		this.addSettingTab(new SchemaConfigTab(this.app, this))
 
-		/**
-		 * Add a ribbon icon based on the settings (if enabled)
-		 */
-		if (this.settings.enableAdditionalApiCall) {
-			this.addRibbonIcon(
-				'link',
-				'Upload to Strapi and generate additional content with AI',
-				async () => {
-					await this.processMarkdownContent(true)
-				}
-			)
-		}
+		this.updateRibbonIcons()
 
 		this.addSettingTab(new StrapiExporterSettingTab(this.app, this))
 	}
@@ -67,38 +43,20 @@ export default class StrapiExporterPlugin extends Plugin {
 		await processMarkdownContent(this.app, this.settings, useAdditionalCallAPI)
 	}
 
-	addMainRibbonIcon() {
-		this.mainRibbonIconEl = this.addRibbonIcon(
-			'upload',
-			this.settings.mainRibbonIconTitle,
-			async () => {
-				await this.processMarkdownContent()
-			}
-		)
-	}
-
-	addAdditionalRibbonIcon() {
-		this.additionalRibbonIconEl = this.addRibbonIcon(
-			'link',
-			this.settings.additionalRibbonIconTitle,
-			async () => {
-				await this.processMarkdownContent(true)
-			}
-		)
-	}
-
 	updateRibbonIcons() {
-		if (this.mainRibbonIconEl) {
-			this.mainRibbonIconEl.setAttribute(
-				'aria-label',
-				this.settings.mainRibbonIconTitle
-			)
-		}
-		if (this.additionalRibbonIconEl) {
-			this.additionalRibbonIconEl.setAttribute(
-				'aria-label',
-				this.settings.additionalRibbonIconTitle
-			)
-		}
+		// Remove existing icons
+		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
+		this.ribbonIcons = {}
+
+		// Add configured icons
+		this.settings.icons.forEach(iconConfig => {
+			if (iconConfig.enabled) {
+				this.ribbonIcons[iconConfig.id] = this.addRibbonIcon(
+					iconConfig.icon,
+					iconConfig.title,
+					() => this.processMarkdownContent(iconConfig.id)
+				)
+			}
+		})
 	}
 }
