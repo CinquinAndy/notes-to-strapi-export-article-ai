@@ -1,11 +1,10 @@
 import { App, MarkdownView, Notice, TFile, TFolder } from 'obsidian'
-import { OpenAI } from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
 import {
 	uploadGalleryImagesToStrapi,
 	uploadImagesToStrapi,
 } from './strapi-uploader'
-import { generateArticleContent, getImageDescription } from './openai-generator'
+import { generateArticleContent, getImageDescription } from './forvoyez-generator'
 import { ImageBlob } from '../types/image'
 
 /**
@@ -99,11 +98,11 @@ export async function processMarkdownContent(
 
 	new Notice('All settings are ok, processing Markdown content...')
 
-	// Initialize OpenAI API
-	const openai = new OpenAI({
-		apiKey: settings.openaiApiKey,
-		dangerouslyAllowBrowser: true,
-	})
+	// // Initialize OpenAI API
+	// const openai = new OpenAI({
+	// 	apiKey: settings.openaiApiKey,
+	// 	dangerouslyAllowBrowser: true,
+	// })
 
 	/** ****************************************************************************
 	 * Process the markdown content
@@ -158,7 +157,7 @@ export async function processMarkdownContent(
 	if (!imageBlob) {
 		imageBlob = await getImageBlob(app, imageFolderPath)
 		if (imageBlob) {
-			const imageDescription = await getImageDescription(imageBlob.blob, openai)
+			const imageDescription = await getImageDescription(imageBlob.blob, settings)
 			const uploadedImage: any = await uploadImagesToStrapi(
 				[{ ...imageBlob, description: imageDescription }],
 				settings,
@@ -195,7 +194,7 @@ export async function processMarkdownContent(
 		new Notice('Getting image descriptions...')
 		const imageDescriptions = await Promise.all(
 			imageBlobs.map(async imageBlob => {
-				const description = await getImageDescription(imageBlob.blob, openai)
+				const description = await getImageDescription(imageBlob.blob, settings)
 				return {
 					blob: imageBlob.blob,
 					name: imageBlob.name,
@@ -228,7 +227,6 @@ export async function processMarkdownContent(
 	new Notice('Generating article content...')
 	const articleContent = await generateArticleContent(
 		content,
-		openai,
 		settings,
 		useAdditionalCallAPI
 	)
