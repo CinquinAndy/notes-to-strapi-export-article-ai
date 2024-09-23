@@ -1,25 +1,42 @@
-import { Plugin } from 'obsidian'
+// src/main.ts
+import { Notice, Plugin } from 'obsidian'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
 import { processMarkdownContent } from './utils/image-processor'
-import { StrapiExporterSettings } from './types/settings'
+import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
 	ribbonIcons: { [key: string]: HTMLElement } = {}
+	settingsTab: UnifiedSettingsTab
 
 	async onload() {
 		await this.loadSettings()
 
-		await this.loadSettings()
-
-		// Remove other setting tabs and add only the UnifiedSettingsTab
-		this.addSettingTab(new UnifiedSettingsTab(this.app, this))
+		this.settingsTab = new UnifiedSettingsTab(this.app, this)
+		this.addSettingTab(this.settingsTab)
 
 		this.updateRibbonIcons()
+
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file) => {
+				menu.addItem(item => {
+					item
+						.setTitle('Export to Strapi')
+						.setIcon('upload')
+						.onClick(async () => {
+							if (file) {
+								await this.processMarkdownContent(file)
+							}
+						})
+				})
+			})
+		)
 	}
 
-	onunload() {}
+	onunload() {
+		// Clean up code here
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
@@ -33,9 +50,9 @@ export default class StrapiExporterPlugin extends Plugin {
 		await this.saveData(this.settings)
 	}
 
-	async processMarkdownContent(useAdditionalCallAPI = false) {
+	async processMarkdownContent(file: TFile) {
 		// Call processMarkdownContent from image-processor.ts
-		await processMarkdownContent(this.app, this.settings, useAdditionalCallAPI)
+		await processMarkdownContent(this.app, this.settings, file)
 	}
 
 	updateRibbonIcons() {
@@ -43,15 +60,27 @@ export default class StrapiExporterPlugin extends Plugin {
 		Object.values(this.ribbonIcons).forEach(icon => icon.remove())
 		this.ribbonIcons = {}
 
-		// Add configured icons
-		this.settings.icons.forEach(iconConfig => {
-			if (iconConfig.enabled) {
-				this.ribbonIcons[iconConfig.id] = this.addRibbonIcon(
-					iconConfig.icon,
-					iconConfig.title,
-					() => this.processMarkdownContent(iconConfig.id)
+		// Add icons for each enabled route
+		this.settings.routes.forEach(route => {
+			if (route.enabled) {
+				this.ribbonIcons[route.id] = this.addRibbonIcon(
+					route.icon,
+					route.name,
+					() => {
+						this.exportToStrapi(route)
+					}
 				)
 			}
 		})
+	}
+
+	async exportToStrapi(route: RouteConfig) {
+		new Notice(`Exporting to Strapi using route: ${route.name}`)
+		const activeFile = this.app.workspace.getActiveFile()
+		if (activeFile) {
+			await this.processMarkdownContent(activeFile)
+		} else {
+			new Notice('No active file to export')
+		}
 	}
 }
