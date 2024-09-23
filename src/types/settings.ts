@@ -29,4 +29,8 @@ export interface RouteConfig {
 	description: string
 	subtitle: string
 	enabled: boolean
+	schema: string
+	schemaDescription: string
+	generatedConfig: string
+	language: string
 }

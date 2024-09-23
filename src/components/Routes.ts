@@ -31,6 +31,7 @@ export class Routes {
 		field: keyof RouteConfig
 	): TextComponent {
 		return text.setValue(route[field] as string).onChange(async value => {
+			// @ts-ignore
 			route[field] = value
 			await this.plugin.saveSettings()
 			if (field === 'icon' || field === 'enabled') {
@@ -103,6 +104,10 @@ export class Routes {
 							description: '',
 							subtitle: '',
 							enabled: true,
+							generatedConfig: '',
+							language: '',
+							schema: '',
+							schemaDescription: '',
 						}
 						this.plugin.settings.routes.push(newRoute)
 						await this.plugin.saveSettings()

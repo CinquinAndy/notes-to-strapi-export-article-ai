@@ -1,4 +1,3 @@
-// src/components/Configuration.ts
 import {
 	Setting,
 	TextAreaComponent,
@@ -16,10 +15,13 @@ export class Configuration {
 	private descriptionInput: TextAreaComponent
 	private configOutput: TextAreaComponent
 	private languageDropdown: DropdownComponent
+	private routeSelector: DropdownComponent
+	private currentRouteId: string
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
 		this.plugin = plugin
 		this.containerEl = containerEl
+		this.currentRouteId = this.plugin.settings.routes[0]?.id || ''
 	}
 
 	display(): void {
@@ -28,39 +30,67 @@ export class Configuration {
 
 		containerEl.createEl('h2', { text: 'Configuration' })
 
+		this.addRouteSelector()
 		this.addSchemaConfigSection()
 		this.addLanguageSection()
 		this.addAutoConfigSection()
 	}
 
+	private addRouteSelector(): void {
+		new Setting(this.containerEl)
+			.setName('Select Route')
+			.setDesc('Choose the route to configure')
+			.addDropdown(dropdown => {
+				this.routeSelector = dropdown
+				this.plugin.settings.routes.forEach(route => {
+					dropdown.addOption(route.id, route.name)
+				})
+				dropdown.setValue(this.currentRouteId)
+				dropdown.onChange(async value => {
+					this.currentRouteId = value
+					this.updateConfigurationFields()
+				})
+			})
+	}
+
+	private updateConfigurationFields(): void {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		if (currentRoute) {
+			this.schemaInput.setValue(currentRoute.schema || '')
+			this.descriptionInput.setValue(currentRoute.schemaDescription || '')
+			this.configOutput.setValue(currentRoute.generatedConfig || '')
+			this.languageDropdown.setValue(currentRoute.language || 'en')
+		}
+	}
+
 	private addSchemaConfigSection(): void {
 		new Setting(this.containerEl)
 			.setName('Strapi Schema')
-			.setDesc('Paste your Strapi schema JSON here')
+			.setDesc(
+				"Paste your Strapi schema JSON here (optional, it's used for auto-configuration only)"
+			)
 			.addTextArea(text => {
 				this.schemaInput = text
-				text
-					.setValue(this.plugin.settings.strapiSchema || '')
-					.onChange(async value => {
-						this.plugin.settings.strapiSchema = value
-						await this.plugin.saveSettings()
-					})
-				text.inputEl.rows = 10
+				text.setValue(this.getCurrentRouteSchema()).onChange(async value => {
+					await this.updateCurrentRouteConfig('schema', value)
+				})
+				text.inputEl.rows = 5
 				text.inputEl.cols = 50
 			})
 
 		new Setting(this.containerEl)
 			.setName('Schema Description')
 			.setDesc(
-				'Provide additional description or context for the schema fields'
+				"Provide additional description or context for the schema fields (optional, it's used for auto-configuration only)"
 			)
 			.addTextArea(text => {
 				this.descriptionInput = text
 				text
-					.setValue(this.plugin.settings.schemaDescription || '')
+					.setValue(this.getCurrentRouteSchemaDescription())
 					.onChange(async value => {
-						this.plugin.settings.schemaDescription = value
-						await this.plugin.saveSettings()
+						await this.updateCurrentRouteConfig('schemaDescription', value)
 					})
 				text.inputEl.rows = 5
 				text.inputEl.cols = 50
@@ -86,11 +116,9 @@ export class Configuration {
 					.addOption('ru', 'Russian')
 					.addOption('ar', 'Arabic')
 					.addOption('hi', 'Hindi')
-					// Add more languages as needed
-					.setValue(this.plugin.settings.targetLanguage || 'en')
+					.setValue(this.getCurrentRouteLanguage())
 					.onChange(async value => {
-						this.plugin.settings.targetLanguage = value
-						await this.plugin.saveSettings()
+						await this.updateCurrentRouteConfig('language', value)
 					})
 			})
 	}
@@ -172,7 +200,7 @@ export class Configuration {
 		try {
 			new Notice('Generating configuration...')
 			const response = await openai.chat.completions.create({
-				model: 'gpt-4o-mini',
+				model: 'gpt-4-mini',
 				messages: [{ role: 'user', content: prompt }],
 				response_format: { type: 'json_object' },
 				max_tokens: 2000,
@@ -207,6 +235,40 @@ export class Configuration {
 			new Notice(
 				'Error applying configuration. Please check the JSON format and try again.'
 			)
+		}
+	}
+
+	private getCurrentRouteSchema(): string {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		return currentRoute?.schema || ''
+	}
+
+	private getCurrentRouteSchemaDescription(): string {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		return currentRoute?.schemaDescription || ''
+	}
+
+	private getCurrentRouteLanguage(): string {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		return currentRoute?.language || 'en'
+	}
+
+	private async updateCurrentRouteConfig(
+		key: string,
+		value: string
+	): Promise<void> {
+		const routeIndex = this.plugin.settings.routes.findIndex(
+			route => route.id === this.currentRouteId
+		)
+		if (routeIndex !== -1) {
+			this.plugin.settings.routes[routeIndex][key] = value
+			await this.plugin.saveSettings()
 		}
 	}
 }
