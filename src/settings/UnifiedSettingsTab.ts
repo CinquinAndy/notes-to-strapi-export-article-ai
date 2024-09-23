@@ -1,11 +1,10 @@
-// src/settings/UnifiedSettingsTab.ts
-
 import {
 	App,
 	PluginSettingTab,
 	Setting,
 	TextAreaComponent,
 	Notice,
+	ButtonComponent,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { OpenAI } from 'openai'
@@ -16,6 +15,7 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	schemaInput: TextAreaComponent
 	descriptionInput: TextAreaComponent
 	configOutput: TextAreaComponent
+	currentTab: string = 'auto'
 
 	constructor(app: App, plugin: StrapiExporterPlugin) {
 		super(app, plugin)
@@ -26,14 +26,67 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
-		this.addGeneralSettings(containerEl)
+		this.createTabButtons(containerEl)
+
+		const contentContainer = containerEl.createDiv('content-container')
+		this.updateContent(contentContainer)
+	}
+
+	createTabButtons(containerEl: HTMLElement): void {
+		const tabsContainer = containerEl.createDiv('nav-buttons-container')
+		tabsContainer.style.marginBottom = '20px'
+
+		const createTabButton = (id: string, name: string) => {
+			const btn = new ButtonComponent(tabsContainer)
+				.setButtonText(name)
+				.onClick(() => {
+					this.currentTab = id
+					this.display()
+				})
+
+			if (this.currentTab === id) {
+				btn.buttonEl.addClass('is-active')
+			}
+		}
+
+		createTabButton('auto', 'Auto Configuration')
+		createTabButton('manual', 'Manual Configuration')
+		createTabButton('icons', 'Icons')
+	}
+
+	updateContent(containerEl: HTMLElement): void {
+		switch (this.currentTab) {
+			case 'auto':
+				this.displayAutoConfigTab(containerEl)
+				break
+			case 'manual':
+				this.displayManualConfigTab(containerEl)
+				break
+			case 'icons':
+				this.displayIconsConfigTab(containerEl)
+				break
+		}
+	}
+
+	displayAutoConfigTab(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'Auto Configuration' })
+
 		this.addSchemaConfigSection(containerEl)
+	}
+
+	displayManualConfigTab(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'Manual Configuration' })
+
+		this.addGeneralSettings(containerEl)
+	}
+
+	displayIconsConfigTab(containerEl: HTMLElement): void {
+		containerEl.createEl('h2', { text: 'Icons Configuration' })
+
 		this.addIconConfigSection(containerEl)
 	}
 
 	addGeneralSettings(containerEl: HTMLElement): void {
-		containerEl.createEl('h2', { text: 'General Settings' })
-
 		new Setting(containerEl)
 			.setName('Strapi URL')
 			.setDesc('Enter your Strapi instance URL')
@@ -88,8 +141,6 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	}
 
 	addSchemaConfigSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h2', { text: 'Strapi Schema Configuration' })
-
 		new Setting(containerEl)
 			.setName('Strapi Schema')
 			.setDesc('Paste your Strapi schema JSON here')
@@ -161,8 +212,6 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 	}
 
 	addIconConfigSection(containerEl: HTMLElement): void {
-		containerEl.createEl('h2', { text: 'Icon Configuration' })
-
 		this.plugin.settings.icons.forEach((iconConfig, index) => {
 			this.createIconConfigSettings(containerEl, iconConfig, index)
 		})
