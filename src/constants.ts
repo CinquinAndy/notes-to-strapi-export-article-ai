@@ -82,4 +82,9 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 			enabled: false,
 		},
 	],
+	strapiSchema: '',
+	schemaDescription: '',
+	generatedConfig: '',
+	fieldMappings: {},
+	additionalInstructions: '',
 }

@@ -62,13 +62,26 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('OpenAI API key')
-			.setDesc('Enter your OpenAI API key for GPT-3')
+			.setDesc('Enter your OpenAI API key')
 			.addText(text =>
 				text
 					.setPlaceholder('Enter your OpenAI API key')
 					.setValue(this.plugin.settings.openaiApiKey)
 					.onChange(async value => {
 						this.plugin.settings.openaiApiKey = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('ForVoyez API key')
+			.setDesc('Enter your ForVoyez API key')
+			.addText(text =>
+				text
+					.setPlaceholder('Enter your ForVoyez API key')
+					.setValue(this.plugin.settings.forvoyezApiKey)
+					.onChange(async value => {
+						this.plugin.settings.forvoyezApiKey = value
 						await this.plugin.saveSettings()
 					})
 			)
