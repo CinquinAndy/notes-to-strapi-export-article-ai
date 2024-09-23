@@ -32,11 +32,11 @@ export class Dashboard {
 		const statusList = summaryEl.createEl('ul')
 		for (const [key, value] of Object.entries(configStatus)) {
 			const listItem = statusList.createEl('li')
-			listItem.createSpan({ text: `${key}: ` })
 			listItem.createSpan({
-				text: value ? '✅' : '❌',
+				text: value ? '✅ ' : '❌ ',
 				cls: value ? 'status-ok' : 'status-error',
 			})
+			listItem.createSpan({ text: ` -> ${key} ` })
 		}
 	}
 
