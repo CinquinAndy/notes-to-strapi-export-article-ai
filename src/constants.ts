@@ -24,4 +24,5 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 			language: 'en',
 		},
 	],
+	targetLanguage: 'en',
 }

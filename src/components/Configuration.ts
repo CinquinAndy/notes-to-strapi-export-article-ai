@@ -1,5 +1,11 @@
 // src/components/Configuration.ts
-import { Setting, TextAreaComponent, ButtonComponent, Notice } from 'obsidian'
+import {
+	Setting,
+	TextAreaComponent,
+	ButtonComponent,
+	Notice,
+	DropdownComponent,
+} from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
 
@@ -9,6 +15,7 @@ export class Configuration {
 	private schemaInput: TextAreaComponent
 	private descriptionInput: TextAreaComponent
 	private configOutput: TextAreaComponent
+	private languageDropdown: DropdownComponent
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
 		this.plugin = plugin
@@ -22,6 +29,7 @@ export class Configuration {
 		containerEl.createEl('h2', { text: 'Configuration' })
 
 		this.addSchemaConfigSection()
+		this.addLanguageSection()
 		this.addAutoConfigSection()
 	}
 
@@ -56,6 +64,27 @@ export class Configuration {
 					})
 				text.inputEl.rows = 5
 				text.inputEl.cols = 50
+			})
+	}
+
+	private addLanguageSection(): void {
+		new Setting(this.containerEl)
+			.setName('Target Language')
+			.setDesc('Select the target language for the exported content')
+			.addDropdown(dropdown => {
+				this.languageDropdown = dropdown
+				dropdown
+					.addOption('en', 'English')
+					.addOption('fr', 'French')
+					.addOption('es', 'Spanish')
+					.addOption('de', 'German')
+					.addOption('it', 'Italian')
+					// Add more languages as needed
+					.setValue(this.plugin.settings.targetLanguage || 'en')
+					.onChange(async value => {
+						this.plugin.settings.targetLanguage = value
+						await this.plugin.saveSettings()
+					})
 			})
 	}
 
@@ -105,13 +134,15 @@ export class Configuration {
 		})
 
 		const prompt = `
-        Given the following Strapi schema and description, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi.
+        Given the following Strapi schema, description, and target language, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi.
 
         Strapi Schema:
         ${this.schemaInput.getValue()}
 
         Schema Description:
         ${this.descriptionInput.getValue()}
+
+        Target Language: ${this.plugin.settings.targetLanguage}
 
         Please provide the configuration as a JSON object with the following structure:
         {
@@ -126,7 +157,8 @@ export class Configuration {
             "strapiTemplate": {
                 // Include here a complete template of the JSON structure to be sent to Strapi,
                 // with placeholders for values that will be filled from Obsidian notes
-            }
+            },
+            "targetLanguage": "string (the target language code)"
         }
         `
 
@@ -159,6 +191,8 @@ export class Configuration {
 			this.plugin.settings.additionalInstructions =
 				config.additionalInstructions
 			this.plugin.settings.strapiTemplate = config.strapiTemplate
+			this.plugin.settings.targetLanguage =
+				config.targetLanguage || this.plugin.settings.targetLanguage
 			await this.plugin.saveSettings()
 			new Notice('Configuration applied successfully!')
 		} catch (error) {

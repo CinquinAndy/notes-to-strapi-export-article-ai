@@ -14,9 +14,10 @@ export interface StrapiExporterSettings {
 		}
 	}
 	additionalInstructions: string
-	strapiTemplate: any // This will hold the JSON template for Strapi
+	strapiTemplate: any
 	forvoyezApiKey: string
 	routes: RouteConfig[]
+	targetLanguage: string
 	currentTab: string
 }
 
