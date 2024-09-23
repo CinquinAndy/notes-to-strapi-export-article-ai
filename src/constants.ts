@@ -4,11 +4,15 @@ import { StrapiExporterSettings } from './types/settings'
 export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiUrl: '',
 	strapiApiToken: '',
-	forvoyezApiKey: '',
 	openaiApiKey: '',
 	strapiSchema: '',
 	schemaDescription: '',
 	generatedConfig: '',
+	fieldMappings: {},
+	additionalInstructions: '',
+	strapiTemplate: {},
+	currentTab: 'dashboard',
+	forvoyezApiKey: '',
 	routes: [
 		{
 			id: 'default-route',
@@ -20,5 +24,4 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 			language: 'en',
 		},
 	],
-	currentTab: 'dashboard',
 }

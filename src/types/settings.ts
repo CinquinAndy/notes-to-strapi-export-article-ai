@@ -2,11 +2,20 @@
 export interface StrapiExporterSettings {
 	strapiUrl: string
 	strapiApiToken: string
-	forvoyezApiKey: string
 	openaiApiKey: string
 	strapiSchema: string
 	schemaDescription: string
 	generatedConfig: string
+	fieldMappings: {
+		[key: string]: {
+			obsidianField: string
+			transformation: string
+			description: string
+		}
+	}
+	additionalInstructions: string
+	strapiTemplate: any // This will hold the JSON template for Strapi
+	forvoyezApiKey: string
 	routes: RouteConfig[]
 	currentTab: string
 }

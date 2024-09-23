@@ -1,7 +1,7 @@
 // src/components/Configuration.ts
-import { Setting, TextAreaComponent } from 'obsidian'
+import { Setting, TextAreaComponent, ButtonComponent, Notice } from 'obsidian'
 import StrapiExporterPlugin from '../main'
-import { OpenAI } from 'openai'
+import OpenAI from 'openai'
 
 export class Configuration {
 	private plugin: StrapiExporterPlugin
@@ -23,7 +23,6 @@ export class Configuration {
 
 		this.addSchemaConfigSection()
 		this.addAutoConfigSection()
-		this.addRouteConfigSection()
 	}
 
 	private addSchemaConfigSection(): void {
@@ -64,11 +63,12 @@ export class Configuration {
 		new Setting(this.containerEl)
 			.setName('Auto-Configure')
 			.setDesc('Automatically configure fields using OpenAI (Experimental)')
-			.addButton(button =>
+			.addButton((button: ButtonComponent) => {
 				button
 					.setButtonText('Generate Configuration')
+					.setCta()
 					.onClick(() => this.generateConfiguration())
-			)
+			})
 
 		new Setting(this.containerEl)
 			.setName('Generated Configuration')
@@ -90,21 +90,82 @@ export class Configuration {
 		new Setting(this.containerEl)
 			.setName('Apply Configuration')
 			.setDesc('Use this configuration for the plugin')
-			.addButton(button =>
-				button.setButtonText('Apply').onClick(() => this.applyConfiguration())
-			)
-	}
-
-	private addRouteConfigSection(): void {
-		// Implementation for route configuration
-		// This will include selecting a route and configuring its schema and field descriptions
+			.addButton((button: ButtonComponent) => {
+				button
+					.setButtonText('Apply')
+					.setCta()
+					.onClick(() => this.applyConfiguration())
+			})
 	}
 
 	private async generateConfiguration(): Promise<void> {
-		// Implementation for generating configuration using OpenAI
+		const openai = new OpenAI({
+			apiKey: this.plugin.settings.openaiApiKey,
+			dangerouslyAllowBrowser: true,
+		})
+
+		const prompt = `
+        Given the following Strapi schema and description, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi.
+
+        Strapi Schema:
+        ${this.schemaInput.getValue()}
+
+        Schema Description:
+        ${this.descriptionInput.getValue()}
+
+        Please provide the configuration as a JSON object with the following structure:
+        {
+            "fieldMappings": {
+                "strapiFieldName": {
+                    "obsidianField": "string (e.g., 'title', 'body', 'frontmatter.category')",
+                    "transformation": "string (any necessary transformation logic)",
+                    "description": "string (explanation of this field)"
+                }
+            },
+            "additionalInstructions": "string (any additional instructions for using this configuration)",
+            "strapiTemplate": {
+                // Include here a complete template of the JSON structure to be sent to Strapi,
+                // with placeholders for values that will be filled from Obsidian notes
+            }
+        }
+        `
+
+		try {
+			new Notice('Generating configuration...')
+			const response = await openai.chat.completions.create({
+				model: 'gpt-4-mini',
+				messages: [{ role: 'user', content: prompt }],
+				response_format: { type: 'json_object' },
+				max_tokens: 2000,
+			})
+
+			const generatedConfig = response.choices[0].message.content
+			this.configOutput.setValue(generatedConfig || '')
+			this.plugin.settings.generatedConfig = generatedConfig || ''
+			await this.plugin.saveSettings()
+			new Notice('Configuration generated successfully!')
+		} catch (error) {
+			console.error('Error generating configuration:', error)
+			new Notice(
+				'Error generating configuration. Please check your OpenAI API key and try again.'
+			)
+		}
 	}
 
 	private async applyConfiguration(): Promise<void> {
-		// Implementation for applying the generated configuration
+		try {
+			const config = JSON.parse(this.configOutput.getValue())
+			this.plugin.settings.fieldMappings = config.fieldMappings
+			this.plugin.settings.additionalInstructions =
+				config.additionalInstructions
+			this.plugin.settings.strapiTemplate = config.strapiTemplate
+			await this.plugin.saveSettings()
+			new Notice('Configuration applied successfully!')
+		} catch (error) {
+			console.error('Error applying configuration:', error)
+			new Notice(
+				'Error applying configuration. Please check the JSON format and try again.'
+			)
+		}
 	}
 }
