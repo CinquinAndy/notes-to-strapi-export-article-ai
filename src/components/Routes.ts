@@ -1,5 +1,5 @@
 // src/components/Routes.ts
-import { Setting, TextComponent, TextAreaComponent } from 'obsidian'
+import { Setting, TextComponent } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { RouteConfig } from '../types/settings'
 
@@ -23,6 +23,20 @@ export class Routes {
 		})
 
 		this.addNewRouteButton()
+	}
+
+	private createTextComponent(
+		text: TextComponent,
+		route: RouteConfig,
+		field: keyof RouteConfig
+	): TextComponent {
+		return text.setValue(route[field] as string).onChange(async value => {
+			route[field] = value
+			await this.plugin.saveSettings()
+			if (field === 'icon' || field === 'enabled') {
+				await this.plugin.debouncedUpdateRibbonIcons()
+			}
+		})
 	}
 
 	private createRouteConfigSettings(route: RouteConfig, index: number): void {
@@ -59,13 +73,6 @@ export class Routes {
 			.setDesc('Enter a brief subtitle for this route')
 			.addText(text => this.createTextComponent(text, route, 'subtitle'))
 
-		new Setting(routeEl)
-			.setName('Description')
-			.setDesc('Provide a detailed description of this route')
-			.addTextArea(text =>
-				this.createTextAreaComponent(text, route, 'description')
-			)
-
 		new Setting(routeEl).addButton(button =>
 			button
 				.setButtonText('Delete Route')
@@ -77,31 +84,6 @@ export class Routes {
 					this.display()
 				})
 		)
-	}
-
-	private createTextComponent(
-		text: TextComponent,
-		route: RouteConfig,
-		field: keyof RouteConfig
-	): TextComponent {
-		return text.setValue(route[field] as string).onChange(async value => {
-			route[field] = value
-			await this.plugin.saveSettings()
-			if (field === 'name' || field === 'icon') {
-				this.plugin.debouncedUpdateRibbonIcons()
-			}
-		})
-	}
-
-	private createTextAreaComponent(
-		text: TextAreaComponent,
-		route: RouteConfig,
-		field: keyof RouteConfig
-	): TextAreaComponent {
-		return text.setValue(route[field] as string).onChange(async value => {
-			route[field] = value
-			await this.plugin.saveSettings()
-		})
 	}
 
 	private addNewRouteButton(): void {

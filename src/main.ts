@@ -106,9 +106,9 @@ export default class StrapiExporterPlugin extends Plugin {
 	removeAllIcons() {
 		console.log('Removing all icons')
 		this.ribbonIcons.forEach((icon, routeId) => {
-			console.log(icon)
-			console.log(`Removing icon for route: ${routeId}`)
-			icon.remove()
+			if (icon && icon.parentNode) {
+				icon.parentNode.removeChild(icon)
+			}
 		})
 		this.ribbonIcons.clear()
 	}
@@ -116,8 +116,8 @@ export default class StrapiExporterPlugin extends Plugin {
 	addIconForRoute(route: RouteConfig) {
 		// Remove existing icon for this route if it exists
 		const existingIcon = this.ribbonIcons.get(route.id)
-		if (existingIcon) {
-			existingIcon.remove()
+		if (existingIcon && existingIcon.parentNode) {
+			existingIcon.parentNode.removeChild(existingIcon)
 		}
 
 		// Create the new icon
