@@ -91,17 +91,17 @@ export const getImageDescription = async (imageBlob: Blob, openai: OpenAI) => {
 						type: 'text',
 						text: `What's in this image? make it simple, i just want the context and an idea(think about alt text)`,
 					},
-					{
-						type: 'image_url',
-						// Encode imageBlob as base64
-						// @ts-ignore
-						image_url: `data:image/png;base64,${btoa(
-							new Uint8Array(await imageBlob.arrayBuffer()).reduce(
-								(data, byte) => data + String.fromCharCode(byte),
-								''
-							)
-						)}`,
-					},
+					// {
+					// 	type: 'image_url',
+					// 	// Encode imageBlob as base64
+					// 	// @ts-ignore
+					// 	image_url: `data:image/png;base64,${btoa(
+					// 		new Uint8Array(await imageBlob.arrayBuffer()).reduce(
+					// 			(data, byte) => data + String.fromCharCode(byte),
+					// 			''
+					// 		)
+					// 	)}`,
+					// },
 				],
 			},
 		],
