@@ -97,6 +97,9 @@ export class Routes {
 					.setCta()
 					.onClick(async () => {
 						const newRoute: RouteConfig = {
+							contentField: '',
+							galleryProperty: '',
+							imageProperty: '',
 							id: `route-${Date.now()}`,
 							name: 'New Route',
 							icon: 'star',

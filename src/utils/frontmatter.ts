@@ -1,4 +1,4 @@
-import { TFile, App, requestUrl } from 'obsidian'
+import { TFile, App } from 'obsidian'
 import OpenAI from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
 
@@ -11,18 +11,11 @@ export async function generateFrontMatterWithOpenAI(
 	const existingContent = await app.vault.read(file)
 	const frontMatter = extractFrontMatter(existingContent)
 
-	console.log('Existing content:', existingContent)
-	console.log('Front matter:', frontMatter)
-
 	if (frontMatter) {
 		console.log('Front matter already exists')
 		return
 	}
 
-	console.log('Generating front matter with OpenAI')
-	console.log('Settings:', settings)
-
-	return
 	const openai = new OpenAI({
 		apiKey: settings.openaiApiKey,
 		dangerouslyAllowBrowser: true,
@@ -47,7 +40,7 @@ ${JSON.stringify(generatedConfig.fieldMappings, null, 2)}
 Content (first 1000 characters):
 ${existingContent.substring(0, 1000)}
 
-Generate the front matter in YAML format, starting and ending with ---. Use the content to inform these fields where possible. For missing information, use appropriate placeholders or generate relevant content based on the field descriptions.`
+Generate the front matter in YAML format, starting and ending with ---. Do not include any extra formatting or code blocks. Use the content to inform these fields where possible. For missing information, use appropriate placeholders or generate relevant content based on the field descriptions.`
 
 	try {
 		const response = await openai.chat.completions.create({
@@ -56,8 +49,26 @@ Generate the front matter in YAML format, starting and ending with ---. Use the 
 			max_tokens: 1000,
 		})
 
-		const generatedFrontMatter =
+		let generatedFrontMatter =
 			response?.choices[0]?.message?.content?.trim() || ''
+
+		console.log('Generated front matter:', generatedFrontMatter)
+
+		// Remove any extra backticks or yaml indicators that might have been added
+		generatedFrontMatter = generatedFrontMatter
+			.replace(/```yaml\n?/g, '')
+			.replace(/```\n?/g, '')
+
+		console.log('Generated front matter:', generatedFrontMatter)
+
+		// Ensure the front matter starts and ends with ---
+		if (!generatedFrontMatter.startsWith('---')) {
+			generatedFrontMatter = '---\n' + generatedFrontMatter
+		}
+		if (!generatedFrontMatter.endsWith('---')) {
+			generatedFrontMatter = generatedFrontMatter + '\n---'
+		}
+
 		const newContent = `${generatedFrontMatter}\n\n${existingContent}`
 		await app.vault.modify(file, newContent)
 		console.log('Front matter generated and added to the note')
