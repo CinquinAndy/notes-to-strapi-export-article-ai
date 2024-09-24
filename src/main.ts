@@ -150,18 +150,9 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	private prepareFinalContent(processedContent: any, route: RouteConfig) {
-		const imageProperty = route.imageProperty || 'image'
-		const galleryProperty = route.galleryProperty || 'gallery'
-
 		return {
 			data: {
 				...processedContent.content,
-				...(processedContent.mainImage && {
-					[imageProperty]: processedContent.mainImage.id,
-				}),
-				...(processedContent.galleryImages.length > 0 && {
-					[galleryProperty]: processedContent.galleryImages,
-				}),
 			},
 		}
 	}

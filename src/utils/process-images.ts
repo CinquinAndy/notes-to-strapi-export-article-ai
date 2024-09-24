@@ -1,6 +1,6 @@
 import { App, TFile, Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
-import { ImageBlob, ImageDescription } from '../types/image'
+import { ImageDescription } from '../types/image'
 
 export async function processInlineImages(
 	app: App,
@@ -13,12 +13,20 @@ export async function processInlineImages(
 	let updatedContent = content
 
 	for (const imagePath of imagePaths) {
+		if (isExternalLink(imagePath)) {
+			console.log(`Skipping external image: ${imagePath}`)
+			continue
+		}
+
 		const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
 		if (uploadedImage) {
 			inlineImages.push(uploadedImage)
 
 			// Replace Obsidian internal links
-			const obsidianLinkRegex = new RegExp(`!\\[\\[${imagePath}\\]\\]`, 'g')
+			const obsidianLinkRegex = new RegExp(
+				`!\\[\\[${escapeRegExp(imagePath)}\\]\\]`,
+				'g'
+			)
 			updatedContent = updatedContent.replace(
 				obsidianLinkRegex,
 				`![${uploadedImage.name}](${uploadedImage.url})`
@@ -26,7 +34,7 @@ export async function processInlineImages(
 
 			// Replace standard Markdown image links
 			const markdownLinkRegex = new RegExp(
-				`!\\[([^\\]]*)\\]\\(${imagePath}\\)`,
+				`!\\[([^\\]]*)\\]\\(${escapeRegExp(imagePath)}\\)`,
 				'g'
 			)
 			updatedContent = updatedContent.replace(
@@ -40,9 +48,9 @@ export async function processInlineImages(
 }
 
 export function extractImagePaths(content: string): string[] {
-	const obsidianImageRegex = /!\[\[([^\]]+\.(png|jpe?g|gif|svg|bmp))\]\]/gi
+	const obsidianImageRegex = /!\[\[([^\]]+\.(png|jpe?g|gif|svg|bmp|webp))\]\]/gi
 	const markdownImageRegex =
-		/!\[([^\]]*)\]\(([^)]+\.(png|jpe?g|gif|svg|bmp))\)/gi
+		/!\[([^\]]*)\]\(([^)]+\.(png|jpe?g|gif|svg|bmp|webp))\)/gi
 	const imagePaths: string[] = []
 	let match
 
@@ -62,9 +70,17 @@ export async function uploadImageToStrapi(
 	app: App,
 	settings: StrapiExporterSettings
 ): Promise<ImageDescription | null> {
-	const file = app.vault.getAbstractFileByPath(imagePath)
+	let file = app.vault.getAbstractFileByPath(imagePath)
+	if (!(file instanceof TFile)) {
+		// If not found, try to find the file by name in the entire vault
+		file = app.vault
+			.getAllLoadedFiles()
+			.find(f => f instanceof TFile && f.name === imagePath) as TFile | null
+	}
+
 	if (!(file instanceof TFile)) {
 		console.error(`File not found: ${imagePath}`)
+		new Notice(`Error: Image file not found: ${imagePath}`, 5000)
 		return null
 	}
 
@@ -112,33 +128,24 @@ export async function uploadImageToStrapi(
 		} else {
 			const errorData = await response.json()
 			new Notice(
-				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`
+				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`,
+				5000
 			)
 		}
 	} catch (error) {
-		new Notice(`Error uploading image: ${file.name}. Error: ${error.message}`)
+		new Notice(
+			`Error uploading image: ${file.name}. Error: ${error.message}`,
+			5000
+		)
 	}
 
 	return null
 }
 
-export async function getImageBlobs(
-	app: App,
-	imagePaths: string[]
-): Promise<ImageBlob[]> {
-	const files = app.vault.getAllLoadedFiles()
-	const imageFiles = imagePaths
-		.map(path => files.find(file => file.name === path || file.path === path))
-		.filter((file): file is TFile => file instanceof TFile)
+function isExternalLink(path: string): boolean {
+	return path.startsWith('http://') || path.startsWith('https://')
+}
 
-	return await Promise.all(
-		imageFiles.map(async file => {
-			const blob = await app.vault.readBinary(file)
-			return {
-				name: file.name,
-				blob: new Blob([blob], { type: 'image/png' }),
-				path: file.path,
-			}
-		})
-	)
+function escapeRegExp(string: string) {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

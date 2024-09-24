@@ -151,19 +151,25 @@ async function processField(
 			console.log(
 				`Processing internal image link in frontmatter field: ${frontmatterKey}`
 			)
-			const uploadedImage = await uploadImageToStrapi(value, app, settings)
-			value = uploadedImage?.url || ''
-			console.log(`Image uploaded and link replaced: ${value}`)
+			const imagePath = value.slice(3, -2) // Remove '![[' and ']]'
+			const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
+			value = (uploadedImage ? uploadedImage.url : value) as any
+			console.log(`Image processed. New value: ${value}`)
 		} else if (
 			Array.isArray(value) &&
 			value.every(item => isInternalImageLink(item))
 		) {
 			console.log(`Processing gallery in frontmatter field: ${frontmatterKey}`)
 			const uploadedImages = await Promise.all(
-				value.map(imagePath => uploadImageToStrapi(imagePath, app, settings))
+				value.map(async imagePath => {
+					const path = imagePath.slice(3, -2) // Remove '![[' and ']]'
+					return await uploadImageToStrapi(path, app, settings)
+				})
 			)
-			value = uploadedImages.map(img => img?.url).toString()
-			console.log(`Gallery images uploaded and links replaced`)
+			value = uploadedImages
+				.filter(img => img !== null)
+				.map(img => img.url) as any
+			console.log(`Gallery images processed. New value:`, value)
 		}
 	} else if (obsidianField === 'title') {
 		value = file.basename
@@ -188,7 +194,6 @@ function isInternalImageLink(value: string): boolean {
 		typeof value === 'string' && value.startsWith('![[') && value.endsWith(']]')
 	)
 }
-
 class ConfirmationModal extends Modal {
 	constructor(
 		app: App,
