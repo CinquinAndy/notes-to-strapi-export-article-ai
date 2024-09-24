@@ -4,7 +4,7 @@ import {
 	uploadImagesToStrapi,
 	uploadGalleryImagesToStrapi,
 } from './strapi-uploader'
-import { ImageBlob } from '../types/image'
+import { ImageBlob, ImageDescription } from '../types/image'
 
 export async function processMarkdownContent(
 	app: App,
@@ -72,12 +72,13 @@ export async function processMarkdownContent(
 
 	// Process other fields according to the generated configuration
 	const processedData = {}
-	for (const [field] of Object.entries(generatedConfig.fieldMappings)) {
+	for (const [field, mapping] of Object.entries(
+		generatedConfig.fieldMappings
+	)) {
 		if (field !== contentFieldName) {
 			// Here you would implement the logic to extract and transform data
 			// based on the mapping.obsidianField and mapping.transformation
-			// For simplicity, we're just using placeholder values here
-			processedData[field] = `Processed ${field}`
+			processedData[field] = await processField(mapping, file, app)
 		}
 	}
 
@@ -91,6 +92,35 @@ export async function processMarkdownContent(
 		galleryImages,
 		inlineImages,
 	}
+}
+
+async function processField(mapping: any, file: TFile, app: App) {
+	const { obsidianField, transformation } = mapping
+	let value = ''
+
+	if (obsidianField.startsWith('frontmatter.')) {
+		const frontmatterKey = obsidianField.split('.')[1]
+		const metadata = app.metadataCache.getFileCache(file)
+		value = metadata?.frontmatter?.[frontmatterKey] || ''
+	} else if (obsidianField === 'title') {
+		value = file.basename
+	} else if (obsidianField === 'body') {
+		value = await app.vault.read(file)
+	}
+
+	// Apply transformation if specified
+	if (transformation) {
+		// Here you can implement various transformation logic
+		// For example:
+		if (transformation === 'uppercase') {
+			value = value.toUpperCase()
+		} else if (transformation === 'lowercase') {
+			value = value.toLowerCase()
+		}
+		// Add more transformations as needed
+	}
+
+	return value
 }
 
 async function processMainImage(
@@ -121,41 +151,51 @@ async function processGalleryImages(
 	galleryFolderPath: string
 ): Promise<number[]> {
 	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
-	return await uploadGalleryImagesToStrapi(
+	const uploadedImages = await uploadGalleryImagesToStrapi(
 		galleryImageBlobs,
 		settings,
 		app,
 		galleryFolderPath
 	)
+	return uploadedImages.map(img => img.id)
 }
 
 async function processInlineImages(
 	app: App,
 	settings: StrapiExporterSettings,
 	content: string
-): Promise<{ updatedContent: string; inlineImages: ImageBlob[] }> {
+): Promise<{ updatedContent: string; inlineImages: ImageDescription[] }> {
 	const imagePaths = extractImagePaths(content)
 	const imageBlobs = await getImageBlobs(app, imagePaths)
 	const uploadedImages = await uploadImagesToStrapi(imageBlobs, settings)
 
 	let updatedContent = content
+	const inlineImages: ImageDescription[] = []
+
 	for (const [localPath, imageData] of Object.entries(uploadedImages)) {
-		const markdownImageRegex = new RegExp(`!\\[\\[${localPath}\\]\\]`, 'g')
+		const markdownImageRegex = new RegExp(
+			`!\\[([^\\]]*)\\]\\(${localPath}\\)`,
+			'g'
+		)
 		updatedContent = updatedContent.replace(
 			markdownImageRegex,
-			`![](${imageData.url})`
+			(match, altText) => `![${altText}](${imageData.url})`
 		)
+
+		inlineImages.push({
+			name: imageData.data.name,
+			blob: new Blob(),
+			path: imageData.url,
+			id: imageData.id,
+			description: {
+				name: imageData.data.name,
+				alternativeText: altText || '',
+				caption: '',
+			},
+		})
 	}
 
-	return {
-		updatedContent,
-		inlineImages: Object.values(uploadedImages).map(img => ({
-			path: img.url,
-			blob: new Blob(),
-			name: img.data.name,
-			id: img.data.id,
-		})),
-	}
+	return { updatedContent, inlineImages }
 }
 
 export function extractImagePaths(content: string): string[] {

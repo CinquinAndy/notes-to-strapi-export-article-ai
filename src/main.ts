@@ -144,33 +144,18 @@ export default class StrapiExporterPlugin extends Plugin {
 			return
 		}
 
-		// const articleContent = await generateArticleContent(
-		// 	processedContent.content,
-		// 	this.settings,
-		// 	false
-		// )
+		const finalContent = this.prepareFinalContent(processedContent, route)
 
-		//
-		// const finalContent = this.prepareFinalContent(
-		// 	// articleContent,
-		// 	processedContent,
-		// 	route
-		// )
-
-		// await this.sendToStrapi(finalContent, route)
+		await this.sendToStrapi(finalContent, route)
 	}
 
-	private prepareFinalContent(
-		articleContent: any,
-		processedContent: any,
-		route: RouteConfig
-	) {
+	private prepareFinalContent(processedContent: any, route: RouteConfig) {
 		const imageProperty = route.imageProperty || 'image'
 		const galleryProperty = route.galleryProperty || 'gallery'
 
 		return {
 			data: {
-				...articleContent.data,
+				...processedContent.content,
 				...(processedContent.mainImage && {
 					[imageProperty]: processedContent.mainImage.id,
 				}),

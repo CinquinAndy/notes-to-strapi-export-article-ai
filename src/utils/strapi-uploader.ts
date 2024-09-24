@@ -2,21 +2,15 @@ import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageBlob, ImageDescription } from '../types/image'
 
-/**
- * Upload images to Strapi
- * @param imageDescriptions
- * @param settings
- * @param app
- * @param imageFolderPath
- */
 export async function uploadImagesToStrapi(
 	imageDescriptions: ImageDescription[],
 	settings: StrapiExporterSettings,
 	app: any = null,
 	imageFolderPath: string = ''
-): Promise<{ [key: string]: { url: string; data: any } }> {
-	const uploadedImages: { [key: string]: { url: string; data: any; id: any } } =
-		{}
+): Promise<{ [key: string]: { url: string; data: any; id: number } }> {
+	const uploadedImages: {
+		[key: string]: { url: string; data: any; id: number }
+	} = {}
 
 	for (const imageDescription of imageDescriptions) {
 		const formData = new FormData()
