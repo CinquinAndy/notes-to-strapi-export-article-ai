@@ -6,6 +6,7 @@ export interface ImageBlob {
 	blob: Blob
 	name: string
 	id?: any
+	url?: string
 }
 
 /**

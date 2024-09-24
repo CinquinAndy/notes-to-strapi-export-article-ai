@@ -25,7 +25,7 @@ export class APIKeys {
 	private addStrapiSettings(): void {
 		new Setting(this.containerEl)
 			.setName('Strapi URL')
-			.setDesc('Enter your Strapi instance URL')
+			.setDesc('Enter your Strapi instance URL (e.g. https://your-strapi-url)')
 			.addText(text =>
 				text
 					.setPlaceholder('https://your-strapi-url')

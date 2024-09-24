@@ -1,6 +1,5 @@
-import { App, TFile } from 'obsidian'
+import { App, TFile, Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
-import { uploadImagesToStrapi } from './strapi-uploader'
 import { ImageBlob, ImageDescription } from '../types/image'
 
 export async function processInlineImages(
@@ -9,72 +8,118 @@ export async function processInlineImages(
 	content: string
 ): Promise<{ updatedContent: string; inlineImages: ImageDescription[] }> {
 	const imagePaths = extractImagePaths(content)
-	const imageBlobs = await getImageBlobs(app, imagePaths)
-	const imageDescriptions: ImageDescription[] = imageBlobs.map(blob => ({
-		...blob,
-		description: {
-			name: blob.name,
-			alternativeText: '',
-			caption: '',
-		},
-	}))
-	const uploadedImages = await uploadImagesToStrapi(imageDescriptions, settings)
-
-	let updatedContent = content
 	const inlineImages: ImageDescription[] = []
 
-	for (const [localPath, imageData] of Object.entries(uploadedImages)) {
-		// Remplacer les liens d'images standard Markdown
-		const markdownImageRegex = new RegExp(
-			`!\\[([^\\]]*)]\\(${localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`,
-			'g'
-		)
-		updatedContent = updatedContent.replace(
-			markdownImageRegex,
-			(match, capturedAltText) => `![${capturedAltText}](${imageData.url})`
-		)
+	let updatedContent = content
 
-		// Remplacer les liens d'images internes Obsidian
-		const obsidianImageRegex = new RegExp(
-			`!\\[\\[${localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\]`,
-			'g'
-		)
-		updatedContent = updatedContent.replace(
-			obsidianImageRegex,
-			`![${imageData.data.name}](${imageData.url})`
-		)
+	for (const imagePath of imagePaths) {
+		const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
+		if (uploadedImage) {
+			inlineImages.push(uploadedImage)
 
-		inlineImages.push({
-			name: imageData.data.name,
-			blob: new Blob(),
-			path: imageData.url,
-			id: imageData.id,
-			description: {
-				name: imageData.data.name,
-				alternativeText: '',
-				caption: '',
-			},
-		})
+			// Replace Obsidian internal links
+			const obsidianLinkRegex = new RegExp(`!\\[\\[${imagePath}\\]\\]`, 'g')
+			updatedContent = updatedContent.replace(
+				obsidianLinkRegex,
+				`![${uploadedImage.name}](${uploadedImage.url})`
+			)
+
+			// Replace standard Markdown image links
+			const markdownLinkRegex = new RegExp(
+				`!\\[([^\\]]*)\\]\\(${imagePath}\\)`,
+				'g'
+			)
+			updatedContent = updatedContent.replace(
+				markdownLinkRegex,
+				`![$1](${uploadedImage.url})`
+			)
+		}
 	}
 
 	return { updatedContent, inlineImages }
 }
 
 export function extractImagePaths(content: string): string[] {
-	const standardImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
 	const obsidianImageRegex = /!\[\[([^\]]+\.(png|jpe?g|gif|svg|bmp))\]\]/gi
+	const markdownImageRegex =
+		/!\[([^\]]*)\]\(([^)]+\.(png|jpe?g|gif|svg|bmp))\)/gi
 	const imagePaths: string[] = []
 	let match
-
-	while ((match = standardImageRegex.exec(content)) !== null) {
-		imagePaths.push(match[2])
-	}
 
 	while ((match = obsidianImageRegex.exec(content)) !== null) {
 		imagePaths.push(match[1])
 	}
 
+	while ((match = markdownImageRegex.exec(content)) !== null) {
+		imagePaths.push(match[2])
+	}
+
 	return imagePaths
+}
+
+export async function uploadImageToStrapi(
+	imagePath: string,
+	app: App,
+	settings: StrapiExporterSettings
+): Promise<ImageDescription | null> {
+	const file = app.vault.getAbstractFileByPath(imagePath)
+	if (!(file instanceof TFile)) {
+		console.error(`File not found: ${imagePath}`)
+		return null
+	}
+
+	const imageArrayBuffer = await app.vault.readBinary(file)
+	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })
+
+	const imageDescription: ImageDescription = {
+		name: file.name,
+		blob: blob,
+		path: file.path,
+		description: {
+			name: file.name,
+			alternativeText: file.name,
+			caption: '',
+		},
+	}
+
+	const formData = new FormData()
+	formData.append('files', blob, file.name)
+	formData.append(
+		'fileInfo',
+		JSON.stringify({
+			name: imageDescription.description.name,
+			alternativeText: imageDescription.description.alternativeText,
+			caption: imageDescription.description.caption,
+		})
+	)
+
+	try {
+		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${settings.strapiApiToken}`,
+			},
+			body: formData,
+		})
+
+		if (response.ok) {
+			const data = await response.json()
+			return {
+				...imageDescription,
+				url: data[0].url,
+				id: data[0].id,
+			}
+		} else {
+			const errorData = await response.json()
+			new Notice(
+				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`
+			)
+		}
+	} catch (error) {
+		new Notice(`Error uploading image: ${file.name}. Error: ${error.message}`)
+	}
+
+	return null
 }
 
 export async function getImageBlobs(
