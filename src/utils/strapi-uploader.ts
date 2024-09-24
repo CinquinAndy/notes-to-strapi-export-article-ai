@@ -147,7 +147,8 @@ export async function uploadGalleryImagesToStrapi(
 
 export async function uploadImageToStrapi(
 	file: TFile,
-	app: App
+	app: App,
+	settings: StrapiExporterSettings
 ): Promise<{ url: string } | null> {
 	const imageArrayBuffer = await app.vault.readBinary(file)
 	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })

@@ -1,22 +1,25 @@
 import { App, Modal, Setting, TFile, TFolder } from 'obsidian'
 import { uploadImageToStrapi } from './strapi-uploader'
-import { Arr } from 'tern'
+import { StrapiExporterSettings } from '../types/settings'
 
 export class ImageFieldsModal extends Modal {
 	imageFields: string[]
-	onSubmit: (imageValues: Record<string, string>) => void
-	imageValues: Record<string, string> = {}
+	onSubmit: (imageValues: Record<string, string | string[]>) => void
+	imageValues: Record<string, string | string[]> = {}
 	app: App
+	settings: StrapiExporterSettings
 
 	constructor(
 		app: App,
 		imageFields: string[],
-		onSubmit: (imageValues: Record<string, string>) => void
+		onSubmit: (imageValues: Record<string, string | string[]>) => void,
+		settings: StrapiExporterSettings
 	) {
 		super(app)
 		this.app = app
 		this.imageFields = imageFields
 		this.onSubmit = onSubmit
+		this.settings = settings
 	}
 
 	async onOpen() {
@@ -35,7 +38,11 @@ export class ImageFieldsModal extends Modal {
 						if (value) {
 							const file = this.app.vault.getAbstractFileByPath(value)
 							if (file instanceof TFile) {
-								const uploadedImage = await uploadImageToStrapi(file, this.app)
+								const uploadedImage = await uploadImageToStrapi(
+									file,
+									this.app,
+									this.settings
+								)
 								if (uploadedImage) {
 									this.imageValues[field] = uploadedImage.url
 								}
@@ -90,7 +97,11 @@ export class ImageFieldsModal extends Modal {
 	async uploadNewImage(field: string) {
 		const file = await this.app.fileManager.getNewFileParent('')
 		const newFile = await this.app.vault.create(`${file.path}/${field}.png`, '')
-		const uploadedImage = await uploadImageToStrapi(newFile, this.app)
+		const uploadedImage = await uploadImageToStrapi(
+			newFile,
+			this.app,
+			this.settings
+		)
 		if (uploadedImage) {
 			this.imageValues[field] = uploadedImage.url
 		}
@@ -102,12 +113,18 @@ export class ImageFieldsModal extends Modal {
 			`${file.path}/gallery_${Date.now()}.png`,
 			''
 		)
-		const uploadedImage = await uploadImageToStrapi(newFile, this.app)
+		const uploadedImage = await uploadImageToStrapi(
+			newFile,
+			this.app,
+			this.settings
+		)
 		if (uploadedImage) {
 			if (!this.imageValues[field]) {
 				this.imageValues[field] = []
 			}
-			this.imageValues[field].push(uploadedImage.url)
+			if (Array.isArray(this.imageValues[field])) {
+				;(this.imageValues[field] as string[]).push(uploadedImage.url)
+			}
 		}
 	}
 
