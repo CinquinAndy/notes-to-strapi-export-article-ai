@@ -1,6 +1,9 @@
 import { App, MarkdownView, Notice } from 'obsidian'
 import { FieldConfig, StrapiExporterSettings } from '../types/settings'
-import { extractFrontMatter } from './frontmatter'
+import {
+	extractFrontMatter,
+	generateFrontMatterWithOpenAI,
+} from './frontmatter'
 import { processInlineImages, uploadImageToStrapi } from './process-images'
 import * as yaml from 'js-yaml'
 
@@ -33,9 +36,10 @@ export async function processMarkdownContent(
 	// Extract front matter
 	let frontMatter = extractFrontMatter(content)
 	if (!frontMatter) {
-		console.error('No front matter found')
-		new Notice('No front matter found')
-		return null
+		console.log('No front matter found, generating one...')
+		await generateFrontMatterWithOpenAI(file, app, settings, routeId)
+		content = await app.vault.read(file) // Re-read the file to get the updated content
+		frontMatter = extractFrontMatter(content)
 	}
 
 	// Separate content from front matter
