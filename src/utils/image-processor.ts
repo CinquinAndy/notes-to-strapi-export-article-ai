@@ -78,7 +78,10 @@ export async function processMarkdownContent(
 		generatedConfig.fieldMappings
 	)) {
 		const obsidianField = fieldConfig.obsidianField
-		let value = obsidianField === 'content' ? content : parsedFrontMatter[field]
+		let value =
+			obsidianField === 'content'
+				? content
+				: parsedFrontMatter[obsidianField.split('.')[1]]
 
 		// Process images in fields
 		if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
@@ -88,9 +91,12 @@ export async function processMarkdownContent(
 		}
 
 		// Apply transformation if specified
-		if (fieldConfig.transformation) {
+		if (fieldConfig.transformation && fieldConfig.transformation !== 'value') {
 			try {
-				const transformFunc = new Function('value', fieldConfig.transformation)
+				const transformFunc = new Function(
+					'value',
+					`return ${fieldConfig.transformation}`
+				)
 				value = transformFunc(value)
 			} catch (error) {
 				console.error(`Error applying transformation for ${field}:`, error)
@@ -107,7 +113,11 @@ export async function processMarkdownContent(
 				finalContent[field] = Number(value || 0)
 				break
 			case 'array':
-				finalContent[field] = Array.isArray(value) ? value : []
+				finalContent[field] = Array.isArray(value)
+					? value
+					: value
+						? [value]
+						: []
 				break
 			case 'object':
 				finalContent[field] = typeof value === 'object' ? value : {}
