@@ -2,6 +2,17 @@ import { TFile, App } from 'obsidian'
 import OpenAI from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
 
+function transformImageLinks(content: string): string {
+	const regex = /!\[(.*?)\]\((.*?)\)/g
+	return content.replace(regex, (match, alt, link) => {
+		// Check if the link is an external URL
+		if (link.startsWith('http://') || link.startsWith('https://')) {
+			return link // Return just the link for external URLs
+		}
+		return match // Return the original match for internal links
+	})
+}
+
 export async function generateFrontMatterWithOpenAI(
 	file: TFile,
 	app: App,
@@ -40,7 +51,10 @@ ${JSON.stringify(generatedConfig.fieldMappings, null, 2)}
 Content (first 1000 characters):
 ${existingContent.substring(0, 1000)}
 
-Generate the front matter in YAML format, starting and ending with ---. Do not include any extra formatting or code blocks. Use the content to inform these fields where possible. For missing information, use appropriate placeholders or generate relevant content based on the field descriptions.`
+Generate the front matter in YAML format, starting and ending with ---. Do not include any extra formatting or code blocks. Use the content to inform these fields where possible. For missing information, use appropriate placeholders or generate relevant content based on the field descriptions.
+
+For image fields, use the full Markdown image syntax: ![alt text](image_url)
+`
 
 	try {
 		const response = await openai.chat.completions.create({
@@ -59,7 +73,8 @@ Generate the front matter in YAML format, starting and ending with ---. Do not i
 			.replace(/```yaml\n?/g, '')
 			.replace(/```\n?/g, '')
 
-		console.log('Generated front matter:', generatedFrontMatter)
+		// Transform image links in the generated front matter
+		generatedFrontMatter = transformImageLinks(generatedFrontMatter)
 
 		// Ensure the front matter starts and ends with ---
 		if (!generatedFrontMatter.startsWith('---')) {

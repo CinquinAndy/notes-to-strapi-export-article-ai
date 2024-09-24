@@ -2,9 +2,9 @@
  * Image types
  */
 export interface ImageBlob {
-	path: string
-	blob: Blob
-	name: string
+	path?: string
+	blob?: Blob
+	name?: string
 	id?: any
 	url?: string
 }
@@ -13,7 +13,7 @@ export interface ImageBlob {
  * Image description
  */
 export interface ImageDescription extends ImageBlob {
-	description: {
+	description?: {
 		name: string
 		alternativeText: string
 		caption: string

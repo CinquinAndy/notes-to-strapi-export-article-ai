@@ -183,34 +183,37 @@ export class Configuration {
 		})
 
 		const prompt = `
-        Given the following Strapi schema, field descriptions, content field name, and target language, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field.
+    Given the following Strapi schema and field descriptions, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field.
 
-        Strapi Schema:
-        ${this.schemaInput.getValue()}
+    Strapi Schema:
+    ${this.schemaInput.getValue()}
 
-        Field Descriptions:
-        ${this.schemaDescriptionInput.getValue()}
+    Field Descriptions:
+    ${this.schemaDescriptionInput.getValue()}
 
-        Content Field Name: ${this.contentFieldInput.getValue()}
+    Please provide the configuration as a JSON object with the following structure:
+    {
+        "fieldMappings": {
+            "fieldName": {
+                "obsidianField": "string (e.g., 'frontmatter.fieldName', 'content')",
+                "transformation": "string (any necessary transformation logic)",
+                "description": "string (explanation of this field)",
+                "type": "string (e.g., 'string', 'number', 'object', 'array')",
+                "format": "string (e.g., 'date', 'url', 'email', etc. if applicable)"
+            }
+        },
+        "additionalInstructions": "string (any additional instructions for using this configuration)",
+        "contentField": "string (the name of the field where the main article content should be inserted)"
+    }
 
-        Target Language: ${this.getCurrentRouteLanguage()}
-
-        Please provide the configuration as a JSON object with the following structure:
-        {
-            "fieldMappings": {
-                "strapiFieldName": {
-                    "obsidianField": "string (e.g., 'title', 'body', 'frontmatter.category')",
-                    "transformation": "string (any necessary transformation logic)",
-                    "description": "string (explanation of this field)"
-                }
-            },
-            "additionalInstructions": "string (any additional instructions for using this configuration)",
-            "contentField": "string (the name of the field where the main article content should be inserted)",
-            "targetLanguage": "string (the target language code)"
-        }
-
-        For the content field, use "{{ARTICLE_CONTENT}}" as a placeholder in the transformation logic.
-        `
+    Guidelines:
+    1. For the main content field, use "{{ARTICLE_CONTENT}}" as a placeholder in the transformation logic.
+    2. For image fields, specify 'type': 'string' and 'format': 'url' in the field mapping.
+    3. For array fields (like galleries or tags), use 'type': 'array' and provide appropriate transformation logic.
+    4. For object fields, use 'type': 'object' and describe the expected structure in the transformation logic.
+    5. If a field requires special handling (e.g., date formatting, slug generation), include this in the transformation logic.
+    6. Ensure that the configuration matches the structure of the provided Strapi schema.
+    `
 
 		try {
 			new Notice('Generating configuration...')

@@ -1,10 +1,7 @@
 import { App, MarkdownView, Notice } from 'obsidian'
-import { StrapiExporterSettings } from '../types/settings'
-import {
-	extractFrontMatter,
-	generateFrontMatterWithOpenAI,
-} from './frontmatter'
-import { processInlineImages } from './process-images'
+import { FieldConfig, StrapiExporterSettings } from '../types/settings'
+import { extractFrontMatter } from './frontmatter'
+import { processInlineImages, uploadImageToStrapi } from './process-images'
 import * as yaml from 'js-yaml'
 
 export async function processMarkdownContent(
@@ -33,13 +30,12 @@ export async function processMarkdownContent(
 	let content = await app.vault.read(file)
 	console.log('Initial file content length:', content.length)
 
-	// Extract or generate front matter
+	// Extract front matter
 	let frontMatter = extractFrontMatter(content)
 	if (!frontMatter) {
-		console.log('Front matter not found, generating...')
-		await generateFrontMatterWithOpenAI(file, app, settings, routeId)
-		content = await app.vault.read(file) // Re-read the file to get the updated content
-		frontMatter = extractFrontMatter(content)
+		console.error('No front matter found')
+		new Notice('No front matter found')
+		return null
 	}
 
 	// Separate content from front matter
@@ -60,32 +56,106 @@ export async function processMarkdownContent(
 	// Parse front matter
 	const parsedFrontMatter = yaml.load(frontMatter) as Record<string, any>
 
-	// Process front matter fields
-	for (const [key, value] of Object.entries(parsedFrontMatter)) {
-		if (typeof value === 'string') {
-			const { updatedContent } = await processInlineImages(app, settings, value)
-			parsedFrontMatter[key] = updatedContent
-		} else if (Array.isArray(value)) {
-			parsedFrontMatter[key] = await Promise.all(
-				value.map(async item => {
-					if (typeof item === 'string') {
-						const { updatedContent } = await processInlineImages(
-							app,
-							settings,
-							item
-						)
-						return updatedContent
-					}
-					return item
-				})
-			)
-		}
+	// Get the current route configuration
+	const currentRoute = settings.routes.find(route => route.id === routeId)
+	if (!currentRoute) {
+		console.error('Route not found')
+		new Notice('Route configuration not found')
+		return null
+	}
+
+	// Parse the generated configuration
+	const generatedConfig = JSON.parse(currentRoute.generatedConfig) as {
+		fieldMappings: Record<string, FieldConfig>
+		contentField: string
 	}
 
 	// Prepare the final content object
-	const finalContent = {
-		...parsedFrontMatter,
-		content: content,
+	const finalContent: Record<string, any> = {}
+
+	// Process each field according to the generated configuration
+	for (const [field, fieldConfig] of Object.entries(
+		generatedConfig.fieldMappings
+	)) {
+		const obsidianField = fieldConfig.obsidianField
+		let value = obsidianField === 'content' ? content : parsedFrontMatter[field]
+
+		// Process images in front matter fields
+		if (typeof value === 'string' && value.includes('![[')) {
+			const imageMatches = value.match(/!\[\[(.*?)\]\]/g)
+			if (imageMatches) {
+				for (const match of imageMatches) {
+					const imagePath = match.slice(3, -2)
+					const uploadedImage = await uploadImageToStrapi(
+						imagePath,
+						app,
+						settings
+					)
+					if (uploadedImage) {
+						value = value.replace(match, uploadedImage.url)
+					}
+				}
+			}
+		}
+
+		// Apply transformation if specified
+		if (fieldConfig.transformation) {
+			try {
+				const transformFunc = new Function(
+					'value',
+					`return ${fieldConfig.transformation}`
+				)
+				value = transformFunc(value)
+			} catch (error) {
+				console.error(`Error applying transformation for ${field}:`, error)
+				// Use the original value if transformation fails
+			}
+		}
+
+		// Handle different field types
+		switch (fieldConfig.type) {
+			case 'string':
+				finalContent[field] = String(value || '')
+				break
+			case 'number':
+				finalContent[field] = Number(value || 0)
+				break
+			case 'array':
+				finalContent[field] = Array.isArray(value) ? value : []
+				break
+			case 'object':
+				finalContent[field] = typeof value === 'object' ? value : {}
+				break
+			default:
+				finalContent[field] = value
+		}
+
+		// Special handling for image fields
+		if (
+			fieldConfig.format === 'url' &&
+			typeof finalContent[field] === 'string'
+		) {
+			if (finalContent[field].startsWith('![[')) {
+				const imagePath = finalContent[field].slice(3, -2)
+				const uploadedImage = await uploadImageToStrapi(
+					imagePath,
+					app,
+					settings
+				)
+				if (uploadedImage) {
+					finalContent[field] = uploadedImage.url
+				}
+			} else if (!finalContent[field].startsWith('http')) {
+				console.log(`Image upload needed for ${field}`)
+				finalContent[field] = `https://placeholder.com/${field}.jpg`
+			}
+		}
+	}
+
+	// Handle the main content field
+	const contentField = generatedConfig.contentField
+	if (contentField && !finalContent[contentField]) {
+		finalContent[contentField] = content
 	}
 
 	console.log('--- Final content prepared ---')

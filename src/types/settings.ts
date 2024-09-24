@@ -37,3 +37,11 @@ export interface RouteConfig {
 	imageProperty?: string
 	galleryProperty?: string
 }
+
+export interface FieldConfig {
+	obsidianField: string
+	transformation: string
+	description: string
+	type: string
+	format: string
+}

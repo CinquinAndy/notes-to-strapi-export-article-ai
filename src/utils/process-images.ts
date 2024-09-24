@@ -29,7 +29,7 @@ export async function processInlineImages(
 			)
 			updatedContent = updatedContent.replace(
 				obsidianLinkRegex,
-				`![${uploadedImage.name}](${uploadedImage.url})`
+				`![${uploadedImage.name || ''}](${uploadedImage.url})`
 			)
 
 			// Replace standard Markdown image links
@@ -72,7 +72,6 @@ export async function uploadImageToStrapi(
 ): Promise<ImageDescription | null> {
 	let file = app.vault.getAbstractFileByPath(imagePath)
 	if (!(file instanceof TFile)) {
-		// If not found, try to find the file by name in the entire vault
 		file = app.vault
 			.getAllLoadedFiles()
 			.find(f => f instanceof TFile && f.name === imagePath) as TFile | null
@@ -87,27 +86,8 @@ export async function uploadImageToStrapi(
 	const imageArrayBuffer = await app.vault.readBinary(file)
 	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })
 
-	const imageDescription: ImageDescription = {
-		name: file.name,
-		blob: blob,
-		path: file.path,
-		description: {
-			name: file.name,
-			alternativeText: file.name,
-			caption: '',
-		},
-	}
-
 	const formData = new FormData()
 	formData.append('files', blob, file.name)
-	formData.append(
-		'fileInfo',
-		JSON.stringify({
-			name: imageDescription.description.name,
-			alternativeText: imageDescription.description.alternativeText,
-			caption: imageDescription.description.caption,
-		})
-	)
 
 	try {
 		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
@@ -121,9 +101,14 @@ export async function uploadImageToStrapi(
 		if (response.ok) {
 			const data = await response.json()
 			return {
-				...imageDescription,
 				url: data[0].url,
-				id: data[0].id,
+				name: file.name,
+				path: file.path,
+				description: {
+					name: file.name,
+					alternativeText: file.name,
+					caption: '',
+				},
 			}
 		} else {
 			const errorData = await response.json()
