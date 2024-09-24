@@ -79,10 +79,10 @@ export function extractImagePaths(content: string): string[] {
 	return imagePaths
 }
 
-function isExternalLink(path: string): boolean {
+export function isExternalLink(path: string): boolean {
 	return path.startsWith('http://') || path.startsWith('https://')
 }
 
-function escapeRegExp(string: string) {
+export function escapeRegExp(string: string) {
 	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

@@ -1,4 +1,4 @@
-import { App, Notice, TFile } from 'obsidian'
+import { App, Notice, TAbstractFile, TFile } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageDescription } from '../types/image'
 
@@ -146,7 +146,7 @@ export async function uploadGalleryImagesToStrapi(
 }
 
 export async function uploadImageToStrapi(
-	imageData: TFile | Blob | ArrayBuffer,
+	imageData: string | TFile,
 	fileName: string,
 	settings: StrapiExporterSettings,
 	app: App,
@@ -155,35 +155,46 @@ export async function uploadImageToStrapi(
 		caption?: string
 	}
 ): Promise<ImageDescription | null> {
+	console.log('uploadImageToStrapi called with:', {
+		imageData,
+		fileName,
+		settings,
+		additionalMetadata,
+	})
+
 	const formData = new FormData()
 
-	if (imageData instanceof TFile) {
-		const arrayBuffer = await app.vault.readBinary(imageData)
-		formData.append(
-			'files',
-			new Blob([arrayBuffer], { type: `image/${imageData.extension}` }),
-			fileName
-		)
-	} else if (imageData instanceof Blob) {
-		formData.append('files', imageData, fileName)
-	} else if (imageData instanceof ArrayBuffer) {
-		formData.append('files', new Blob([imageData]), fileName)
-	} else {
-		throw new Error('Unsupported image data type')
+	let file: TAbstractFile | null = null
+	if (typeof imageData === 'string') {
+		file = app.vault.getAbstractFileByPath(imageData)
+	} else if (imageData instanceof TFile) {
+		file = imageData
 	}
 
-	if (additionalMetadata) {
-		formData.append(
-			'fileInfo',
-			JSON.stringify({
-				name: fileName,
-				alternativeText: additionalMetadata.alternativeText,
-				caption: additionalMetadata.caption,
-			})
-		)
+	if (!(file instanceof TFile)) {
+		console.error('Invalid file:', file)
+		new Notice(`Failed to find file: ${fileName}`)
+		return null
 	}
 
 	try {
+		console.log('Reading file:', file.path)
+		const arrayBuffer = await app.vault.readBinary(file)
+		const blob = new Blob([arrayBuffer], { type: `image/${file.extension}` })
+		formData.append('files', blob, fileName)
+
+		if (additionalMetadata) {
+			formData.append(
+				'fileInfo',
+				JSON.stringify({
+					name: fileName,
+					alternativeText: additionalMetadata.alternativeText,
+					caption: additionalMetadata.caption,
+				})
+			)
+		}
+
+		console.log('Sending request to Strapi')
 		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
 			method: 'POST',
 			headers: {
@@ -194,6 +205,7 @@ export async function uploadImageToStrapi(
 
 		if (response.ok) {
 			const data = await response.json()
+			console.log('Upload successful:', data)
 			return {
 				url: data[0].url,
 				name: fileName,
@@ -208,11 +220,13 @@ export async function uploadImageToStrapi(
 			}
 		} else {
 			const errorData = await response.json()
+			console.error('Upload failed:', errorData)
 			new Notice(
 				`Failed to upload image: ${fileName}. Error: ${errorData.error.message}`
 			)
 		}
 	} catch (error) {
+		console.error('Error in uploadImageToStrapi:', error)
 		new Notice(`Error uploading image: ${fileName}. Error: ${error.message}`)
 	}
 

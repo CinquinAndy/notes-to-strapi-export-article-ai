@@ -4,9 +4,10 @@ import {
 	extractFrontMatter,
 	generateFrontMatterWithOpenAI,
 } from './frontmatter'
-import { processInlineImages, uploadImageToStrapi } from './process-images'
+import { processInlineImages } from './process-images'
 import * as yaml from 'js-yaml'
 import { ImageFieldsModal } from './image-fields-modal'
+import { uploadImageToStrapi } from './strapi-uploader'
 
 export async function processMarkdownContent(
 	app: App,
