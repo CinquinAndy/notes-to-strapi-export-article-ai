@@ -80,31 +80,17 @@ export async function processMarkdownContent(
 		const obsidianField = fieldConfig.obsidianField
 		let value = obsidianField === 'content' ? content : parsedFrontMatter[field]
 
-		// Process images in front matter fields
-		if (typeof value === 'string' && value.includes('![[')) {
-			const imageMatches = value.match(/!\[\[(.*?)\]\]/g)
-			if (imageMatches) {
-				for (const match of imageMatches) {
-					const imagePath = match.slice(3, -2)
-					const uploadedImage = await uploadImageToStrapi(
-						imagePath,
-						app,
-						settings
-					)
-					if (uploadedImage) {
-						value = value.replace(match, uploadedImage.url)
-					}
-				}
-			}
+		// Process images in fields
+		if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
+			value = await processImageField(value, app, settings)
+		} else if (fieldConfig.type === 'array' && field === 'galery') {
+			value = await processImageField(value, app, settings)
 		}
 
 		// Apply transformation if specified
 		if (fieldConfig.transformation) {
 			try {
-				const transformFunc = new Function(
-					'value',
-					`return ${fieldConfig.transformation}`
-				)
+				const transformFunc = new Function('value', fieldConfig.transformation)
 				value = transformFunc(value)
 			} catch (error) {
 				console.error(`Error applying transformation for ${field}:`, error)
@@ -129,27 +115,6 @@ export async function processMarkdownContent(
 			default:
 				finalContent[field] = value
 		}
-
-		// Special handling for image fields
-		if (
-			fieldConfig.format === 'url' &&
-			typeof finalContent[field] === 'string'
-		) {
-			if (finalContent[field].startsWith('![[')) {
-				const imagePath = finalContent[field].slice(3, -2)
-				const uploadedImage = await uploadImageToStrapi(
-					imagePath,
-					app,
-					settings
-				)
-				if (uploadedImage) {
-					finalContent[field] = uploadedImage.url
-				}
-			} else if (!finalContent[field].startsWith('http')) {
-				console.log(`Image upload needed for ${field}`)
-				finalContent[field] = `https://placeholder.com/${field}.jpg`
-			}
-		}
 	}
 
 	// Handle the main content field
@@ -162,4 +127,25 @@ export async function processMarkdownContent(
 	console.log(JSON.stringify(finalContent, null, 2))
 
 	return finalContent
+}
+
+async function processImageField(
+	value: any,
+	app: App,
+	settings: StrapiExporterSettings
+): Promise<any> {
+	if (typeof value === 'string') {
+		if (value.startsWith('![[') && value.endsWith(']]')) {
+			const imagePath = value.slice(3, -2)
+			const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
+			return uploadedImage ? uploadedImage.url : value
+		} else if (value.startsWith('http')) {
+			return value // Keep external URLs as they are
+		}
+	} else if (Array.isArray(value)) {
+		return Promise.all(
+			value.map(item => processImageField(item, app, settings))
+		)
+	}
+	return value
 }

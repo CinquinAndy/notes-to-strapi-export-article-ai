@@ -196,7 +196,7 @@ export class Configuration {
         "fieldMappings": {
             "fieldName": {
                 "obsidianField": "string (e.g., 'frontmatter.fieldName', 'content')",
-                "transformation": "string (any necessary transformation logic)",
+                "transformation": "string (valid JavaScript expression to transform the value)",
                 "description": "string (explanation of this field)",
                 "type": "string (e.g., 'string', 'number', 'object', 'array')",
                 "format": "string (e.g., 'date', 'url', 'email', etc. if applicable)"
@@ -207,12 +207,14 @@ export class Configuration {
     }
 
     Guidelines:
-    1. For the main content field, use "{{ARTICLE_CONTENT}}" as a placeholder in the transformation logic.
+    1. For the main content field, use "value" as the input in the transformation.
     2. For image fields, specify 'type': 'string' and 'format': 'url' in the field mapping.
     3. For array fields (like galleries or tags), use 'type': 'array' and provide appropriate transformation logic.
     4. For object fields, use 'type': 'object' and describe the expected structure in the transformation logic.
     5. If a field requires special handling (e.g., date formatting, slug generation), include this in the transformation logic.
-    6. Ensure that the configuration matches the structure of the provided Strapi schema.
+    6. Ensure that all transformations are valid JavaScript expressions that can be evaluated.
+    7. For the 'slug' field, use a simple slugify function: "(value || '').toLowerCase().replace(/\\s+/g, '-').replace(/[^\\w\\-]+/g, '')".
+    8. For fields that don't need transformation, use "value" as the transformation.
     `
 
 		try {
