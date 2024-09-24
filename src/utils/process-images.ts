@@ -1,4 +1,4 @@
-import { App, TFile, Notice } from 'obsidian'
+import { App, TFile } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageDescription } from '../types/image'
 import { uploadImageToStrapi } from './strapi-uploader'
@@ -19,7 +19,20 @@ export async function processInlineImages(
 			continue
 		}
 
-		const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
+		// Obtenir le fichier TFile à partir du chemin
+		const file = app.vault.getAbstractFileByPath(imagePath)
+		if (!(file instanceof TFile)) {
+			console.error(`File not found: ${imagePath}`)
+			continue
+		}
+
+		const uploadedImage = await uploadImageToStrapi(
+			file,
+			file.name,
+			settings,
+			app
+		)
+
 		if (uploadedImage) {
 			inlineImages.push(uploadedImage)
 
