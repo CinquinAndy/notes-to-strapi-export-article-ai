@@ -52,10 +52,18 @@ export async function processMarkdownContent(
 				await new Promise<void>(resolve => {
 					new ImageFieldsModal(app, imageFields, imageValues => {
 						Object.entries(imageValues).forEach(([field, value]) => {
-							frontMatter = frontMatter.replace(
-								`${field}: ""`,
-								`${field}: "${value}"`
-							)
+							if (Array.isArray(value)) {
+								// Handle gallery
+								frontMatter = frontMatter.replace(
+									`${field}: []`,
+									`${field}:\n  - ${value.join('\n  - ')}`
+								)
+							} else {
+								frontMatter = frontMatter.replace(
+									`${field}: ""`,
+									`${field}: "${value}"`
+								)
+							}
 						})
 						resolve()
 					}).open()

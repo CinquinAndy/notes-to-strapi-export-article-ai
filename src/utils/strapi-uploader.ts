@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian'
+import { App, Notice, TFile } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageDescription } from '../types/image'
 
@@ -14,13 +14,15 @@ export async function uploadImagesToStrapi(
 
 	for (const imageDescription of imageDescriptions) {
 		const formData = new FormData()
-		formData.append('files', imageDescription.blob, imageDescription.name)
+		if (imageDescription?.blob) {
+			formData.append('files', imageDescription?.blob, imageDescription.name)
+		}
 		formData.append(
 			'fileInfo',
 			JSON.stringify({
-				name: imageDescription.description.name,
-				alternativeText: imageDescription.description.alternativeText,
-				caption: imageDescription.description.caption,
+				name: imageDescription?.description?.name,
+				alternativeText: imageDescription?.description?.alternativeText,
+				caption: imageDescription.description?.caption,
 			})
 		)
 
@@ -35,7 +37,7 @@ export async function uploadImagesToStrapi(
 
 			if (response.ok) {
 				const data = await response.json()
-				uploadedImages[imageDescription.name] = {
+				uploadedImages[imageDescription?.name || 0] = {
 					url: data[0].url,
 					data: data[0],
 					id: data[0].id,
@@ -83,13 +85,15 @@ export async function uploadGalleryImagesToStrapi(
 
 	for (const imageDescription of imageDescriptions) {
 		const formData = new FormData()
-		formData.append('files', imageDescription.blob, imageDescription.name)
+		if (imageDescription.blob) {
+			formData.append('files', imageDescription.blob, imageDescription.name)
+		}
 		formData.append(
 			'fileInfo',
 			JSON.stringify({
-				name: imageDescription.description.name,
-				alternativeText: imageDescription.description.alternativeText,
-				caption: imageDescription.description.caption,
+				name: imageDescription?.description?.name,
+				alternativeText: imageDescription?.description?.alternativeText,
+				caption: imageDescription?.description?.caption,
 			})
 		)
 
@@ -139,4 +143,43 @@ export async function uploadGalleryImagesToStrapi(
 	}
 
 	return uploadedImages
+}
+
+export async function uploadImageToStrapi(
+	file: TFile,
+	app: App
+): Promise<{ url: string } | null> {
+	const imageArrayBuffer = await app.vault.readBinary(file)
+	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })
+
+	const formData = new FormData()
+	formData.append('files', blob, file.name)
+
+	try {
+		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${settings.strapiApiToken}`,
+			},
+			body: formData,
+		})
+
+		if (response.ok) {
+			const data = await response.json()
+			return { url: data[0].url }
+		} else {
+			const errorData = await response.json()
+			new Notice(
+				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`,
+				5000
+			)
+		}
+	} catch (error) {
+		new Notice(
+			`Error uploading image: ${file.name}. Error: ${error.message}`,
+			5000
+		)
+	}
+
+	return null
 }
