@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { uploadImagesToStrapi } from './strapi-uploader'
-import { ImageDescription } from '../types/image'
+import { ImageBlob, ImageDescription } from '../types/image'
 
 export async function processInlineImages(
 	app: App,
@@ -24,6 +24,7 @@ export async function processInlineImages(
 	const inlineImages: ImageDescription[] = []
 
 	for (const [localPath, imageData] of Object.entries(uploadedImages)) {
+		// Remplacer les liens d'images standard Markdown
 		const markdownImageRegex = new RegExp(
 			`!\\[([^\\]]*)]\\(${localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`,
 			'g'
@@ -33,6 +34,7 @@ export async function processInlineImages(
 			(match, capturedAltText) => `![${capturedAltText}](${imageData.url})`
 		)
 
+		// Remplacer les liens d'images internes Obsidian
 		const obsidianImageRegex = new RegExp(
 			`!\\[\\[${localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\]`,
 			'g'
@@ -75,10 +77,10 @@ export function extractImagePaths(content: string): string[] {
 	return imagePaths
 }
 
-async function getImageBlobs(
+export async function getImageBlobs(
 	app: App,
 	imagePaths: string[]
-): Promise<Awaited<{ path: string; blob: Blob; name: string }>[]> {
+): Promise<ImageBlob[]> {
 	const files = app.vault.getAllLoadedFiles()
 	const imageFiles = imagePaths
 		.map(path => files.find(file => file.name === path || file.path === path))
