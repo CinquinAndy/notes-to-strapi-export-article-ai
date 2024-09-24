@@ -11,94 +11,113 @@ export async function processMarkdownContent(
 	settings: StrapiExporterSettings,
 	routeId: string
 ) {
+	console.log('--- Step 1: Initializing and validating inputs ---')
 	const activeView = app.workspace.getActiveViewOfType(MarkdownView)
 	if (!activeView) {
+		console.error('No active Markdown view')
 		new Notice('No active Markdown view')
 		return null
 	}
 
 	const file = activeView.file
 	if (!file) {
+		console.error('No file found in active view')
 		new Notice('No file found in active view')
 		return null
 	}
 
+	console.log('Processing file:', file.path)
+
 	let content = await app.vault.read(file)
+	console.log('Initial content length:', content.length)
+
 	const articleFolderPath = file.parent?.path
 	const imageFolderPath = `${articleFolderPath}/image`
 	const galleryFolderPath = `${articleFolderPath}/gallery`
 
-	// Process main image
+	console.log('--- Step 2: Processing images ---')
+	console.log('Processing main image from:', imageFolderPath)
 	const mainImage = await processMainImage(app, settings, imageFolderPath)
+	console.log('Main image processed:', mainImage)
 
-	// Process gallery images
+	console.log('Processing gallery images from:', galleryFolderPath)
 	const galleryImages = await processGalleryImages(
 		app,
 		settings,
 		galleryFolderPath
 	)
+	console.log('Gallery images processed:', galleryImages)
 
-	// Process inline images in content
+	console.log('Processing inline images')
 	const { updatedContent, inlineImages } = await processInlineImages(
 		app,
 		settings,
 		content
 	)
 	content = updatedContent
+	console.log('Inline images processed:', inlineImages)
+	console.log('Updated content length:', content.length)
 
-	// Modify file content if inline images were processed
 	if (inlineImages.length > 0) {
 		await app.vault.modify(file, content)
+		console.log('File content updated with processed inline images')
 		new Notice('Inline images processed and content updated')
 	}
 
+	console.log('--- Step 3: Preparing content for Strapi ---')
 	const currentRoute = settings.routes.find(route => route.id === routeId)
 	if (!currentRoute) {
+		console.error('Route not found:', routeId)
 		new Notice('Route not found')
 		return null
 	}
+	console.log('Using route:', currentRoute.name)
 
-	// Parse the generated configuration
 	let generatedConfig
 	try {
 		generatedConfig = JSON.parse(currentRoute.generatedConfig)
+		console.log('Parsed generated config:', generatedConfig)
 	} catch (error) {
 		console.error('Error parsing generatedConfig:', error)
 		new Notice('Invalid configuration. Please check your route settings.')
 		return null
 	}
 
-	// Replace the content placeholder with actual content
 	const contentFieldName = currentRoute.contentField || 'content'
+	console.log('Content field name:', contentFieldName)
+
 	if (generatedConfig.fieldMappings[contentFieldName]) {
 		generatedConfig.fieldMappings[contentFieldName].transformation =
 			generatedConfig.fieldMappings[contentFieldName].transformation.replace(
 				'{{ARTICLE_CONTENT}}',
 				content
 			)
+		console.log('Content placeholder replaced in field mapping')
 	}
 
-	// Process other fields according to the generated configuration
 	const processedData = {}
 	for (const [field, mapping] of Object.entries(
 		generatedConfig.fieldMappings
 	)) {
 		if (field !== contentFieldName) {
 			processedData[field] = await processField(mapping, file, app)
+			console.log(`Processed field "${field}":`, processedData[field])
 		}
 	}
 
-	// Add the processed content to the data
 	processedData[contentFieldName] =
 		generatedConfig.fieldMappings[contentFieldName].transformation
+	console.log(
+		`Processed content field "${contentFieldName}" (length):`,
+		processedData[contentFieldName].length
+	)
 
-	// Validate the processed data
 	if (!validateProcessedData(processedData, generatedConfig.fieldMappings)) {
+		console.error('Invalid processed data structure')
 		new Notice('Invalid data structure. Please check your configuration.')
 		return null
 	}
 
-	// Prepare the final content for Strapi
 	const finalContent = {
 		data: {
 			...processedData,
@@ -113,7 +132,8 @@ export async function processMarkdownContent(
 		},
 	}
 
-	console.log('Final content for Strapi:', finalContent)
+	console.log('--- Final content ready for Strapi ---')
+	console.log(JSON.stringify(finalContent, null, 2))
 
 	return {
 		content: finalContent,
@@ -123,15 +143,14 @@ export async function processMarkdownContent(
 	}
 }
 
-// Helper function to validate the processed data
 function validateProcessedData(data: any, fieldMappings: any): boolean {
 	for (const field in fieldMappings) {
 		if (!(field in data)) {
 			console.error(`Missing field in processed data: ${field}`)
 			return false
 		}
-		// Add more specific validations here if needed
 	}
+	console.log('Processed data validated successfully')
 	return true
 }
 

@@ -179,13 +179,16 @@ export default class StrapiExporterPlugin extends Plugin {
 
 			if (response.ok) {
 				new Notice('Content successfully sent to Strapi!')
+				console.log('Strapi response:', await response.json())
 			} else {
 				const errorData = await response.json()
+				console.error('Strapi error response:', errorData)
 				new Notice(
 					`Failed to create content in Strapi. Error: ${errorData.error.message}`
 				)
 			}
 		} catch (error) {
+			console.error('Error sending to Strapi:', error)
 			new Notice(`Error sending to Strapi: ${error.message}`)
 		}
 	}
