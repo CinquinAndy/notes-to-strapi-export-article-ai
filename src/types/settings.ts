@@ -31,9 +31,9 @@ export interface RouteConfig {
 	enabled: boolean
 	schema: string
 	schemaDescription: string
+	contentField: string
 	generatedConfig: string
 	language: string
 	imageProperty?: string
 	galleryProperty?: string
-	contentPlaceholder: string
 }

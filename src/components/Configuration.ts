@@ -4,6 +4,7 @@ import {
 	ButtonComponent,
 	Notice,
 	DropdownComponent,
+	TextComponent,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
@@ -12,9 +13,9 @@ export class Configuration {
 	private plugin: StrapiExporterPlugin
 	private containerEl: HTMLElement
 	private schemaInput: TextAreaComponent
-	private descriptionInput: TextAreaComponent
+	private schemaDescriptionInput: TextAreaComponent
+	private contentFieldInput: TextComponent
 	private configOutput: TextAreaComponent
-	private contentPlaceholderInput: TextAreaComponent
 	private languageDropdown: DropdownComponent
 	private routeSelector: DropdownComponent
 	private currentRouteId: string
@@ -33,7 +34,7 @@ export class Configuration {
 
 		this.addRouteSelector()
 		this.addSchemaConfigSection()
-		this.addContentPlaceholderSection()
+		this.addContentFieldSection()
 		this.addLanguageSection()
 		this.addAutoConfigSection()
 	}
@@ -55,66 +56,15 @@ export class Configuration {
 			})
 	}
 
-	private addContentPlaceholderSection(): void {
-		new Setting(this.containerEl)
-			.setName('Content Placeholder')
-			.setDesc(
-				'Enter the placeholder for where the article content should be inserted'
-			)
-			.addTextArea(text => {
-				this.contentPlaceholderInput = text
-				text
-					.setValue(this.getCurrentRouteContentPlaceholder())
-					.onChange(async value => {
-						await this.updateCurrentRouteConfig('contentPlaceholder', value)
-					})
-				text.inputEl.rows = 2
-				text.inputEl.cols = 50
-			})
-	}
-
 	private updateConfigurationFields(): void {
 		const currentRoute = this.plugin.settings.routes.find(
 			route => route.id === this.currentRouteId
 		)
 		if (currentRoute) {
 			this.schemaInput.setValue(currentRoute.schema || '')
-			this.descriptionInput.setValue(currentRoute.schemaDescription || '')
 			this.configOutput.setValue(currentRoute.generatedConfig || '')
 			this.languageDropdown.setValue(currentRoute.language || 'en')
 		}
-	}
-
-	private addSchemaConfigSection(): void {
-		new Setting(this.containerEl)
-			.setName('Strapi Schema')
-			.setDesc(
-				"Paste your Strapi schema JSON here (optional, it's used for auto-configuration only)"
-			)
-			.addTextArea(text => {
-				this.schemaInput = text
-				text.setValue(this.getCurrentRouteSchema()).onChange(async value => {
-					await this.updateCurrentRouteConfig('schema', value)
-				})
-				text.inputEl.rows = 5
-				text.inputEl.cols = 50
-			})
-
-		new Setting(this.containerEl)
-			.setName('Schema Description')
-			.setDesc(
-				"Provide additional description or context for the schema fields (optional, it's used for auto-configuration only)"
-			)
-			.addTextArea(text => {
-				this.descriptionInput = text
-				text
-					.setValue(this.getCurrentRouteSchemaDescription())
-					.onChange(async value => {
-						await this.updateCurrentRouteConfig('schemaDescription', value)
-					})
-				text.inputEl.rows = 5
-				text.inputEl.cols = 50
-			})
 	}
 
 	private addLanguageSection(): void {
@@ -182,6 +132,50 @@ export class Configuration {
 			})
 	}
 
+	private addSchemaConfigSection(): void {
+		new Setting(this.containerEl)
+			.setName('Strapi Schema')
+			.setDesc('Paste your complete Strapi schema JSON here')
+			.addTextArea(text => {
+				this.schemaInput = text
+				text.setValue(this.getCurrentRouteSchema()).onChange(async value => {
+					await this.updateCurrentRouteConfig('schema', value)
+				})
+				text.inputEl.rows = 10
+				text.inputEl.cols = 50
+			})
+
+		new Setting(this.containerEl)
+			.setName('Schema Description')
+			.setDesc('Provide descriptions for each field in the schema')
+			.addTextArea(text => {
+				this.schemaDescriptionInput = text
+				text
+					.setValue(this.getCurrentRouteSchemaDescription())
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('schemaDescription', value)
+					})
+				text.inputEl.rows = 10
+				text.inputEl.cols = 50
+			})
+	}
+
+	private addContentFieldSection(): void {
+		new Setting(this.containerEl)
+			.setName('Content Field Name')
+			.setDesc(
+				'Enter the name of the field where the main article content should be inserted (for exemple, it could be "content" or "data.article.content")'
+			)
+			.addText(text => {
+				this.contentFieldInput = text
+				text
+					.setValue(this.getCurrentRouteContentField())
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('contentField', value)
+					})
+			})
+	}
+
 	private async generateConfiguration(): Promise<void> {
 		const openai = new OpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
@@ -189,17 +183,17 @@ export class Configuration {
 		})
 
 		const prompt = `
-        Given the following Strapi schema, description, target language, and content placeholder, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi, including the content placeholder.
+        Given the following Strapi schema, field descriptions, content field name, and target language, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field.
 
         Strapi Schema:
         ${this.schemaInput.getValue()}
 
-        Schema Description:
-        ${this.descriptionInput.getValue()}
+        Field Descriptions:
+        ${this.schemaDescriptionInput.getValue()}
+
+        Content Field Name: ${this.contentFieldInput.getValue()}
 
         Target Language: ${this.getCurrentRouteLanguage()}
-
-        Content Placeholder: ${this.contentPlaceholderInput.getValue()}
 
         Please provide the configuration as a JSON object with the following structure:
         {
@@ -211,14 +205,11 @@ export class Configuration {
                 }
             },
             "additionalInstructions": "string (any additional instructions for using this configuration)",
-            "strapiTemplate": {
-                // Include here a complete template of the JSON structure to be sent to Strapi,
-                // with placeholders for values that will be filled from Obsidian notes,
-                // and the content placeholder for the main article content
-            },
-            "targetLanguage": "string (the target language code)",
-            "contentPlaceholder": "string (the placeholder for the main article content)"
+            "contentField": "string (the name of the field where the main article content should be inserted)",
+            "targetLanguage": "string (the target language code)"
         }
+
+        For the content field, use "{{ARTICLE_CONTENT}}" as a placeholder in the transformation logic.
         `
 
 		try {
@@ -232,8 +223,10 @@ export class Configuration {
 
 			const generatedConfig = response.choices[0].message.content
 			this.configOutput.setValue(generatedConfig || '')
-			this.plugin.settings.generatedConfig = generatedConfig || ''
-			await this.plugin.saveSettings()
+			await this.updateCurrentRouteConfig(
+				'generatedConfig',
+				generatedConfig || ''
+			)
 			new Notice('Configuration generated successfully!')
 		} catch (error) {
 			console.error('Error generating configuration:', error)
@@ -269,16 +262,6 @@ export class Configuration {
 		return currentRoute?.schema || ''
 	}
 
-	private getCurrentRouteContentPlaceholder(): string {
-		const currentRoute = this.plugin.settings.routes.find(
-			route => route.id === this.currentRouteId
-		)
-		return (
-			currentRoute?.contentPlaceholder ||
-			'{{PasteContentOfTheActualArticleHere}}'
-		)
-	}
-
 	private getCurrentRouteSchemaDescription(): string {
 		const currentRoute = this.plugin.settings.routes.find(
 			route => route.id === this.currentRouteId
@@ -291,6 +274,13 @@ export class Configuration {
 			route => route.id === this.currentRouteId
 		)
 		return currentRoute?.language || 'en'
+	}
+
+	private getCurrentRouteContentField(): string {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		return currentRoute?.contentField || 'content'
 	}
 
 	private async updateCurrentRouteConfig(

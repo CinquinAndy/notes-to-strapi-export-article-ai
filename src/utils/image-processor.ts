@@ -58,16 +58,35 @@ export async function processMarkdownContent(
 		return null
 	}
 
-	// Replace content placeholder with actual content
-	const contentPlaceholder =
-		currentRoute.contentPlaceholder || '{{PasteContentOfTheActualArticleHere}}'
-	const finalContent = currentRoute.generatedConfig.replace(
-		contentPlaceholder,
-		content
-	)
+	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
+
+	// Replace the content placeholder with actual content
+	const contentFieldName = currentRoute.contentField || 'content'
+	if (generatedConfig.fieldMappings[contentFieldName]) {
+		generatedConfig.fieldMappings[contentFieldName].transformation =
+			generatedConfig.fieldMappings[contentFieldName].transformation.replace(
+				'{{ARTICLE_CONTENT}}',
+				content
+			)
+	}
+
+	// Process other fields according to the generated configuration
+	const processedData = {}
+	for (const [field] of Object.entries(generatedConfig.fieldMappings)) {
+		if (field !== contentFieldName) {
+			// Here you would implement the logic to extract and transform data
+			// based on the mapping.obsidianField and mapping.transformation
+			// For simplicity, we're just using placeholder values here
+			processedData[field] = `Processed ${field}`
+		}
+	}
+
+	// Add the processed content to the data
+	processedData[contentFieldName] =
+		generatedConfig.fieldMappings[contentFieldName].transformation
 
 	return {
-		content: finalContent,
+		content: processedData,
 		mainImage,
 		galleryImages,
 		inlineImages,
