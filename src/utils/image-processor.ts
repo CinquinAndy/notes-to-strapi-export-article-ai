@@ -127,19 +127,28 @@ async function processMainImage(
 	app: App,
 	settings: StrapiExporterSettings,
 	imageFolderPath: string
-): Promise<ImageBlob | null> {
+): Promise<ImageDescription | null> {
 	const imageBlob = await getImageBlob(app, imageFolderPath)
 	if (imageBlob) {
-		const uploadedImage: any = await uploadImagesToStrapi(
-			[imageBlob],
+		const imageDescription: ImageDescription = {
+			...imageBlob,
+			description: {
+				name: imageBlob.name,
+				alternativeText: '', // You might want to generate this based on the image content
+				caption: '', // You might want to generate this based on the image content
+			},
+		}
+		const uploadedImages = await uploadImagesToStrapi(
+			[imageDescription],
 			settings,
 			app,
 			imageFolderPath
 		)
+		const uploadedImage = uploadedImages[imageBlob.name]
 		return {
-			...imageBlob,
-			path: uploadedImage[imageBlob.name].url,
-			id: uploadedImage[imageBlob.name].id,
+			...imageDescription,
+			path: uploadedImage.url,
+			id: uploadedImage.id,
 		}
 	}
 	return null
@@ -149,15 +158,28 @@ async function processGalleryImages(
 	app: App,
 	settings: StrapiExporterSettings,
 	galleryFolderPath: string
-): Promise<number[]> {
+): Promise<ImageDescription[]> {
 	const galleryImageBlobs = await getGalleryImageBlobs(app, galleryFolderPath)
+	const galleryImageDescriptions: ImageDescription[] = galleryImageBlobs.map(
+		blob => ({
+			...blob,
+			description: {
+				name: blob.name,
+				alternativeText: '',
+				caption: '',
+			},
+		})
+	)
 	const uploadedImages = await uploadGalleryImagesToStrapi(
-		galleryImageBlobs,
+		galleryImageDescriptions,
 		settings,
 		app,
 		galleryFolderPath
 	)
-	return uploadedImages.map(img => img.id)
+	return uploadedImages.map(img => ({
+		...img,
+		id: img.id,
+	}))
 }
 
 async function processInlineImages(
@@ -167,19 +189,27 @@ async function processInlineImages(
 ): Promise<{ updatedContent: string; inlineImages: ImageDescription[] }> {
 	const imagePaths = extractImagePaths(content)
 	const imageBlobs = await getImageBlobs(app, imagePaths)
-	const uploadedImages = await uploadImagesToStrapi(imageBlobs, settings)
+	const imageDescriptions: ImageDescription[] = imageBlobs.map(blob => ({
+		...blob,
+		description: {
+			name: blob.name,
+			alternativeText: '',
+			caption: '',
+		},
+	}))
+	const uploadedImages = await uploadImagesToStrapi(imageDescriptions, settings)
 
 	let updatedContent = content
 	const inlineImages: ImageDescription[] = []
 
 	for (const [localPath, imageData] of Object.entries(uploadedImages)) {
 		const markdownImageRegex = new RegExp(
-			`!\\[([^\\]]*)\\]\\(${localPath}\\)`,
+			`!\\[([^\\]]*)]\\(${localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`,
 			'g'
 		)
 		updatedContent = updatedContent.replace(
 			markdownImageRegex,
-			(match, altText) => `![${altText}](${imageData.url})`
+			(match, capturedAltText) => `![${capturedAltText}](${imageData.url})`
 		)
 
 		inlineImages.push({
@@ -189,7 +219,7 @@ async function processInlineImages(
 			id: imageData.id,
 			description: {
 				name: imageData.data.name,
-				alternativeText: altText || '',
+				alternativeText: '',
 				caption: '',
 			},
 		})
@@ -210,7 +240,8 @@ export function extractImagePaths(content: string): string[] {
 	return imagePaths
 }
 
-export async function getImageBlob(
+// Update getImageBlob to return ImageBlob
+async function getImageBlob(
 	app: App,
 	imageFolderPath: string
 ): Promise<ImageBlob | null> {

@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
-import { ImageBlob, ImageDescription } from '../types/image'
+import { ImageDescription } from '../types/image'
 
 export async function uploadImagesToStrapi(
 	imageDescriptions: ImageDescription[],
@@ -68,24 +68,30 @@ export async function uploadImagesToStrapi(
 
 /**
  * Upload gallery images to Strapi
- * @param imageBlobs
+ * @param imageDescriptions
  * @param settings
  * @param app
  * @param galleryFolderPath
  */
 export async function uploadGalleryImagesToStrapi(
-	imageBlobs: ImageBlob[],
+	imageDescriptions: ImageDescription[],
 	settings: StrapiExporterSettings,
 	app: any = null,
 	galleryFolderPath: string = ''
-): Promise<number[]> {
-	const uploadedImageIds: number[] = []
-	const uploadedImages: { [key: string]: { url: string; data: any; id: any } } =
-		{}
+): Promise<ImageDescription[]> {
+	const uploadedImages: ImageDescription[] = []
 
-	for (const imageBlob of imageBlobs) {
+	for (const imageDescription of imageDescriptions) {
 		const formData = new FormData()
-		formData.append('files', imageBlob.blob, imageBlob.name)
+		formData.append('files', imageDescription.blob, imageDescription.name)
+		formData.append(
+			'fileInfo',
+			JSON.stringify({
+				name: imageDescription.description.name,
+				alternativeText: imageDescription.description.alternativeText,
+				caption: imageDescription.description.caption,
+			})
+		)
 
 		try {
 			const response = await fetch(`${settings.strapiUrl}/api/upload`, {
@@ -98,27 +104,32 @@ export async function uploadGalleryImagesToStrapi(
 
 			if (response.ok) {
 				const data = await response.json()
-				uploadedImages[imageBlob.name] = {
-					url: data[0].url,
+				uploadedImages.push({
+					...imageDescription,
+					path: data[0].url,
 					id: data[0].id,
-					data: data[0],
-				}
+					description: {
+						name: data[0].name,
+						alternativeText: data[0].alternativeText,
+						caption: data[0].caption,
+					},
+				})
 			} else {
 				const errorData = await response.json()
 				new Notice(
-					`Failed to upload gallery image: ${imageBlob.name}. Error: ${errorData.error.message}`
+					`Failed to upload gallery image: ${imageDescription.name}. Error: ${errorData.error.message}`
 				)
 			}
 		} catch (error) {
 			new Notice(
-				`Error uploading gallery image: ${imageBlob.name}. Error: ${error.message}`
+				`Error uploading gallery image: ${imageDescription.name}. Error: ${error.message}`
 			)
 		}
 	}
 
 	if (galleryFolderPath && app) {
 		// Save metadata to a file only if there are uploaded images
-		if (Object.keys(uploadedImages).length > 0) {
+		if (uploadedImages.length > 0) {
 			const metadataFile = `${galleryFolderPath}/metadata.json`
 			await app.vault.adapter.write(
 				metadataFile,
@@ -127,5 +138,5 @@ export async function uploadGalleryImagesToStrapi(
 		}
 	}
 
-	return uploadedImageIds
+	return uploadedImages
 }
