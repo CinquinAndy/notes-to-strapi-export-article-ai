@@ -50,17 +50,19 @@ export class ImageFieldsModal extends Modal {
 							if (file instanceof TFile) {
 								console.log(`Uploading file: ${file.path}`)
 								const uploadedImage = await uploadImageToStrapi(
-									file.path, // Passez le chemin du fichier au lieu du TFile
+									file.path,
 									file.name,
 									this.settings,
 									this.app
 								)
 								if (uploadedImage && uploadedImage.url) {
+									console.log(
+										`Image uploaded successfully. URL:`,
+										uploadedImage.url
+									)
 									this.imageValues[field] = uploadedImage.url
 								} else {
-									console.error(
-										`Failed to upload image for ${field}: No URL returned`
-									)
+									console.error(`Failed to upload image for ${field}`)
 								}
 							} else {
 								console.error(`Selected file is not a TFile:`, file)
@@ -133,14 +135,10 @@ export class ImageFieldsModal extends Modal {
 			this.app
 		)
 		if (uploadedImage && uploadedImage.url) {
-			if (!Array.isArray(this.imageValues[field])) {
-				this.imageValues[field] = []
-			}
-			;(this.imageValues[field] as string[]).push(uploadedImage.url)
+			console.log(`New image uploaded successfully. URL:`, uploadedImage.url)
+			this.imageValues[field] = uploadedImage.url
 		} else {
-			console.error(
-				`Failed to upload gallery image for ${field}: No URL returned`
-			)
+			console.error(`Failed to upload new image for ${field}`)
 		}
 	}
 
@@ -159,17 +157,15 @@ export class ImageFieldsModal extends Modal {
 			this.settings,
 			this.app
 		)
-		if (uploadedImage) {
+		if (uploadedImage && uploadedImage.url) {
 			console.log(
 				`Gallery image uploaded successfully. URL:`,
 				uploadedImage.url
 			)
-			if (!this.imageValues[field]) {
+			if (!Array.isArray(this.imageValues[field])) {
 				this.imageValues[field] = []
 			}
-			if (Array.isArray(this.imageValues[field])) {
-				;(this.imageValues[field] as string[]).push(uploadedImage?.url || '')
-			}
+			;(this.imageValues[field] as string[]).push(uploadedImage.url)
 		} else {
 			console.error(`Failed to upload gallery image for ${field}`)
 		}
