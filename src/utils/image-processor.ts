@@ -58,7 +58,15 @@ export async function processMarkdownContent(
 		return null
 	}
 
-	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
+	// Parse the generated configuration
+	let generatedConfig
+	try {
+		generatedConfig = JSON.parse(currentRoute.generatedConfig)
+	} catch (error) {
+		console.error('Error parsing generatedConfig:', error)
+		new Notice('Invalid configuration. Please check your route settings.')
+		return null
+	}
 
 	// Replace the content placeholder with actual content
 	const contentFieldName = currentRoute.contentField || 'content'
@@ -76,8 +84,6 @@ export async function processMarkdownContent(
 		generatedConfig.fieldMappings
 	)) {
 		if (field !== contentFieldName) {
-			// Here you would implement the logic to extract and transform data
-			// based on the mapping.obsidianField and mapping.transformation
 			processedData[field] = await processField(mapping, file, app)
 		}
 	}
@@ -86,12 +92,47 @@ export async function processMarkdownContent(
 	processedData[contentFieldName] =
 		generatedConfig.fieldMappings[contentFieldName].transformation
 
+	// Validate the processed data
+	if (!validateProcessedData(processedData, generatedConfig.fieldMappings)) {
+		new Notice('Invalid data structure. Please check your configuration.')
+		return null
+	}
+
+	// Prepare the final content for Strapi
+	const finalContent = {
+		data: {
+			...processedData,
+			...(mainImage && {
+				[currentRoute.imageProperty || 'image']: mainImage.id,
+			}),
+			...(galleryImages.length > 0 && {
+				[currentRoute.galleryProperty || 'gallery']: galleryImages.map(
+					img => img.id
+				),
+			}),
+		},
+	}
+
+	console.log('Final content for Strapi:', finalContent)
+
 	return {
-		content: processedData,
+		content: finalContent,
 		mainImage,
 		galleryImages,
 		inlineImages,
 	}
+}
+
+// Helper function to validate the processed data
+function validateProcessedData(data: any, fieldMappings: any): boolean {
+	for (const field in fieldMappings) {
+		if (!(field in data)) {
+			console.error(`Missing field in processed data: ${field}`)
+			return false
+		}
+		// Add more specific validations here if needed
+	}
+	return true
 }
 
 async function processField(mapping: any, file: TFile, app: App) {
