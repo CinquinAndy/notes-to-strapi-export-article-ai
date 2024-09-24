@@ -170,16 +170,12 @@ async function processGalleryImages(
 			},
 		})
 	)
-	const uploadedImages = await uploadGalleryImagesToStrapi(
+	return await uploadGalleryImagesToStrapi(
 		galleryImageDescriptions,
 		settings,
 		app,
 		galleryFolderPath
 	)
-	return uploadedImages.map(img => ({
-		...img,
-		id: img.id,
-	}))
 }
 
 async function processInlineImages(
