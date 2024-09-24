@@ -123,6 +123,9 @@ export class ImageFieldsModal extends Modal {
 				this.imageValues[field] = []
 			}
 			if (Array.isArray(this.imageValues[field])) {
+				// no prettier
+				// @ts-ignore
+				// prettier-ignore
 				;(this.imageValues[field] as string[]).push(uploadedImage.url)
 			}
 		}
