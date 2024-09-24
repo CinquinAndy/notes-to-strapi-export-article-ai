@@ -146,15 +146,42 @@ export async function uploadGalleryImagesToStrapi(
 }
 
 export async function uploadImageToStrapi(
-	file: TFile,
+	imageData: TFile | Blob | ArrayBuffer,
+	fileName: string,
+	settings: StrapiExporterSettings,
 	app: App,
-	settings: StrapiExporterSettings
-): Promise<{ url: string } | null> {
-	const imageArrayBuffer = await app.vault.readBinary(file)
-	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })
-
+	additionalMetadata?: {
+		alternativeText?: string
+		caption?: string
+	}
+): Promise<ImageDescription | null> {
 	const formData = new FormData()
-	formData.append('files', blob, file.name)
+
+	if (imageData instanceof TFile) {
+		const arrayBuffer = await app.vault.readBinary(imageData)
+		formData.append(
+			'files',
+			new Blob([arrayBuffer], { type: `image/${imageData.extension}` }),
+			fileName
+		)
+	} else if (imageData instanceof Blob) {
+		formData.append('files', imageData, fileName)
+	} else if (imageData instanceof ArrayBuffer) {
+		formData.append('files', new Blob([imageData]), fileName)
+	} else {
+		throw new Error('Unsupported image data type')
+	}
+
+	if (additionalMetadata) {
+		formData.append(
+			'fileInfo',
+			JSON.stringify({
+				name: fileName,
+				alternativeText: additionalMetadata.alternativeText,
+				caption: additionalMetadata.caption,
+			})
+		)
+	}
 
 	try {
 		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
@@ -167,19 +194,26 @@ export async function uploadImageToStrapi(
 
 		if (response.ok) {
 			const data = await response.json()
-			return { url: data[0].url }
+			return {
+				url: data[0].url,
+				name: fileName,
+				path: data[0].url,
+				id: data[0].id,
+				description: {
+					name: data[0].name,
+					alternativeText:
+						data[0].alternativeText || additionalMetadata?.alternativeText,
+					caption: data[0].caption || additionalMetadata?.caption,
+				},
+			}
 		} else {
 			const errorData = await response.json()
 			new Notice(
-				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`,
-				5000
+				`Failed to upload image: ${fileName}. Error: ${errorData.error.message}`
 			)
 		}
 	} catch (error) {
-		new Notice(
-			`Error uploading image: ${file.name}. Error: ${error.message}`,
-			5000
-		)
+		new Notice(`Error uploading image: ${fileName}. Error: ${error.message}`)
 	}
 
 	return null

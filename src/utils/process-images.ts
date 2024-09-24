@@ -1,6 +1,7 @@
 import { App, TFile, Notice } from 'obsidian'
 import { StrapiExporterSettings } from '../types/settings'
 import { ImageDescription } from '../types/image'
+import { uploadImageToStrapi } from './strapi-uploader'
 
 export async function processInlineImages(
 	app: App,
@@ -63,68 +64,6 @@ export function extractImagePaths(content: string): string[] {
 	}
 
 	return imagePaths
-}
-
-export async function uploadImageToStrapi(
-	imagePath: string,
-	app: App,
-	settings: StrapiExporterSettings
-): Promise<ImageDescription | null> {
-	let file = app.vault.getAbstractFileByPath(imagePath)
-	if (!(file instanceof TFile)) {
-		file = app.vault
-			.getAllLoadedFiles()
-			.find(f => f instanceof TFile && f.name === imagePath) as TFile | null
-	}
-
-	if (!(file instanceof TFile)) {
-		console.error(`File not found: ${imagePath}`)
-		new Notice(`Error: Image file not found: ${imagePath}`, 5000)
-		return null
-	}
-
-	const imageArrayBuffer = await app.vault.readBinary(file)
-	const blob = new Blob([imageArrayBuffer], { type: `image/${file.extension}` })
-
-	const formData = new FormData()
-	formData.append('files', blob, file.name)
-
-	try {
-		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${settings.strapiApiToken}`,
-			},
-			body: formData,
-		})
-
-		if (response.ok) {
-			const data = await response.json()
-			return {
-				url: data[0].url,
-				name: file.name,
-				path: file.path,
-				description: {
-					name: file.name,
-					alternativeText: file.name,
-					caption: '',
-				},
-			}
-		} else {
-			const errorData = await response.json()
-			new Notice(
-				`Failed to upload image: ${file.name}. Error: ${errorData.error.message}`,
-				5000
-			)
-		}
-	} catch (error) {
-		new Notice(
-			`Error uploading image: ${file.name}. Error: ${error.message}`,
-			5000
-		)
-	}
-
-	return null
 }
 
 function isExternalLink(path: string): boolean {
