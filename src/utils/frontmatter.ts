@@ -40,13 +40,28 @@ export async function generateFrontMatterWithOpenAI(
 	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
 	const schemaDescription = currentRoute.schemaDescription
 
+	// Find the content field
+	const contentField = Object.keys(generatedConfig.fieldMappings).find(
+		key => generatedConfig.fieldMappings[key].obsidianField === 'content'
+	)
+
+	// Create a new fieldMappings object without the content field
+	const frontMatterFields = Object.entries(
+		generatedConfig.fieldMappings
+	).reduce((acc, [key, value]) => {
+		if (key !== contentField) {
+			acc[key] = value
+		}
+		return acc
+	}, {})
+
 	const prompt = `Generate YAML front matter for the following Markdown content. Use the provided schema description and field mappings to inform the structure and content of the front matter. Ensure all required fields are included and the YAML is valid.
 
 Schema Description:
 ${schemaDescription}
 
 Field Mappings:
-${JSON.stringify(generatedConfig.fieldMappings, null, 2)}
+${JSON.stringify(frontMatterFields, null, 2)}
 
 Content (first 1000 characters):
 ${existingContent.substring(0, 1000)}
@@ -54,6 +69,8 @@ ${existingContent.substring(0, 1000)}
 Generate the front matter in YAML format, starting and ending with ---. Do not include any extra formatting or code blocks. Use the content to inform these fields where possible. For missing information, use appropriate placeholders or generate relevant content based on the field descriptions.
 
 For image fields, use the full Markdown image syntax: ![alt text](image_url)
+
+Do not include the main content field "${contentField}" in the front matter.
 `
 
 	try {
