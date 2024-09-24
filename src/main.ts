@@ -4,6 +4,7 @@ import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 import { debounce } from './utils/debounce'
 import { processMarkdownContent } from './utils/image-processor'
+import { PreviewModal } from './utils/preview-modal'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
@@ -132,7 +133,7 @@ export default class StrapiExporterPlugin extends Plugin {
 		}
 
 		console.log(`Exporting to Strapi using route: ${route.name}`)
-		new Notice(`Exporting to Strapi using route: ${route.name}`)
+		new Notice(`Preparing content for export using route: ${route.name}`)
 
 		const processedContent = await processMarkdownContent(
 			this.app,
@@ -144,20 +145,18 @@ export default class StrapiExporterPlugin extends Plugin {
 			return
 		}
 
-		const finalContent = this.prepareFinalContent(processedContent, route)
+		const finalContent = { data: processedContent }
 
-		await this.sendToStrapi(finalContent, route)
+		// Show preview and wait for confirmation
+		return new Promise<void>(resolve => {
+			new PreviewModal(this.app, finalContent, async () => {
+				await this.sendToStrapi(finalContent, route)
+				resolve()
+			}).open()
+		})
 	}
 
-	private prepareFinalContent(processedContent: any, route: RouteConfig) {
-		return {
-			data: {
-				...processedContent.content,
-			},
-		}
-	}
-
-	private async sendToStrapi(data: any, route: RouteConfig) {
+	async sendToStrapi(data: any, route: RouteConfig) {
 		try {
 			const response = await fetch(route.url, {
 				method: 'POST',
