@@ -1,4 +1,4 @@
-import { App, MarkdownView, Notice } from 'obsidian'
+import { App, MarkdownView, Notice, TFile } from 'obsidian'
 import { FieldConfig, StrapiExporterSettings } from '../types/settings'
 import {
 	extractFrontMatter,
@@ -194,8 +194,19 @@ async function processImageField(
 	if (typeof value === 'string') {
 		if (value.startsWith('![[') && value.endsWith(']]')) {
 			const imagePath = value.slice(3, -2)
-			const uploadedImage = await uploadImageToStrapi(imagePath, app, settings)
-			return uploadedImage ? uploadedImage.url : value
+			const file = app.vault.getAbstractFileByPath(imagePath)
+			if (file instanceof TFile) {
+				const uploadedImage = await uploadImageToStrapi(
+					file.path,
+					file.name,
+					settings,
+					app
+				)
+				return uploadedImage ? uploadedImage.url : value
+			} else {
+				console.error(`File not found: ${imagePath}`)
+				return value
+			}
 		} else if (value.startsWith('http')) {
 			return value // Keep external URLs as they are
 		}

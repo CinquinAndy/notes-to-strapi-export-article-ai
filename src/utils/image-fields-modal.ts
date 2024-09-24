@@ -1,4 +1,4 @@
-import { App, Modal, Setting, TFile, TFolder, Notice } from 'obsidian'
+import { App, Modal, Setting, TFile, TFolder } from 'obsidian'
 import { uploadImageToStrapi } from './strapi-uploader'
 import { StrapiExporterSettings } from '../types/settings'
 
@@ -55,14 +55,12 @@ export class ImageFieldsModal extends Modal {
 									this.settings,
 									this.app
 								)
-								if (uploadedImage) {
-									console.log(
-										`Image uploaded successfully. URL:`,
-										uploadedImage.url
-									)
+								if (uploadedImage && uploadedImage.url) {
 									this.imageValues[field] = uploadedImage.url
 								} else {
-									console.error(`Failed to upload image for ${field}`)
+									console.error(
+										`Failed to upload image for ${field}: No URL returned`
+									)
 								}
 							} else {
 								console.error(`Selected file is not a TFile:`, file)
@@ -134,11 +132,15 @@ export class ImageFieldsModal extends Modal {
 			this.settings,
 			this.app
 		)
-		if (uploadedImage) {
-			console.log(`New image uploaded successfully. URL:`, uploadedImage.url)
-			this.imageValues[field] = uploadedImage.url
+		if (uploadedImage && uploadedImage.url) {
+			if (!Array.isArray(this.imageValues[field])) {
+				this.imageValues[field] = []
+			}
+			;(this.imageValues[field] as string[]).push(uploadedImage.url)
 		} else {
-			console.error(`Failed to upload new image for ${field}`)
+			console.error(
+				`Failed to upload gallery image for ${field}: No URL returned`
+			)
 		}
 	}
 
@@ -166,7 +168,7 @@ export class ImageFieldsModal extends Modal {
 				this.imageValues[field] = []
 			}
 			if (Array.isArray(this.imageValues[field])) {
-				;(this.imageValues[field] as string[]).push(uploadedImage.url)
+				;(this.imageValues[field] as string[]).push(uploadedImage?.url || '')
 			}
 		} else {
 			console.error(`Failed to upload gallery image for ${field}`)
