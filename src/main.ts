@@ -4,7 +4,6 @@ import { RouteConfig, StrapiExporterSettings } from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 import { debounce } from './utils/debounce'
 import { processMarkdownContent } from './utils/image-processor'
-import { generateArticleContent } from './utils/forvoyez-generator'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
@@ -145,19 +144,20 @@ export default class StrapiExporterPlugin extends Plugin {
 			return
 		}
 
-		const articleContent = await generateArticleContent(
-			processedContent.content,
-			this.settings,
-			false
-		)
+		// const articleContent = await generateArticleContent(
+		// 	processedContent.content,
+		// 	this.settings,
+		// 	false
+		// )
 
-		const finalContent = this.prepareFinalContent(
-			articleContent,
-			processedContent,
-			route
-		)
+		//
+		// const finalContent = this.prepareFinalContent(
+		// 	// articleContent,
+		// 	processedContent,
+		// 	route
+		// )
 
-		await this.sendToStrapi(finalContent, route)
+		// await this.sendToStrapi(finalContent, route)
 	}
 
 	private prepareFinalContent(

@@ -35,4 +35,5 @@ export interface RouteConfig {
 	language: string
 	imageProperty?: string
 	galleryProperty?: string
+	contentPlaceholder: string
 }

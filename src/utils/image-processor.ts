@@ -52,8 +52,22 @@ export async function processMarkdownContent(
 		new Notice('Inline images processed and content updated')
 	}
 
+	const currentRoute = settings.routes.find(route => route.id === routeId)
+	if (!currentRoute) {
+		new Notice('Route not found')
+		return null
+	}
+
+	// Replace content placeholder with actual content
+	const contentPlaceholder =
+		currentRoute.contentPlaceholder || '{{PasteContentOfTheActualArticleHere}}'
+	const finalContent = currentRoute.generatedConfig.replace(
+		contentPlaceholder,
+		content
+	)
+
 	return {
-		content,
+		content: finalContent,
 		mainImage,
 		galleryImages,
 		inlineImages,

@@ -14,6 +14,7 @@ export class Configuration {
 	private schemaInput: TextAreaComponent
 	private descriptionInput: TextAreaComponent
 	private configOutput: TextAreaComponent
+	private contentPlaceholderInput: TextAreaComponent
 	private languageDropdown: DropdownComponent
 	private routeSelector: DropdownComponent
 	private currentRouteId: string
@@ -32,6 +33,7 @@ export class Configuration {
 
 		this.addRouteSelector()
 		this.addSchemaConfigSection()
+		this.addContentPlaceholderSection()
 		this.addLanguageSection()
 		this.addAutoConfigSection()
 	}
@@ -50,6 +52,24 @@ export class Configuration {
 					this.currentRouteId = value
 					this.updateConfigurationFields()
 				})
+			})
+	}
+
+	private addContentPlaceholderSection(): void {
+		new Setting(this.containerEl)
+			.setName('Content Placeholder')
+			.setDesc(
+				'Enter the placeholder for where the article content should be inserted'
+			)
+			.addTextArea(text => {
+				this.contentPlaceholderInput = text
+				text
+					.setValue(this.getCurrentRouteContentPlaceholder())
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('contentPlaceholder', value)
+					})
+				text.inputEl.rows = 2
+				text.inputEl.cols = 50
 			})
 	}
 
@@ -169,7 +189,7 @@ export class Configuration {
 		})
 
 		const prompt = `
-        Given the following Strapi schema, description, and target language, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi.
+        Given the following Strapi schema, description, target language, and content placeholder, generate a comprehensive configuration for an Obsidian plugin that will export notes to this Strapi schema. The configuration should include field mappings, necessary transformations, and explanations for each field. Additionally, provide a template for the final JSON structure that will be sent to Strapi, including the content placeholder.
 
         Strapi Schema:
         ${this.schemaInput.getValue()}
@@ -177,7 +197,9 @@ export class Configuration {
         Schema Description:
         ${this.descriptionInput.getValue()}
 
-        Target Language: ${this.plugin.settings.targetLanguage}
+        Target Language: ${this.getCurrentRouteLanguage()}
+
+        Content Placeholder: ${this.contentPlaceholderInput.getValue()}
 
         Please provide the configuration as a JSON object with the following structure:
         {
@@ -191,16 +213,18 @@ export class Configuration {
             "additionalInstructions": "string (any additional instructions for using this configuration)",
             "strapiTemplate": {
                 // Include here a complete template of the JSON structure to be sent to Strapi,
-                // with placeholders for values that will be filled from Obsidian notes
+                // with placeholders for values that will be filled from Obsidian notes,
+                // and the content placeholder for the main article content
             },
-            "targetLanguage": "string (the target language code)"
+            "targetLanguage": "string (the target language code)",
+            "contentPlaceholder": "string (the placeholder for the main article content)"
         }
         `
 
 		try {
 			new Notice('Generating configuration...')
 			const response = await openai.chat.completions.create({
-				model: 'gpt-4-mini',
+				model: 'gpt-4o-mini',
 				messages: [{ role: 'user', content: prompt }],
 				response_format: { type: 'json_object' },
 				max_tokens: 2000,
@@ -243,6 +267,16 @@ export class Configuration {
 			route => route.id === this.currentRouteId
 		)
 		return currentRoute?.schema || ''
+	}
+
+	private getCurrentRouteContentPlaceholder(): string {
+		const currentRoute = this.plugin.settings.routes.find(
+			route => route.id === this.currentRouteId
+		)
+		return (
+			currentRoute?.contentPlaceholder ||
+			'{{PasteContentOfTheActualArticleHere}}'
+		)
 	}
 
 	private getCurrentRouteSchemaDescription(): string {
