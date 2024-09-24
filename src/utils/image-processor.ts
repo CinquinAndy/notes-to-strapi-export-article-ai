@@ -6,6 +6,7 @@ import {
 } from './frontmatter'
 import { processInlineImages, uploadImageToStrapi } from './process-images'
 import * as yaml from 'js-yaml'
+import { ImageFieldsModal } from './image-fields-modal'
 
 export async function processMarkdownContent(
 	app: App,
@@ -33,13 +34,35 @@ export async function processMarkdownContent(
 	let content = await app.vault.read(file)
 	console.log('Initial file content length:', content.length)
 
-	// Extract front matter
-	let frontMatter = extractFrontMatter(content)
-	if (!frontMatter) {
+	let frontMatter: string
+	let imageFields: string[]
+	if (!extractFrontMatter(content)) {
 		console.log('No front matter found, generating one...')
-		await generateFrontMatterWithOpenAI(file, app, settings, routeId)
-		content = await app.vault.read(file) // Re-read the file to get the updated content
-		frontMatter = extractFrontMatter(content)
+		const result = await generateFrontMatterWithOpenAI(
+			file,
+			app,
+			settings,
+			routeId
+		)
+		frontMatter = result.frontMatter
+		imageFields = result.imageFields
+
+		if (imageFields.length > 0) {
+			await new Promise<void>(resolve => {
+				new ImageFieldsModal(app, imageFields, imageValues => {
+					Object.entries(imageValues).forEach(([field, value]) => {
+						frontMatter = frontMatter.replace(
+							`${field}: ""`,
+							`${field}: "${value}"`
+						)
+					})
+					resolve()
+				}).open()
+			})
+		}
+
+		content = `${frontMatter}\n\n${content}`
+		await app.vault.modify(file, content)
 	}
 
 	// Separate content from front matter

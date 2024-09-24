@@ -45,12 +45,17 @@ export async function generateFrontMatterWithOpenAI(
 		key => generatedConfig.fieldMappings[key].obsidianField === 'content'
 	)
 
-	// Create a new fieldMappings object without the content field
+	const imageFields: string[] = []
+
 	const frontMatterFields = Object.entries(
 		generatedConfig.fieldMappings
 	).reduce((acc, [key, value]) => {
 		if (key !== contentField) {
-			acc[key] = value
+			if (value.type === 'string' && value.format === 'url') {
+				imageFields.push(key)
+			} else {
+				acc[key] = value
+			}
 		}
 		return acc
 	}, {})
@@ -104,6 +109,9 @@ Do not include the main content field "${contentField}" in the front matter.
 		const newContent = `${generatedFrontMatter}\n\n${existingContent}`
 		await app.vault.modify(file, newContent)
 		console.log('Front matter generated and added to the note')
+
+		console.log('Front matter generated and added to the note')
+		return { frontMatter: generatedFrontMatter, imageFields }
 	} catch (error) {
 		console.error('Error generating front matter with OpenAI:', error)
 		throw error
