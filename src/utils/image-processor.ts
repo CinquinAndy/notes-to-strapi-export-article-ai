@@ -34,6 +34,8 @@ export async function processMarkdownContent(
 
 	// Check if front matter exists, if not, generate it
 	let content = await app.vault.read(file)
+	console.log('File content length:', content.length)
+	console.log('File content:', content)
 	if (!extractFrontMatter(content)) {
 		console.log('Front matter not found, generating...')
 		await generateFrontMatterWithOpenAI(file, app, settings, routeId)

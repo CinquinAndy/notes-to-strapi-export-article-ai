@@ -1,4 +1,4 @@
-import { TFile, App } from 'obsidian'
+import { TFile, App, requestUrl } from 'obsidian'
 import OpenAI from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
 
@@ -11,12 +11,22 @@ export async function generateFrontMatterWithOpenAI(
 	const existingContent = await app.vault.read(file)
 	const frontMatter = extractFrontMatter(existingContent)
 
+	console.log('Existing content:', existingContent)
+	console.log('Front matter:', frontMatter)
+
 	if (frontMatter) {
 		console.log('Front matter already exists')
 		return
 	}
 
-	const openai = new OpenAI({ apiKey: settings.openaiApiKey })
+	console.log('Generating front matter with OpenAI')
+	console.log('Settings:', settings)
+
+	return
+	const openai = new OpenAI({
+		apiKey: settings.openaiApiKey,
+		dangerouslyAllowBrowser: true,
+	})
 
 	const currentRoute = settings.routes.find(route => route.id === routeId)
 	if (!currentRoute) {
