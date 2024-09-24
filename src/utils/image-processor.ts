@@ -34,7 +34,7 @@ export async function processMarkdownContent(
 	let content = await app.vault.read(file)
 	console.log('Initial file content length:', content.length)
 
-	let frontMatter: string
+	let frontMatter: string = ''
 	let imageFields: string[]
 	if (!extractFrontMatter(content)) {
 		console.log('No front matter found, generating one...')
@@ -44,28 +44,32 @@ export async function processMarkdownContent(
 			settings,
 			routeId
 		)
-		frontMatter = result.frontMatter
-		imageFields = result.imageFields
+		if (result) {
+			frontMatter = result.frontMatter
+			imageFields = result.imageFields
 
-		if (imageFields.length > 0) {
-			await new Promise<void>(resolve => {
-				new ImageFieldsModal(app, imageFields, imageValues => {
-					Object.entries(imageValues).forEach(([field, value]) => {
-						frontMatter = frontMatter.replace(
-							`${field}: ""`,
-							`${field}: "${value}"`
-						)
-					})
-					resolve()
-				}).open()
-			})
+			if (imageFields.length > 0) {
+				await new Promise<void>(resolve => {
+					new ImageFieldsModal(app, imageFields, imageValues => {
+						Object.entries(imageValues).forEach(([field, value]) => {
+							frontMatter = frontMatter.replace(
+								`${field}: ""`,
+								`${field}: "${value}"`
+							)
+						})
+						resolve()
+					}).open()
+				})
+			}
+
+			content = `${frontMatter}\n\n${content}`
+			await app.vault.modify(file, content)
+		} else {
+			console.error('Failed to generate front matter')
+			return null
 		}
-
-		content = `${frontMatter}\n\n${content}`
-		await app.vault.modify(file, content)
 	}
 
-	// Separate content from front matter
 	const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
 	if (frontMatterMatch) {
 		frontMatter = frontMatterMatch[1]
@@ -81,7 +85,9 @@ export async function processMarkdownContent(
 	console.log('Updated content length:', content.length)
 
 	// Parse front matter
-	const parsedFrontMatter = yaml.load(frontMatter) as Record<string, any>
+	const parsedFrontMatter = frontMatter
+		? (yaml.load(frontMatter) as Record<string, any>)
+		: {}
 
 	// Get the current route configuration
 	const currentRoute = settings.routes.find(route => route.id === routeId)

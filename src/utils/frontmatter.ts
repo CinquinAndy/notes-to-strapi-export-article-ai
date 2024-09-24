@@ -18,13 +18,13 @@ export async function generateFrontMatterWithOpenAI(
 	app: App,
 	settings: StrapiExporterSettings,
 	routeId: string
-) {
+): Promise<{ frontMatter: string; imageFields: string[] }> {
 	const existingContent = await app.vault.read(file)
 	const frontMatter = extractFrontMatter(existingContent)
 
 	if (frontMatter) {
 		console.log('Front matter already exists')
-		return
+		return { frontMatter, imageFields: [] }
 	}
 
 	const openai = new OpenAI({
@@ -40,16 +40,14 @@ export async function generateFrontMatterWithOpenAI(
 	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
 	const schemaDescription = currentRoute.schemaDescription
 
-	// Find the content field
 	const contentField = Object.keys(generatedConfig.fieldMappings).find(
 		key => generatedConfig.fieldMappings[key].obsidianField === 'content'
 	)
 
 	const imageFields: string[] = []
-
 	const frontMatterFields = Object.entries(
 		generatedConfig.fieldMappings
-	).reduce((acc, [key, value]) => {
+	).reduce<Record<string, any>>((acc, [key, value]: [string, any]) => {
 		if (key !== contentField) {
 			if (value.type === 'string' && value.format === 'url') {
 				imageFields.push(key)
@@ -110,7 +108,6 @@ Do not include the main content field "${contentField}" in the front matter.
 		await app.vault.modify(file, newContent)
 		console.log('Front matter generated and added to the note')
 
-		console.log('Front matter generated and added to the note')
 		return { frontMatter: generatedFrontMatter, imageFields }
 	} catch (error) {
 		console.error('Error generating front matter with OpenAI:', error)
