@@ -5,6 +5,10 @@ import {
 	uploadGalleryImagesToStrapi,
 } from './strapi-uploader'
 import { ImageBlob, ImageDescription } from '../types/image'
+import {
+	extractFrontMatter,
+	generateFrontMatterWithOpenAI,
+} from './frontmatter'
 
 export async function processMarkdownContent(
 	app: App,
@@ -28,7 +32,14 @@ export async function processMarkdownContent(
 
 	console.log('Processing file:', file.path)
 
+	// Check if front matter exists, if not, generate it
 	let content = await app.vault.read(file)
+	if (!extractFrontMatter(content)) {
+		console.log('Front matter not found, generating...')
+		await generateFrontMatterWithOpenAI(file, app, settings, routeId)
+		content = await app.vault.read(file) // Re-read the file to get the updated content
+	}
+
 	console.log('Initial content length:', content.length)
 
 	const articleFolderPath = file.parent?.path
