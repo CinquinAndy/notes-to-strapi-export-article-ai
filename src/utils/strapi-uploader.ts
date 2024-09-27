@@ -253,3 +253,7 @@ export async function uploadGalleryImagesToStrapi(
 
 	return uploadedImages
 }
+
+// todo :
+// https://claude.ai/chat/ad37c90d-1b7e-4f18-b39b-21a33126d38d
+// gallery field doesnt work
