@@ -56,13 +56,7 @@ export async function processMarkdownContent(
 						imageFields,
 						imageValues => {
 							Object.entries(imageValues).forEach(([field, value]) => {
-								if (Array.isArray(value)) {
-									// Handle gallery
-									frontMatter = frontMatter.replace(
-										`${field}: []`,
-										`${field}:\n  - ${value.join('\n  - ')}`
-									)
-								} else {
+								if (value) {
 									frontMatter = frontMatter.replace(
 										`${field}: ""`,
 										`${field}: "${value}"`

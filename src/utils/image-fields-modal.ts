@@ -1,4 +1,4 @@
-import { App, Modal, Setting, TFile, TFolder } from 'obsidian'
+import { App, Modal, Notice, Setting, TFile, TFolder } from 'obsidian'
 import { uploadImageToStrapi } from './strapi-uploader'
 import { StrapiExporterSettings } from '../types/settings'
 
@@ -50,7 +50,7 @@ export class ImageFieldsModal extends Modal {
 							if (file instanceof TFile) {
 								console.log(`Uploading file: ${file.path}`)
 								const uploadedImage = await uploadImageToStrapi(
-									file.path,
+									file,
 									file.name,
 									this.settings,
 									this.app
@@ -61,14 +61,24 @@ export class ImageFieldsModal extends Modal {
 										uploadedImage.url
 									)
 									this.imageValues[field] = uploadedImage.url
+									console.log(
+										`Image uploaded successfully. URL:`,
+										uploadedImage.url
+									)
+									this.updateImagePreview(field, uploadedImage.url)
+									// Update the dropdown to show the selected image
+									dropdown.setValue(value)
 								} else {
 									console.error(`Failed to upload image for ${field}`)
+									new Notice(`Failed to upload image for ${field}`)
 								}
 							} else {
 								console.error(`Selected file is not a TFile:`, file)
+								new Notice(`Invalid file selected for ${field}`)
 							}
 						} else {
 							console.log(`No image selected for ${field}`)
+							delete this.imageValues[field]
 						}
 					})
 				})
@@ -120,6 +130,18 @@ export class ImageFieldsModal extends Modal {
 		recurse(this.app.vault.getRoot())
 		console.log(`Total images found: ${images.length}`)
 		return images
+	}
+
+	private updateImagePreview(field: string, url: string) {
+		const previewEl = this.containerEl.querySelector(`#preview-${field}`)
+		if (previewEl) {
+			previewEl.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 200px; max-height: 200px;">`
+		} else {
+			// @ts-ignore
+			const newPreviewEl = createEl('div', { id: `preview-${field}` })
+			newPreviewEl.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 200px; max-height: 200px;">`
+			this.containerEl.appendChild(newPreviewEl)
+		}
 	}
 
 	async uploadNewImage(field: string) {
