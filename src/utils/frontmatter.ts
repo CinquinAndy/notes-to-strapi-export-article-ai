@@ -1,15 +1,15 @@
 import { TFile, App } from 'obsidian'
 import OpenAI from 'openai'
 import { StrapiExporterSettings } from '../types/settings'
+import { ImageFieldsModal } from './image-fields-modal'
 
 function transformImageLinks(content: string): string {
 	const regex = /!\[(.*?)\]\((.*?)\)/g
 	return content.replace(regex, (match, alt, link) => {
-		// Check if the link is an external URL
 		if (link.startsWith('http://') || link.startsWith('https://')) {
-			return link // Return just the link for external URLs
+			return link
 		}
-		return match // Return the original match for internal links
+		return match
 	})
 }
 
@@ -19,14 +19,17 @@ export async function generateFrontMatterWithOpenAI(
 	settings: StrapiExporterSettings,
 	routeId: string
 ): Promise<{ frontMatter: string; imageFields: string[] }> {
+	console.log('1. Starting generateFrontMatterWithOpenAI')
+
 	const existingContent = await app.vault.read(file)
 	const frontMatter = extractFrontMatter(existingContent)
 
 	if (frontMatter) {
-		console.log('Front matter already exists')
+		console.log('2. Existing front matter found, exiting function')
 		return { frontMatter, imageFields: [] }
 	}
 
+	console.log('3. Creating OpenAI instance')
 	const openai = new OpenAI({
 		apiKey: settings.openaiApiKey,
 		dangerouslyAllowBrowser: true,
@@ -34,9 +37,11 @@ export async function generateFrontMatterWithOpenAI(
 
 	const currentRoute = settings.routes.find(route => route.id === routeId)
 	if (!currentRoute) {
+		console.log('4. Route not found, throwing error')
 		throw new Error('Route not found')
 	}
 
+	console.log('5. Preparing data for generation')
 	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
 	const schemaDescription = currentRoute.schemaDescription
 
@@ -58,6 +63,7 @@ export async function generateFrontMatterWithOpenAI(
 		return acc
 	}, {})
 
+	console.log('6. Creating prompt for OpenAI')
 	const prompt = `Generate YAML front matter for the following Markdown content. Use the provided schema description and field mappings to inform the structure and content of the front matter. Ensure all required fields are included and the YAML is valid.
 
 Schema Description:
@@ -77,26 +83,25 @@ Do not include the main content field "${contentField}" in the front matter.
 `
 
 	try {
+		console.log('7. Calling OpenAI API')
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4o-mini',
 			messages: [{ role: 'user', content: prompt }],
 			max_tokens: 1000,
 		})
 
+		console.log('8. Processing OpenAI response')
 		let generatedFrontMatter =
 			response?.choices[0]?.message?.content?.trim() || ''
 
-		console.log('Generated front matter:', generatedFrontMatter)
+		console.log('9. Generated front matter:', generatedFrontMatter)
 
-		// Remove any extra backticks or yaml indicators that might have been added
 		generatedFrontMatter = generatedFrontMatter
 			.replace(/```yaml\n?/g, '')
 			.replace(/```\n?/g, '')
 
-		// Transform image links in the generated front matter
 		generatedFrontMatter = transformImageLinks(generatedFrontMatter)
 
-		// Ensure the front matter starts and ends with ---
 		if (!generatedFrontMatter.startsWith('---')) {
 			generatedFrontMatter = '---\n' + generatedFrontMatter
 		}
@@ -104,13 +109,39 @@ Do not include the main content field "${contentField}" in the front matter.
 			generatedFrontMatter = generatedFrontMatter + '\n---'
 		}
 
-		const newContent = `${generatedFrontMatter}\n\n${existingContent}`
-		await app.vault.modify(file, newContent)
-		console.log('Front matter generated and added to the note')
+		console.log('10. Opening modal for images')
+		const updatedFrontMatter = await new Promise<string>(resolve => {
+			new ImageFieldsModal(
+				app,
+				imageFields,
+				async imageValues => {
+					console.log('11. Image values received:', imageValues)
+					let updatedFrontMatter = generatedFrontMatter
+					for (const [field, value] of Object.entries(imageValues)) {
+						const regex = new RegExp(`${field}:.*`, 'g')
+						updatedFrontMatter = updatedFrontMatter.replace(
+							regex,
+							`${field}: "${value}"`
+						)
+					}
+					console.log(
+						'12. Front matter updated with images:',
+						updatedFrontMatter
+					)
+					resolve(updatedFrontMatter)
+				},
+				settings
+			).open()
+		})
 
-		return { frontMatter: generatedFrontMatter, imageFields }
+		console.log('13. Updating file content')
+		const newContent = `${updatedFrontMatter}\n\n${existingContent}`
+		await app.vault.modify(file, newContent)
+
+		console.log('14. Finished generateFrontMatterWithOpenAI')
+		return { frontMatter: updatedFrontMatter, imageFields }
 	} catch (error) {
-		console.error('Error generating front matter with OpenAI:', error)
+		console.error('15. Error generating front matter:', error)
 		throw error
 	}
 }
