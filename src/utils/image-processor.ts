@@ -49,14 +49,6 @@ export async function processMarkdownContent(
 			frontMatter = result.frontMatter
 			imageFields = result.imageFields
 
-			const existingValues = imageFields.reduce(
-				(acc, field) => {
-					acc[field] = parsedFrontMatter[field] || ''
-					return acc
-				},
-				{} as Record<string, string>
-			)
-
 			if (imageFields.length > 0) {
 				await new Promise<void>(resolve => {
 					new ImageFieldsModal(
@@ -65,22 +57,20 @@ export async function processMarkdownContent(
 						imageValues => {
 							Object.entries(imageValues).forEach(([field, value]) => {
 								if (value) {
-									const regex = new RegExp(`${field}:.*`, 'g')
 									frontMatter = frontMatter.replace(
-										regex,
+										`${field}: ""`,
 										`${field}: "${value}"`
 									)
 								}
 							})
 							resolve()
 						},
-						settings,
-						existingValues
+						settings
 					).open()
 				})
 			}
 
-			content = `---\n${frontMatter}\n---\n\n${content}`
+			content = `${frontMatter}\n\n${content}`
 			await app.vault.modify(file, content)
 		} else {
 			console.error('Failed to generate front matter')
