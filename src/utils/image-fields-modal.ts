@@ -8,26 +8,32 @@ export class ImageFieldsModal extends Modal {
 	imageValues: Record<string, string | string[]> = {}
 	app: App
 	settings: StrapiExporterSettings
+	imagePreviewEl: HTMLElement
 
 	constructor(
 		app: App,
 		imageFields: string[],
 		onSubmit: (imageValues: Record<string, string | string[]>) => void,
-		settings: StrapiExporterSettings
+		settings: StrapiExporterSettings,
+		existingValues: Record<string, string>
 	) {
 		super(app)
 		this.app = app
 		this.imageFields = imageFields
 		this.onSubmit = onSubmit
 		this.settings = settings
+		this.imageValues = { ...existingValues }
 		console.log('ImageFieldsModal constructed with fields:', imageFields)
 	}
 
 	async onOpen() {
-		console.log('ImageFieldsModal opened')
 		const { contentEl } = this
+		contentEl.empty()
+		console.log('ImageFieldsModal opened')
 
 		contentEl.createEl('h2', { text: 'Fill Image Fields' })
+
+		this.imagePreviewEl = contentEl.createEl('div', { cls: 'image-preview' })
 
 		for (const field of this.imageFields) {
 			console.log(`Creating setting for field: ${field}`)
@@ -43,12 +49,9 @@ export class ImageFieldsModal extends Modal {
 						dropdown.addOption(img.path, img.name)
 					})
 					dropdown.onChange(async value => {
-						console.log(`Dropdown changed for ${field}. Selected value:`, value)
 						if (value) {
 							const file = this.app.vault.getAbstractFileByPath(value)
-							console.log('Retrieved file:', file)
 							if (file instanceof TFile) {
-								console.log(`Uploading file: ${file.path}`)
 								const uploadedImage = await uploadImageToStrapi(
 									file,
 									file.name,
@@ -56,29 +59,13 @@ export class ImageFieldsModal extends Modal {
 									this.app
 								)
 								if (uploadedImage && uploadedImage.url) {
-									console.log(
-										`Image uploaded successfully. URL:`,
-										uploadedImage.url
-									)
 									this.imageValues[field] = uploadedImage.url
-									console.log(
-										`Image uploaded successfully. URL:`,
-										uploadedImage.url
-									)
-									this.updateImagePreview(field, uploadedImage.url)
-									// Update the dropdown to show the selected image
-									dropdown.setValue(value)
-								} else {
-									console.error(`Failed to upload image for ${field}`)
-									new Notice(`Failed to upload image for ${field}`)
+									this.updateImagePreview(uploadedImage.url)
 								}
-							} else {
-								console.error(`Selected file is not a TFile:`, file)
-								new Notice(`Invalid file selected for ${field}`)
 							}
 						} else {
-							console.log(`No image selected for ${field}`)
 							delete this.imageValues[field]
+							this.updateImagePreview('')
 						}
 					})
 				})
@@ -132,15 +119,16 @@ export class ImageFieldsModal extends Modal {
 		return images
 	}
 
-	private updateImagePreview(field: string, url: string) {
-		const previewEl = this.containerEl.querySelector(`#preview-${field}`)
-		if (previewEl) {
-			previewEl.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 200px; max-height: 200px;">`
-		} else {
-			// @ts-ignore
-			const newPreviewEl = createEl('div', { id: `preview-${field}` })
-			newPreviewEl.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 200px; max-height: 200px;">`
-			this.containerEl.appendChild(newPreviewEl)
+	updateImagePreview(url: string) {
+		this.imagePreviewEl.empty()
+		if (url) {
+			this.imagePreviewEl.createEl('img', {
+				attr: {
+					src: url,
+					alt: 'Preview',
+					style: 'max-width: 200px; max-height: 200px;',
+				},
+			})
 		}
 	}
 

@@ -19,7 +19,6 @@ export async function processInlineImages(
 			continue
 		}
 
-		// Obtenir le fichier TFile à partir du chemin
 		const file = app.vault.getAbstractFileByPath(imagePath)
 		if (!(file instanceof TFile)) {
 			console.error(`File not found: ${imagePath}`)
