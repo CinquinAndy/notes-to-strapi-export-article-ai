@@ -304,6 +304,7 @@ export class Configuration {
 				max_tokens: 500,
 			})
 
+			console.log('Identify image fields response:', response)
 			const imageFields = JSON.parse(
 				<string>response.choices[0].message.content
 			)
