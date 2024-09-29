@@ -1,9 +1,6 @@
 import { App, MarkdownView, Notice, TFile } from 'obsidian'
 import { FieldConfig, StrapiExporterSettings } from '../types/settings'
-import {
-	extractFrontMatter,
-	generateFrontMatterWithOpenAI,
-} from './frontmatter'
+import { extractFrontMatter, processFrontMatter } from './frontmatter'
 import { processInlineImages } from './process-images'
 import * as yaml from 'js-yaml'
 import { ImageFieldsModal } from './image-fields-modal'
@@ -39,12 +36,7 @@ export async function processMarkdownContent(
 	let imageFields: string[]
 	if (!extractFrontMatter(content)) {
 		console.log('No front matter found, generating one...')
-		const result = await generateFrontMatterWithOpenAI(
-			file,
-			app,
-			settings,
-			routeId
-		)
+		const result = await processFrontMatter(file, app, settings, routeId)
 		if (result) {
 			frontMatter = result.frontMatter
 			imageFields = result.imageFields
@@ -221,4 +213,24 @@ async function processImageField(
 		)
 	}
 	return value
+}
+
+async function transformImageLinks(
+	content: string,
+	strapiUploader: (path: string) => Promise<string>
+): Promise<string> {
+	const imageRegex = /!\[.*?\]\((.*?)\)/g
+	let match
+	let transformedContent = content
+
+	while ((match = imageRegex.exec(content)) !== null) {
+		const [fullMatch, imagePath] = match
+		const strapiUrl = await strapiUploader(imagePath)
+		transformedContent = transformedContent.replace(
+			fullMatch,
+			`![](${strapiUrl})`
+		)
+	}
+
+	return transformedContent
 }
