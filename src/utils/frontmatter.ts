@@ -1,6 +1,7 @@
 import { TFile, App } from 'obsidian'
-import { StrapiExporterSettings } from '../types/settings'
+import { StrapiExporterSettings, RouteConfig } from '../types/settings'
 import { ImageSelectionModal } from '../components/ImageSelectionModal'
+import { extractFrontMatter } from './frontmatter-generator'
 
 export async function processFrontMatter(
 	file: TFile,
@@ -19,16 +20,11 @@ export async function processFrontMatter(
 		throw new Error('Route not found')
 	}
 
-	const generatedConfig = JSON.parse(currentRoute.generatedConfig)
-	const imageFields = Object.entries(generatedConfig.fieldMappings)
-		.filter(
-			([_, config]) => config.type === 'string' && config.format === 'url'
-		)
-		.map(([key, _]) => key)
+	const imageFields = getImageFields(currentRoute)
 
 	if (!frontMatter) {
 		console.log('3. No existing front matter, creating a basic one')
-		frontMatter = createBasicFrontMatter(generatedConfig.fieldMappings)
+		frontMatter = createBasicFrontMatter(currentRoute.fieldMappings)
 	}
 
 	console.log('4. Processing image fields')
@@ -49,16 +45,22 @@ export async function processFrontMatter(
 	return { frontMatter, imageFields }
 }
 
-function extractFrontMatter(content: string): string | null {
-	const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---/
-	const match = content.match(frontMatterRegex)
-	return match ? match[1] : null
+function getImageFields(route: RouteConfig): string[] {
+	return Object.entries(route.fieldMappings)
+		.filter(
+			([_, config]) =>
+				config.obsidianSource === 'frontmatter' &&
+				config.transform?.includes('image')
+		)
+		.map(([key, _]) => key)
 }
 
-function createBasicFrontMatter(fieldMappings: any): string {
-	return Object.keys(fieldMappings)
-		.filter(key => fieldMappings[key].obsidianField !== 'content')
-		.map(key => `${key}: `)
+function createBasicFrontMatter(
+	fieldMappings: RouteConfig['fieldMappings']
+): string {
+	return Object.entries(fieldMappings)
+		.filter(([_, config]) => config.obsidianSource === 'frontmatter')
+		.map(([key, _]) => `${key}: `)
 		.join('\n')
 }
 
