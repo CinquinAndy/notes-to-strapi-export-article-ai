@@ -26,16 +26,20 @@ export interface RouteConfig {
 	name: string
 	icon: string
 	url: string
-	description: string
-	subtitle: string
-	enabled: boolean
-	schema: string
-	schemaDescription: string
-	contentField: string
-	generatedConfig: string
-	language: string
-	imageProperty?: string
-	galleryProperty?: string
+	contentType: string
+	fieldMappings: {
+		[strapiField: string]: {
+			obsidianSource: 'frontmatter' | 'content'
+			frontmatterKey?: string
+			transform?: (value: any) => any
+		}
+	}
+}
+
+interface StrapiExporterSettings {
+	strapiUrl: string
+	strapiApiToken: string
+	routes: RouteConfig[]
 }
 
 export interface FieldConfig {
