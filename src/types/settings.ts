@@ -5,6 +5,12 @@ export interface RouteConfig {
 	url: string
 	contentType: string
 	enabled: boolean
+	schema: string
+	schemaDescription: string
+	language: string
+	generatedConfig: string
+	contentField: string
+	additionalInstructions: string
 	fieldMappings: {
 		[strapiField: string]: {
 			obsidianSource: 'frontmatter' | 'content'
@@ -19,6 +25,9 @@ export interface StrapiExporterSettings {
 	strapiApiToken: string
 	forvoyezApiKey: string
 	openaiApiKey: string
+	settings: StrapiExporterSettings
+	saveSettings: () => Promise<void>
+	generatedConfig: string
 	routes: RouteConfig[]
 	currentTab: string
 }

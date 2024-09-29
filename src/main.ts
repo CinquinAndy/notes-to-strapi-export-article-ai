@@ -35,7 +35,9 @@ export default class StrapiExporterPlugin extends Plugin {
 		console.log('StrapiExporterPlugin loaded')
 	}
 
-	// ... (autres méthodes inchangées)
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings)
+	}
 
 	async exportToStrapi(routeId: string) {
 		console.log(`Starting export to Strapi for route: ${routeId}`)
