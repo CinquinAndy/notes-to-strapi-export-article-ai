@@ -1,10 +1,11 @@
 import { App, Modal, Notice, Setting, TFile, TFolder } from 'obsidian'
 import { uploadImageToStrapi } from './strapi-uploader'
 import { StrapiExporterSettings } from '../types/settings'
+import OpenAI from 'openai'
 
 export class ImageFieldsModal extends Modal {
 	imageFields: string[]
-	onSubmit: (imageValues: Record<string, string>) => void
+	onSubmit: (imageValues: Record<string, string | string[]>) => void
 	imageValues: Record<string, string | string[]> = {}
 	app: App
 	settings: StrapiExporterSettings
@@ -20,6 +21,7 @@ export class ImageFieldsModal extends Modal {
 		this.imageFields = imageFields
 		this.onSubmit = onSubmit
 		this.settings = settings
+		this.imageValues = {}
 	}
 
 	async onOpen() {
@@ -39,11 +41,11 @@ export class ImageFieldsModal extends Modal {
 				.setCta()
 				.onClick(() => {
 					console.log(
-						'17. Submit button clicked. Image values:',
+						'29. Submit button clicked. Image values:',
 						this.imageValues
 					)
 					this.close()
-					this.onSubmit(this.imageValues as Record<string, string>)
+					this.onSubmit(this.imageValues)
 				})
 		)
 	}
@@ -62,12 +64,16 @@ export class ImageFieldsModal extends Modal {
 				console.log(`20. Adding option: ${img.path}`)
 				dropdown.addOption(img.path, img.name)
 			})
-			dropdown.onChange(async value => {
+			dropdown.onChange(value => {
 				console.log(`21. Dropdown changed for ${field}. Selected value:`, value)
 				if (value) {
-					await this.handleImageSelection(field, value)
+					this.imageValues[field] = value
+					console.log(
+						`22. Updated imageValues for ${field}:`,
+						this.imageValues[field]
+					)
 				} else {
-					console.log(`22. No image selected for ${field}`)
+					console.log(`23. No image selected for ${field}`)
 					delete this.imageValues[field]
 				}
 			})
@@ -75,7 +81,7 @@ export class ImageFieldsModal extends Modal {
 
 		setting.addButton(btn =>
 			btn.setButtonText('Upload New').onClick(() => {
-				console.log(`23. Upload New clicked for ${field}`)
+				console.log(`24. Upload New clicked for ${field}`)
 				this.uploadNewImage(field)
 			})
 		)
@@ -125,26 +131,16 @@ export class ImageFieldsModal extends Modal {
 	}
 
 	private async uploadNewImage(field: string) {
-		console.log(`29. Uploading new image for ${field}`)
+		console.log(`25. Uploading new image for ${field}`)
 		const file = await this.app.fileManager.getNewFileParent('')
-		console.log(`30. New file parent: ${file.path}`)
+		console.log(`26. New file parent: ${file.path}`)
 		const newFile = await this.app.vault.create(`${file.path}/${field}.png`, '')
-		console.log(`31. New file created: ${newFile.path}`)
-		const uploadedImage = await uploadImageToStrapi(
-			newFile,
-			newFile.name,
-			this.settings,
-			this.app
+		console.log(`27. New file created: ${newFile.path}`)
+		this.imageValues[field] = newFile.path
+		console.log(
+			`28. Updated imageValues for ${field}:`,
+			this.imageValues[field]
 		)
-		if (uploadedImage && uploadedImage.url) {
-			console.log(
-				`32. New image uploaded successfully. URL:`,
-				uploadedImage.url
-			)
-			this.imageValues[field] = uploadedImage.url
-		} else {
-			console.error(`33. Failed to upload new image for ${field}`)
-		}
 	}
 
 	async addToGallery(field: string) {
@@ -173,42 +169,6 @@ export class ImageFieldsModal extends Modal {
 			;(this.imageValues[field] as string[]).push(uploadedImage.url)
 		} else {
 			console.error(`44. Failed to upload gallery image for ${field}`)
-		}
-	}
-
-	private async identifyImageFields(
-		generatedConfig: string
-	): Promise<string[]> {
-		const openai = new OpenAI({
-			apiKey: this.plugin.settings.openaiApiKey,
-			dangerouslyAllowBrowser: true,
-		})
-
-		const prompt = `
-    Given the following generated configuration for a Strapi schema, identify all fields that correspond to images or image URLs.
-    Only return the field names as a JSON array of strings.
-
-    Generated Configuration:
-    ${generatedConfig}
-
-    Example response format:
-    ["image_field1", "image_field2", "gallery_field"]
-    `
-
-		try {
-			const response = await openai.chat.completions.create({
-				model: 'gpt-4o-mini',
-				messages: [{ role: 'user', content: prompt }],
-				response_format: { type: 'json_object' },
-				max_tokens: 500,
-			})
-
-			const imageFields = JSON.parse(response.choices[0].message.content)
-			return Array.isArray(imageFields) ? imageFields : []
-		} catch (error) {
-			console.error('Error identifying image fields:', error)
-			new Notice('Error identifying image fields. Please try again.')
-			return []
 		}
 	}
 

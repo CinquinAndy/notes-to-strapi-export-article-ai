@@ -136,7 +136,7 @@ Do not include the main content field "${contentField}" in the front matter.
 				const regex = new RegExp(`${field}:.*`, 'g')
 				generatedFrontMatter = generatedFrontMatter.replace(
 					regex,
-					`${field}: "${value}"`
+					`${field}: "![[${value}]]"`
 				)
 			}
 		}
