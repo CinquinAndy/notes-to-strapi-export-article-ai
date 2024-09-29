@@ -1,12 +1,12 @@
 import {
+	App,
+	ButtonComponent,
+	DropdownComponent,
+	Modal,
+	Notice,
 	Setting,
 	TextAreaComponent,
-	ButtonComponent,
-	Notice,
-	DropdownComponent,
 	TextComponent,
-	Modal,
-	App,
 	TFile,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
@@ -68,7 +68,6 @@ export class Configuration {
 		)
 		if (currentRoute) {
 			this.schemaInput.setValue(currentRoute.schema || '')
-			this.configOutput.setValue(currentRoute.generatedConfig || '')
 			this.languageDropdown.setValue(currentRoute.language || 'en')
 		}
 	}

@@ -97,20 +97,20 @@ export class Routes {
 					.setCta()
 					.onClick(async () => {
 						const newRoute: RouteConfig = {
-							contentField: '',
-							galleryProperty: '',
-							imageProperty: '',
 							id: `route-${Date.now()}`,
 							name: 'New Route',
 							icon: 'star',
 							url: '',
+							contentType: '',
+							contentField: '',
+							additionalInstructions: '',
+							enabled: true,
 							description: '',
 							subtitle: '',
-							enabled: true,
-							generatedConfig: '',
-							language: '',
 							schema: '',
 							schemaDescription: '',
+							language: '',
+							fieldMappings: {},
 						}
 						this.plugin.settings.routes.push(newRoute)
 						await this.plugin.saveSettings()

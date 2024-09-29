@@ -3,12 +3,13 @@ export interface RouteConfig {
 	name: string
 	icon: string
 	url: string
+	description: string
+	subtitle: string
 	contentType: string
 	enabled: boolean
 	schema: string
 	schemaDescription: string
 	language: string
-	generatedConfig: string
 	contentField: string
 	additionalInstructions: string
 	fieldMappings: {
