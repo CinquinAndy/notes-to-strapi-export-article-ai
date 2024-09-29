@@ -6,9 +6,11 @@ import {
 	DropdownComponent,
 	TextComponent,
 	Modal,
+	App,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
+import { uploadImageToStrapi } from '../utils/strapi-uploader'
 
 export class Configuration {
 	private plugin: StrapiExporterPlugin
@@ -20,10 +22,12 @@ export class Configuration {
 	private languageDropdown: DropdownComponent
 	private routeSelector: DropdownComponent
 	private currentRouteId: string
+	private app: App
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
 		this.plugin = plugin
 		this.containerEl = containerEl
+		this.app = plugin.app
 		this.currentRouteId = this.plugin.settings.routes[0]?.id || ''
 	}
 
@@ -396,7 +400,7 @@ export class Configuration {
 	): Promise<void> {
 		for (const [field, imagePath] of Object.entries(imagePaths)) {
 			try {
-				const uploadedImage = await this.uploadImageToStrapi(imagePath)
+				const uploadedImage = await uploadImageToStrapi(imagePath)
 				if (uploadedImage && uploadedImage.url) {
 					currentRoute.fieldMappings[field].value = uploadedImage.url
 					new Notice(`Image for ${field} uploaded successfully`)
@@ -412,15 +416,8 @@ export class Configuration {
 		new Notice('All images processed. Configuration updated.')
 	}
 
-	private async uploadImageToStrapi(
-		imagePath: string
-	): Promise<{ url: string } | null> {
-		// Implement the actual upload logic here
-		// This should use your Strapi uploader function
-		// Return the URL of the uploaded image or null if upload failed
-	}
-
 	private async selectImage(): Promise<string | null> {
+		// todo fix this
 		// Implement image selection logic here
 		// This could open a file picker or use Obsidian's API to select an image
 		// Return the path of the selected image or null if no image was selected
