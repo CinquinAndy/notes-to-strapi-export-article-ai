@@ -84,7 +84,7 @@ export class Dashboard {
 			'Strapi API Token': !!settings.strapiApiToken,
 			'ForVoyez API Key': !!settings.forvoyezApiKey,
 			'OpenAI API Key': !!settings.openaiApiKey,
-			'Schema Configured': !!settings.strapiSchema,
+			'Schema Configured': settings.routes.some(route => !!route.schema),
 			'Routes Configured': settings.routes.length > 0,
 		}
 	}

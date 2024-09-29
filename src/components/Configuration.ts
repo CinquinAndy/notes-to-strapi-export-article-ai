@@ -7,6 +7,7 @@ import {
 	TextComponent,
 	Modal,
 	App,
+	TFile,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
@@ -400,7 +401,7 @@ export class Configuration {
 	): Promise<void> {
 		for (const [field, imagePath] of Object.entries(imagePaths)) {
 			try {
-				const uploadedImage = await uploadImageToStrapi(imagePath)
+				const uploadedImage = await this.uploadImageToStrapi(imagePath)
 				if (uploadedImage && uploadedImage.url) {
 					currentRoute.fieldMappings[field].value = uploadedImage.url
 					new Notice(`Image for ${field} uploaded successfully`)
@@ -416,6 +417,35 @@ export class Configuration {
 		new Notice('All images processed. Configuration updated.')
 	}
 
+	private async uploadImageToStrapi(
+		imagePath: string
+	): Promise<{ url: string | undefined }> {
+		try {
+			const file = this.app.vault.getAbstractFileByPath(imagePath)
+			if (!(file instanceof TFile)) {
+				throw new Error(`File not found: ${imagePath}`)
+			}
+
+			const fileName = file.name
+			const uploadedImage = await uploadImageToStrapi(
+				file,
+				fileName,
+				this.plugin.settings,
+				this.app
+			)
+
+			if (uploadedImage) {
+				return { url: uploadedImage.url }
+			}
+		} catch (error) {
+			console.error(`Error uploading image: ${imagePath}`, error)
+			new Notice(`Failed to upload image: ${imagePath}`)
+			return { url: undefined }
+		}
+		return { url: undefined }
+	}
+
+	// @ts-ignore
 	private async selectImage(): Promise<string | null> {
 		// todo fix this
 		// Implement image selection logic here
