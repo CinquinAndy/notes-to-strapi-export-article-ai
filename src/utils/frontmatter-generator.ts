@@ -1,4 +1,5 @@
 import { ImageSelectionModal } from '../components/ImageSelectionModal'
+import { FieldAnalysis } from './config-analyzer'
 
 export async function generateFrontMatter(
 	analysis: FieldAnalysis[],

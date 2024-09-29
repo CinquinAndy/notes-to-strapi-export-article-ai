@@ -25,7 +25,15 @@ export async function analyzeFile(
 
 		if (mapping.transform && result[strapiField] !== null) {
 			try {
-				result[strapiField] = mapping.transform(result[strapiField])
+				if (typeof mapping.transform === 'function') {
+					result[strapiField] = mapping.transform(result[strapiField])
+				} else if (typeof mapping.transform === 'string') {
+					const transformFunction = new Function(
+						'value',
+						`return ${mapping.transform}`
+					)
+					result[strapiField] = transformFunction(result[strapiField])
+				}
 			} catch (error) {
 				console.error(`Error transforming ${strapiField}:`, error)
 			}

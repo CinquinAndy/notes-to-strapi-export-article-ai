@@ -29,12 +29,7 @@ export async function processFrontMatter(
 
 	console.log('4. Processing image fields')
 	if (imageFields.length > 0) {
-		frontMatter = await processImageFields(
-			frontMatter,
-			imageFields,
-			app,
-			settings
-		)
+		frontMatter = await processImageFields(frontMatter, imageFields, app)
 	}
 
 	console.log('5. Updating file content')
@@ -69,8 +64,7 @@ function createBasicFrontMatter(
 async function processImageFields(
 	frontMatter: string,
 	imageFields: string[],
-	app: App,
-	settings: StrapiExporterSettings
+	app: App
 ): Promise<string> {
 	for (const field of imageFields) {
 		const imageValue = await new Promise<string>(resolve => {
