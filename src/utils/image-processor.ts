@@ -1,17 +1,55 @@
 import { App, MarkdownView, Notice, TFile } from 'obsidian'
-import { FieldConfig, StrapiExporterSettings } from '../types/settings'
-import { extractFrontMatter, processFrontMatter } from './frontmatter'
+import { StrapiExporterSettings, RouteConfig } from '../types/settings'
+import { processFrontMatter } from './frontmatter'
 import { processInlineImages } from './process-images'
 import * as yaml from 'js-yaml'
-import { ImageFieldsModal } from './image-fields-modal'
 import { uploadImageToStrapi } from './strapi-uploader'
+import { extractFrontMatter } from './frontmatter-generator'
+import { FieldConfig } from './config-analyzer'
+import { ImageFieldsModal } from './ImageFieldsModal' // Adjust the path as needed
 
+// Main function to process markdown content
 export async function processMarkdownContent(
 	app: App,
 	settings: StrapiExporterSettings,
 	routeId: string
-) {
+): Promise<Record<string, any> | null> {
 	console.log('--- Step 1: Initializing and validating inputs ---')
+
+	const file = validateAndGetFile(app)
+	if (!file) return null
+
+	const { content, frontMatter } = await processFileContent(
+		file,
+		app,
+		settings,
+		routeId
+	)
+
+	const currentRoute = getCurrentRoute(settings, routeId)
+	if (!currentRoute) return null
+
+	const parsedFrontMatter = parseFrontMatter(frontMatter)
+	const generatedConfig = parseGeneratedConfig(currentRoute)
+
+	const finalContent = await processFields(
+		content,
+		parsedFrontMatter,
+		generatedConfig,
+		app,
+		settings
+	)
+
+	await updateFileContent(file, app, frontMatter, content)
+
+	console.log('--- Final content prepared ---')
+	console.log(JSON.stringify(finalContent, null, 2))
+
+	return finalContent
+}
+
+// Validate and get the active file
+function validateAndGetFile(app: App): TFile | null {
 	const activeView = app.workspace.getActiveViewOfType(MarkdownView)
 	if (!activeView) {
 		console.error('No active Markdown view')
@@ -27,46 +65,41 @@ export async function processMarkdownContent(
 	}
 
 	console.log('Processing file:', file.path)
+	return file
+}
 
-	// Read the file content
+// Process file content and handle front matter
+async function processFileContent(
+	file: TFile,
+	app: App,
+	settings: StrapiExporterSettings,
+	routeId: string
+): Promise<{ content: string; frontMatter: string }> {
 	let content = await app.vault.read(file)
 	console.log('Initial file content length:', content.length)
 
-	let frontMatter: string = ''
-	let imageFields: string[]
+	let frontMatter = ''
 	if (!extractFrontMatter(content)) {
 		console.log('No front matter found, generating one...')
 		const result = await processFrontMatter(file, app, settings, routeId)
 		if (result) {
 			frontMatter = result.frontMatter
-			imageFields = result.imageFields
+			const imageFields = result.imageFields
 
 			if (imageFields.length > 0) {
-				await new Promise<void>(resolve => {
-					new ImageFieldsModal(
-						app,
-						imageFields,
-						imageValues => {
-							Object.entries(imageValues).forEach(([field, value]) => {
-								if (value) {
-									frontMatter = frontMatter.replace(
-										`${field}: ""`,
-										`${field}: "${value}"`
-									)
-								}
-							})
-							resolve()
-						},
-						settings
-					).open()
-				})
+				frontMatter = await handleImageFields(
+					app,
+					imageFields,
+					frontMatter,
+					settings
+				)
 			}
 
 			content = `${frontMatter}\n\n${content}`
 			await app.vault.modify(file, content)
 		} else {
 			console.error('Failed to generate front matter')
-			return null
+			throw new Error('Failed to generate front matter')
 		}
 	}
 
@@ -79,93 +112,95 @@ export async function processMarkdownContent(
 	console.log('Content length after removing front matter:', content.length)
 
 	// Process inline images in the main content
-	let { updatedContent } = await processInlineImages(app, settings, content)
+	const { updatedContent } = await processInlineImages(app, settings, content)
 	content = updatedContent
 
 	console.log('Updated content length:', content.length)
 
-	// Parse front matter
-	const parsedFrontMatter = frontMatter
-		? (yaml.load(frontMatter) as Record<string, any>)
-		: {}
+	return { content, frontMatter }
+}
 
-	// Get the current route configuration
+// Handle image fields in front matter
+async function handleImageFields(
+	app: App,
+	imageFields: string[],
+	frontMatter: string,
+	settings: StrapiExporterSettings
+): Promise<string> {
+	return new Promise<string>(resolve => {
+		new ImageFieldsModal(
+			app,
+			imageFields,
+			imageValues => {
+				Object.entries(imageValues).forEach(([field, value]) => {
+					if (value) {
+						frontMatter = frontMatter.replace(
+							`${field}: ""`,
+							`${field}: "${value}"`
+						)
+					}
+				})
+				resolve(frontMatter)
+			},
+			settings
+		).open()
+	})
+}
+
+// Get the current route configuration
+function getCurrentRoute(
+	settings: StrapiExporterSettings,
+	routeId: string
+): RouteConfig | null {
 	const currentRoute = settings.routes.find(route => route.id === routeId)
 	if (!currentRoute) {
 		console.error('Route not found')
 		new Notice('Route configuration not found')
 		return null
 	}
+	return currentRoute
+}
 
-	// Parse the generated configuration
-	const generatedConfig = JSON.parse(currentRoute.generatedConfig) as {
+// Parse front matter
+function parseFrontMatter(frontMatter: string): Record<string, any> {
+	return frontMatter ? (yaml.load(frontMatter) as Record<string, any>) : {}
+}
+
+// Parse generated configuration
+function parseGeneratedConfig(currentRoute: RouteConfig): {
+	fieldMappings: Record<string, FieldConfig>
+	contentField: string
+} {
+	return JSON.parse(currentRoute.generatedConfig) as {
 		fieldMappings: Record<string, FieldConfig>
 		contentField: string
 	}
+}
 
-	// Prepare the final content object
+// Process fields according to the generated configuration
+async function processFields(
+	content: string,
+	parsedFrontMatter: Record<string, any>,
+	generatedConfig: {
+		fieldMappings: Record<string, FieldConfig>
+		contentField: string
+	},
+	app: App,
+	settings: StrapiExporterSettings
+): Promise<Record<string, any>> {
 	const finalContent: Record<string, any> = {}
 
-	// Process each field according to the generated configuration
 	for (const [field, fieldConfig] of Object.entries(
 		generatedConfig.fieldMappings
 	)) {
-		const obsidianField = fieldConfig.obsidianField
 		let value =
-			obsidianField === 'content'
+			fieldConfig.obsidianField === 'content'
 				? content
-				: parsedFrontMatter[obsidianField.split('.')[1]]
+				: parsedFrontMatter[fieldConfig.obsidianField.split('.')[1]]
 
-		// Process images in fields
-		if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
-			value = await processImageField(value, app, settings)
-			frontMatter = frontMatter.replace(
-				new RegExp(`${field}:.*`, 'g'),
-				`${field}: "${value}"`
-			)
-		} else if (fieldConfig.type === 'array' && field === 'galery') {
-			value = await processImageField(value, app, settings)
-			frontMatter = frontMatter.replace(
-				new RegExp(`${field}:.*`, 'g'),
-				`${field}: ${JSON.stringify(value)}`
-			)
-		}
-
-		// Apply transformation if specified
-		if (fieldConfig.transformation && fieldConfig.transformation !== 'value') {
-			try {
-				const transformFunc = new Function(
-					'value',
-					`return ${fieldConfig.transformation}`
-				)
-				value = transformFunc(value)
-			} catch (error) {
-				console.error(`Error applying transformation for ${field}:`, error)
-				// Use the original value if transformation fails
-			}
-		}
-
-		// Handle different field types
-		switch (fieldConfig.type) {
-			case 'string':
-				finalContent[field] = String(value || '')
-				break
-			case 'number':
-				finalContent[field] = Number(value || 0)
-				break
-			case 'array':
-				finalContent[field] = Array.isArray(value)
-					? value
-					: value
-						? [value]
-						: []
-				break
-			case 'object':
-				finalContent[field] = typeof value === 'object' ? value : {}
-				break
-			default:
-				finalContent[field] = value
-		}
+		value = await processFieldValue(value, fieldConfig, app, settings)
+		value = applyTransformation(value, fieldConfig)
+		finalContent[field] = handleFieldType(value, fieldConfig.type)
 	}
 
 	// Handle the main content field
@@ -174,15 +209,75 @@ export async function processMarkdownContent(
 		finalContent[contentField] = content
 	}
 
-	updatedContent = `---\n${frontMatter}\n---\n\n${content}`
-	await app.vault.modify(file, updatedContent)
-
-	console.log('--- Final content prepared ---')
-	console.log(JSON.stringify(finalContent, null, 2))
-
 	return finalContent
 }
 
+// Process field value (handle images)
+async function processFieldValue(
+	value: any,
+	fieldConfig: FieldConfig,
+	app: App,
+	settings: StrapiExporterSettings
+): Promise<any> {
+	if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
+		return processImageField(value, app, settings)
+	} else if (
+		fieldConfig.type === 'array' &&
+		fieldConfig.obsidianField === 'galery'
+	) {
+		return processImageField(value, app, settings)
+	}
+	return value
+}
+
+// Apply transformation to field value
+function applyTransformation(value: any, fieldConfig: FieldConfig): any {
+	if (fieldConfig.transformation && fieldConfig.transformation !== 'value') {
+		try {
+			const transformFunc = new Function(
+				'value',
+				`return ${fieldConfig.transformation}`
+			)
+			return transformFunc(value)
+		} catch (error) {
+			console.error(
+				`Error applying transformation for ${fieldConfig.obsidianField}:`,
+				error
+			)
+			return value // Use the original value if transformation fails
+		}
+	}
+	return value
+}
+
+// Handle different field types
+function handleFieldType(value: any, type: string): any {
+	switch (type) {
+		case 'string':
+			return String(value || '')
+		case 'number':
+			return Number(value || 0)
+		case 'array':
+			return Array.isArray(value) ? value : value ? [value] : []
+		case 'object':
+			return typeof value === 'object' ? value : {}
+		default:
+			return value
+	}
+}
+
+// Update file content
+async function updateFileContent(
+	file: TFile,
+	app: App,
+	frontMatter: string,
+	content: string
+): Promise<void> {
+	const updatedContent = `---\n${frontMatter}\n---\n\n${content}`
+	await app.vault.modify(file, updatedContent)
+}
+
+// Process image field
 async function processImageField(
 	value: any,
 	app: App,
@@ -215,6 +310,8 @@ async function processImageField(
 	return value
 }
 
+// Transform image links in content (currently unused)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function transformImageLinks(
 	content: string,
 	strapiUploader: (path: string) => Promise<string>
