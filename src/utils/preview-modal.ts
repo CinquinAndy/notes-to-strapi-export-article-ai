@@ -1,29 +1,27 @@
-import { Modal, App } from 'obsidian'
+import { App, Modal } from 'obsidian'
+import { AnalyzedContent } from './types'
 
 export class PreviewModal extends Modal {
-	constructor(
-		app: App,
-		private content: any,
-		private onConfirm: () => void
-	) {
+	private content: AnalyzedContent
+	private onConfirm: () => void
+
+	constructor(app: App, content: AnalyzedContent, onConfirm: () => void) {
 		super(app)
+		this.content = content
+		this.onConfirm = onConfirm
 	}
 
 	onOpen() {
 		const { contentEl } = this
-		contentEl.createEl('h2', {
-			text: 'Preview of content to be sent to Strapi',
-		})
+		contentEl.createEl('h2', { text: 'Preview Content' })
 
-		const pre = contentEl.createEl('pre')
-		pre.setText(JSON.stringify(this.content, null, 2))
-		pre.style.maxHeight = '400px'
-		pre.style.overflow = 'auto'
+		const previewEl = contentEl.createEl('pre')
+		previewEl.setText(JSON.stringify(this.content, null, 2))
 
 		const buttonContainer = contentEl.createDiv('button-container')
 
 		const confirmButton = buttonContainer.createEl('button', {
-			text: 'Confirm and Send',
+			text: 'Confirm',
 		})
 		confirmButton.addEventListener('click', () => {
 			this.close()
@@ -31,8 +29,20 @@ export class PreviewModal extends Modal {
 		})
 
 		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' })
-		cancelButton.addEventListener('click', () => {
-			this.close()
-		})
+		cancelButton.addEventListener('click', () => this.close())
 	}
+
+	onClose() {
+		const { contentEl } = this
+		contentEl.empty()
+	}
+}
+
+export function showPreviewToUser(
+	app: App,
+	content: AnalyzedContent
+): Promise<boolean> {
+	return new Promise(resolve => {
+		new PreviewModal(app, content, () => resolve(true)).open()
+	})
 }

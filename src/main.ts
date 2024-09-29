@@ -1,6 +1,10 @@
 import { Notice, Plugin } from 'obsidian'
 import { DEFAULT_STRAPI_EXPORTER_SETTINGS } from './constants'
-import { RouteConfig, StrapiExporterSettings } from './types/settings'
+import {
+	AnalyzedContent,
+	RouteConfig,
+	StrapiExporterSettings,
+} from './types/settings'
 import { UnifiedSettingsTab } from './settings/UnifiedSettingsTab'
 import { debounce } from './utils/debounce'
 import { processMarkdownContent } from './utils/image-processor'
@@ -162,32 +166,39 @@ export default class StrapiExporterPlugin extends Plugin {
 		}
 	}
 
-	async sendToStrapi(data: any, route: RouteConfig) {
+	async sendToStrapi(
+		content: AnalyzedContent,
+		route: RouteConfig,
+		settings: StrapiExporterSettings
+	): Promise<void> {
 		console.log(`Sending data to Strapi for route: ${route.name}`)
 		try {
-			const response = await fetch(route.url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${this.settings.strapiApiToken}`,
-				},
-				body: JSON.stringify(data),
-			})
+			const response = await fetch(
+				`${settings.strapiUrl}/api/${route.contentType}`,
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Bearer ${settings.strapiApiToken}`,
+					},
+					body: JSON.stringify({ data: content }),
+				}
+			)
 
-			if (response.ok) {
-				const responseData = await response.json()
-				console.log('Strapi response:', responseData)
-				new Notice('Content successfully sent to Strapi!')
-			} else {
+			if (!response.ok) {
 				const errorData = await response.json()
-				console.error('Strapi error response:', errorData)
 				throw new Error(
-					`Failed to create content in Strapi: ${errorData.error.message}`
+					errorData.error.message || 'Failed to send content to Strapi'
 				)
 			}
+
+			const responseData = await response.json()
+			console.log('Strapi response:', responseData)
+			new Notice('Content successfully sent to Strapi!')
 		} catch (error) {
 			console.error('Error sending to Strapi:', error)
-			throw new Error(`Error sending to Strapi: ${error.message}`)
+			new Notice(`Failed to send content to Strapi: ${error.message}`)
+			throw error
 		}
 	}
 }
