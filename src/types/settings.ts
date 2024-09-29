@@ -13,10 +13,10 @@ export interface RouteConfig {
 	contentField: string
 	additionalInstructions: string
 	fieldMappings: {
-		[strapiField: string]: {
+		[key: string]: {
 			obsidianSource: 'frontmatter' | 'content'
+			transform?: string | ((value: any) => any)
 			frontmatterKey?: string
-			transform?: (value: any) => any
 		}
 	}
 }

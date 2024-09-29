@@ -47,11 +47,13 @@ export async function processFrontMatter(
 
 function getImageFields(route: RouteConfig): string[] {
 	return Object.entries(route.fieldMappings)
-		.filter(
-			([_, config]) =>
-				config.obsidianSource === 'frontmatter' &&
-				config.transform?.includes('image')
-		)
+		.filter(([_, config]) => {
+			if (config.obsidianSource !== 'frontmatter') return false
+			if (typeof config.transform === 'string') {
+				return config.transform.includes('image')
+			}
+			return false
+		})
 		.map(([key, _]) => key)
 }
 
