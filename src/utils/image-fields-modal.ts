@@ -5,7 +5,7 @@ import { StrapiExporterSettings } from '../types/settings'
 export class ImageFieldsModal extends Modal {
 	imageFields: string[]
 	onSubmit: (imageValues: Record<string, string>) => void
-	imageValues: Record<string, string> = {}
+	imageValues: Record<string, string | string[]> = {}
 	app: App
 	settings: StrapiExporterSettings
 
@@ -43,7 +43,7 @@ export class ImageFieldsModal extends Modal {
 						this.imageValues
 					)
 					this.close()
-					this.onSubmit(this.imageValues)
+					this.onSubmit(this.imageValues as Record<string, string>)
 				})
 		)
 	}
