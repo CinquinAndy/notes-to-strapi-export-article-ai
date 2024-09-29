@@ -87,7 +87,7 @@ export async function processMarkdownContent(
 	console.log('Content length after removing front matter:', content.length)
 
 	// Process inline images in the main content
-	const { updatedContent } = await processInlineImages(app, settings, content)
+	let { updatedContent } = await processInlineImages(app, settings, content)
 	content = updatedContent
 
 	console.log('Updated content length:', content.length)
@@ -127,8 +127,16 @@ export async function processMarkdownContent(
 		// Process images in fields
 		if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
 			value = await processImageField(value, app, settings)
+			frontMatter = frontMatter.replace(
+				new RegExp(`${field}:.*`, 'g'),
+				`${field}: "${value}"`
+			)
 		} else if (fieldConfig.type === 'array' && field === 'galery') {
 			value = await processImageField(value, app, settings)
+			frontMatter = frontMatter.replace(
+				new RegExp(`${field}:.*`, 'g'),
+				`${field}: ${JSON.stringify(value)}`
+			)
 		}
 
 		// Apply transformation if specified
@@ -173,6 +181,9 @@ export async function processMarkdownContent(
 	if (contentField && !finalContent[contentField]) {
 		finalContent[contentField] = content
 	}
+
+	updatedContent = `---\n${frontMatter}\n---\n\n${content}`
+	await app.vault.modify(file, updatedContent)
 
 	console.log('--- Final content prepared ---')
 	console.log(JSON.stringify(finalContent, null, 2))
