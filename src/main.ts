@@ -35,8 +35,98 @@ export default class StrapiExporterPlugin extends Plugin {
 		console.log('StrapiExporterPlugin loaded')
 	}
 
-	async saveSettings(): Promise<void> {
+	async saveSettings() {
+		console.log('Saving settings')
 		await this.saveData(this.settings)
+		console.log('Settings saved')
+	}
+
+	onunload() {
+		console.log('StrapiExporterPlugin unloading')
+		this.removeAllIcons()
+	}
+
+	async loadSettings() {
+		console.log('Loading settings')
+		this.settings = Object.assign(
+			{},
+			DEFAULT_STRAPI_EXPORTER_SETTINGS,
+			await this.loadData()
+		)
+		console.log('Settings loaded:', this.settings)
+	}
+
+	loadStyles() {
+		const styleElement = document.createElement('style')
+		styleElement.id = 'strapi-exporter-styles'
+		document.head.appendChild(styleElement)
+
+		styleElement.textContent = `
+            .strapi-exporter-nav {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+
+            .strapi-exporter-nav-button {
+                padding: 10px 15px;
+                border: none;
+                background: none;
+                cursor: pointer;
+                font-size: 14px;
+                color: var(--text-muted);
+                transition: all 0.3s ease;
+            }
+
+            .strapi-exporter-nav-button:hover {
+                color: var(--text-normal);
+            }
+
+            .strapi-exporter-nav-button.is-active {
+                color: var(--text-accent);
+                border-bottom: 2px solid var(--text-accent);
+            }
+
+            .strapi-exporter-content {
+                padding: 20px;
+            }
+        `
+	}
+
+	updateRibbonIcons() {
+		console.log('Updating ribbon icons')
+		this.removeAllIcons()
+
+		this.settings.routes.forEach(route => {
+			if (route.enabled) {
+				console.log(`Adding ribbon icon for route: ${route.name}`)
+				this.addIconForRoute(route)
+			}
+		})
+	}
+
+	removeAllIcons() {
+		console.log('Removing all icons')
+		this.ribbonIcons.forEach((icon, routeId) => {
+			if (icon && icon.parentNode) {
+				icon.parentNode.removeChild(icon)
+			}
+		})
+		this.ribbonIcons.clear()
+	}
+
+	addIconForRoute(route: RouteConfig) {
+		const existingIcon = this.ribbonIcons.get(route.id)
+		if (existingIcon && existingIcon.parentNode) {
+			existingIcon.parentNode.removeChild(existingIcon)
+		}
+
+		const ribbonIconEl = this.addRibbonIcon(route.icon, route.name, () => {
+			this.exportToStrapi(route.id)
+		})
+
+		this.ribbonIcons.set(route.id, ribbonIconEl)
 	}
 
 	async exportToStrapi(routeId: string) {
