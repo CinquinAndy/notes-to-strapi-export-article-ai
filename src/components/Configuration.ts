@@ -261,7 +261,7 @@ export class Configuration {
 				// Ask user if they want to add images for these fields
 				if (imageFields.length > 0) {
 					new Notice('Image fields detected. Opening image selection modal...')
-					this.openImageSelectionModal(imageFields, currentRoute)
+					await this.openImageSelectionModal(imageFields, currentRoute)
 				} else {
 					new Notice('No image fields detected in the configuration.')
 				}
@@ -277,15 +277,17 @@ export class Configuration {
 		}
 	}
 
-	private openImageSelectionModal(
+	private async openImageSelectionModal(
 		imageFields: string[],
 		currentRoute: any
-	): void {
+	): Promise<void> {
 		const modal = new Modal(this.app)
 		modal.titleEl.setText('Select Images for Fields')
 		const { contentEl } = modal
 
-		imageFields.forEach(field => {
+		const tempImagePaths: Record<string, string> = {}
+
+		for (const field of imageFields) {
 			new Setting(contentEl)
 				.setName(field)
 				.setDesc(`Select an image for ${field}`)
@@ -293,24 +295,90 @@ export class Configuration {
 					button.setButtonText('Choose Image').onClick(async () => {
 						const imagePath = await this.selectImage()
 						if (imagePath) {
-							currentRoute.fieldMappings[field].value = imagePath
+							tempImagePaths[field] = imagePath
 							new Notice(`Image selected for ${field}`)
 						}
 					})
 				)
-		})
+		}
 
 		new Setting(contentEl).addButton(button =>
 			button
-				.setButtonText('Done')
+				.setButtonText('Review and Upload')
 				.setCta()
-				.onClick(() => {
+				.onClick(async () => {
 					modal.close()
-					this.plugin.saveSettings()
+					await this.reviewAndUploadImages(tempImagePaths, currentRoute)
 				})
 		)
 
 		modal.open()
+	}
+
+	private async reviewAndUploadImages(
+		tempImagePaths: Record<string, string>,
+		currentRoute: any
+	): Promise<void> {
+		const reviewModal = new Modal(this.app)
+		reviewModal.titleEl.setText('Review and Upload Images')
+		const { contentEl } = reviewModal
+
+		for (const [field, imagePath] of Object.entries(tempImagePaths)) {
+			new Setting(contentEl)
+				.setName(field)
+				.setDesc(`Selected image: ${imagePath}`)
+				.addButton(button =>
+					button.setButtonText('Change').onClick(async () => {
+						const newPath = await this.selectImage()
+						if (newPath) {
+							tempImagePaths[field] = newPath
+							button.setButtonText('Changed')
+						}
+					})
+				)
+		}
+
+		new Setting(contentEl).addButton(button =>
+			button
+				.setButtonText('Upload All')
+				.setCta()
+				.onClick(async () => {
+					reviewModal.close()
+					await this.uploadImages(tempImagePaths, currentRoute)
+				})
+		)
+
+		reviewModal.open()
+	}
+
+	private async uploadImages(
+		imagePaths: Record<string, string>,
+		currentRoute: any
+	): Promise<void> {
+		for (const [field, imagePath] of Object.entries(imagePaths)) {
+			try {
+				const uploadedImage = await this.uploadImageToStrapi(imagePath)
+				if (uploadedImage && uploadedImage.url) {
+					currentRoute.fieldMappings[field].value = uploadedImage.url
+					new Notice(`Image for ${field} uploaded successfully`)
+				} else {
+					new Notice(`Failed to upload image for ${field}`)
+				}
+			} catch (error) {
+				console.error(`Error uploading image for ${field}:`, error)
+				new Notice(`Error uploading image for ${field}`)
+			}
+		}
+		await this.plugin.saveSettings()
+		new Notice('All images processed. Configuration updated.')
+	}
+
+	private async uploadImageToStrapi(
+		imagePath: string
+	): Promise<{ url: string } | null> {
+		// Implement the actual upload logic here
+		// This should use your Strapi uploader function
+		// Return the URL of the uploaded image or null if upload failed
 	}
 
 	private async selectImage(): Promise<string | null> {
