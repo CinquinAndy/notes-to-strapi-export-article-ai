@@ -5,6 +5,7 @@ import {
 	Notice,
 	DropdownComponent,
 	TextComponent,
+	Modal,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
@@ -244,13 +245,29 @@ export class Configuration {
 	private async applyConfiguration(): Promise<void> {
 		try {
 			const config = JSON.parse(this.configOutput.getValue())
-			this.plugin.settings.fieldMappings = config.fieldMappings
-			this.plugin.settings.additionalInstructions =
-				config.additionalInstructions
-			this.plugin.settings.strapiTemplate = config.strapiTemplate
-			this.plugin.settings.targetLanguage =
-				config.targetLanguage || this.plugin.settings.targetLanguage
-			await this.plugin.saveSettings()
+			const currentRoute = this.plugin.settings.routes.find(
+				route => route.id === this.currentRouteId
+			)
+			if (currentRoute) {
+				currentRoute.fieldMappings = config.fieldMappings
+				currentRoute.additionalInstructions = config.additionalInstructions
+				currentRoute.contentField = config.contentField
+
+				// Identify image fields
+				const imageFields = await this.identifyImageFields(
+					this.configOutput.getValue()
+				)
+
+				// Ask user if they want to add images for these fields
+				if (imageFields.length > 0) {
+					new Notice('Image fields detected. Opening image selection modal...')
+					this.openImageSelectionModal(imageFields, currentRoute)
+				} else {
+					new Notice('No image fields detected in the configuration.')
+				}
+
+				await this.plugin.saveSettings()
+			}
 			new Notice('Configuration applied successfully!')
 		} catch (error) {
 			console.error('Error applying configuration:', error)
@@ -258,6 +275,48 @@ export class Configuration {
 				'Error applying configuration. Please check the JSON format and try again.'
 			)
 		}
+	}
+
+	private openImageSelectionModal(
+		imageFields: string[],
+		currentRoute: any
+	): void {
+		const modal = new Modal(this.app)
+		modal.titleEl.setText('Select Images for Fields')
+		const { contentEl } = modal
+
+		imageFields.forEach(field => {
+			new Setting(contentEl)
+				.setName(field)
+				.setDesc(`Select an image for ${field}`)
+				.addButton(button =>
+					button.setButtonText('Choose Image').onClick(async () => {
+						const imagePath = await this.selectImage()
+						if (imagePath) {
+							currentRoute.fieldMappings[field].value = imagePath
+							new Notice(`Image selected for ${field}`)
+						}
+					})
+				)
+		})
+
+		new Setting(contentEl).addButton(button =>
+			button
+				.setButtonText('Done')
+				.setCta()
+				.onClick(() => {
+					modal.close()
+					this.plugin.saveSettings()
+				})
+		)
+
+		modal.open()
+	}
+
+	private async selectImage(): Promise<string | null> {
+		// Implement image selection logic here
+		// This could open a file picker or use Obsidian's API to select an image
+		// Return the path of the selected image or null if no image was selected
 	}
 
 	private getCurrentRouteSchema(): string {

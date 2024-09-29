@@ -1,4 +1,4 @@
-import { App, Modal, Setting, TFile, TFolder } from 'obsidian'
+import { App, Modal, Notice, Setting, TFile, TFolder } from 'obsidian'
 import { uploadImageToStrapi } from './strapi-uploader'
 import { StrapiExporterSettings } from '../types/settings'
 
@@ -173,6 +173,42 @@ export class ImageFieldsModal extends Modal {
 			;(this.imageValues[field] as string[]).push(uploadedImage.url)
 		} else {
 			console.error(`44. Failed to upload gallery image for ${field}`)
+		}
+	}
+
+	private async identifyImageFields(
+		generatedConfig: string
+	): Promise<string[]> {
+		const openai = new OpenAI({
+			apiKey: this.plugin.settings.openaiApiKey,
+			dangerouslyAllowBrowser: true,
+		})
+
+		const prompt = `
+    Given the following generated configuration for a Strapi schema, identify all fields that correspond to images or image URLs.
+    Only return the field names as a JSON array of strings.
+
+    Generated Configuration:
+    ${generatedConfig}
+
+    Example response format:
+    ["image_field1", "image_field2", "gallery_field"]
+    `
+
+		try {
+			const response = await openai.chat.completions.create({
+				model: 'gpt-4o-mini',
+				messages: [{ role: 'user', content: prompt }],
+				response_format: { type: 'json_object' },
+				max_tokens: 500,
+			})
+
+			const imageFields = JSON.parse(response.choices[0].message.content)
+			return Array.isArray(imageFields) ? imageFields : []
+		} catch (error) {
+			console.error('Error identifying image fields:', error)
+			new Notice('Error identifying image fields. Please try again.')
+			return []
 		}
 	}
 
