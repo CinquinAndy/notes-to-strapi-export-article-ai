@@ -48,19 +48,17 @@ export async function processMarkdownContent(
 	return finalContent
 }
 
-// Validate and get the active file
+// Update these functions
 function validateAndGetFile(app: App): TFile | null {
 	const activeView = app.workspace.getActiveViewOfType(MarkdownView)
 	if (!activeView) {
 		console.error('No active Markdown view')
-		new Notice('No active Markdown view')
 		return null
 	}
 
 	const file = activeView.file
 	if (!file) {
 		console.error('No file found in active view')
-		new Notice('No file found in active view')
 		return null
 	}
 
