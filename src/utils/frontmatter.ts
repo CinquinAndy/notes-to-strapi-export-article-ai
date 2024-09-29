@@ -109,37 +109,44 @@ Do not include the main content field "${contentField}" in the front matter.
 			generatedFrontMatter = generatedFrontMatter + '\n---'
 		}
 
-		console.log('10. Opening modal for images')
-		const updatedFrontMatter = await new Promise<string>(resolve => {
-			new ImageFieldsModal(
-				app,
-				imageFields,
-				async imageValues => {
-					console.log('11. Image values received:', imageValues)
-					let updatedFrontMatter = generatedFrontMatter
-					for (const [field, value] of Object.entries(imageValues)) {
-						const regex = new RegExp(`${field}:.*`, 'g')
-						updatedFrontMatter = updatedFrontMatter.replace(
-							regex,
-							`${field}: "${value}"`
-						)
-					}
-					console.log(
-						'12. Front matter updated with images:',
-						updatedFrontMatter
-					)
-					resolve(updatedFrontMatter)
-				},
-				settings
-			).open()
-		})
+		console.log('10. Identifying image fields')
+		const imageFields = Object.entries(generatedConfig.fieldMappings)
+			.filter(
+				([_, config]) => config.type === 'string' && config.format === 'url'
+			)
+			.map(([key, _]) => key)
 
-		console.log('13. Updating file content')
-		const newContent = `${updatedFrontMatter}\n\n${existingContent}`
+		console.log('10. Opening modal for images')
+		if (imageFields.length > 0) {
+			console.log('11. Opening modal for image fields')
+			const imageValues = await new Promise<Record<string, string>>(resolve => {
+				new ImageFieldsModal(
+					app,
+					imageFields,
+					imageValues => {
+						console.log('12. Image values received:', imageValues)
+						resolve(imageValues)
+					},
+					settings
+				).open()
+			})
+
+			console.log('13. Updating front matter with image values')
+			for (const [field, value] of Object.entries(imageValues)) {
+				const regex = new RegExp(`${field}:.*`, 'g')
+				generatedFrontMatter = generatedFrontMatter.replace(
+					regex,
+					`${field}: "${value}"`
+				)
+			}
+		}
+
+		console.log('14. Updating file content')
+		const newContent = `${generatedFrontMatter}\n\n${existingContent}`
 		await app.vault.modify(file, newContent)
 
-		console.log('14. Finished generateFrontMatterWithOpenAI')
-		return { frontMatter: updatedFrontMatter, imageFields }
+		console.log('15. Finished generateFrontMatterWithOpenAI')
+		return { frontMatter: generatedFrontMatter, imageFields }
 	} catch (error) {
 		console.error('15. Error generating front matter:', error)
 		throw error
