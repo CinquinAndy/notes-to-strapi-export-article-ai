@@ -15,7 +15,6 @@ export default class StrapiExporterPlugin extends Plugin {
 	async onload() {
 		console.log('StrapiExporterPlugin loading')
 		await this.loadSettings()
-
 		this.loadStyles()
 
 		this.debouncedUpdateRibbonIcons = debounce(
@@ -126,37 +125,45 @@ export default class StrapiExporterPlugin extends Plugin {
 	}
 
 	async exportToStrapi(routeId: string) {
+		console.log(`Starting export to Strapi for route: ${routeId}`)
 		const route = this.settings.routes.find(r => r.id === routeId)
 		if (!route) {
-			new Notice('Route not found')
+			console.error(`Route not found: ${routeId}`)
+			new Notice('Export failed: Route not found')
 			return
 		}
 
-		console.log(`Exporting to Strapi using route: ${route.name}`)
 		new Notice(`Preparing content for export using route: ${route.name}`)
 
-		const processedContent = await processMarkdownContent(
-			this.app,
-			this.settings,
-			routeId
-		)
-		if (!processedContent) {
-			new Notice('Failed to process content')
-			return
+		try {
+			const processedContent = await processMarkdownContent(
+				this.app,
+				this.settings,
+				routeId
+			)
+			if (!processedContent) {
+				throw new Error('Failed to process content')
+			}
+
+			const finalContent = { data: processedContent }
+
+			// Show preview and wait for confirmation
+			await new Promise<void>(resolve => {
+				new PreviewModal(this.app, finalContent, async () => {
+					await this.sendToStrapi(finalContent, route)
+					resolve()
+				}).open()
+			})
+
+			console.log('Export to Strapi completed successfully')
+		} catch (error) {
+			console.error('Error during export to Strapi:', error)
+			new Notice(`Export failed: ${error.message}`)
 		}
-
-		const finalContent = { data: processedContent }
-
-		// Show preview and wait for confirmation
-		return new Promise<void>(resolve => {
-			new PreviewModal(this.app, finalContent, async () => {
-				await this.sendToStrapi(finalContent, route)
-				resolve()
-			}).open()
-		})
 	}
 
 	async sendToStrapi(data: any, route: RouteConfig) {
+		console.log(`Sending data to Strapi for route: ${route.name}`)
 		try {
 			const response = await fetch(route.url, {
 				method: 'POST',
@@ -168,18 +175,19 @@ export default class StrapiExporterPlugin extends Plugin {
 			})
 
 			if (response.ok) {
+				const responseData = await response.json()
+				console.log('Strapi response:', responseData)
 				new Notice('Content successfully sent to Strapi!')
-				console.log('Strapi response:', await response.json())
 			} else {
 				const errorData = await response.json()
 				console.error('Strapi error response:', errorData)
-				new Notice(
-					`Failed to create content in Strapi. Error: ${errorData.error.message}`
+				throw new Error(
+					`Failed to create content in Strapi: ${errorData.error.message}`
 				)
 			}
 		} catch (error) {
 			console.error('Error sending to Strapi:', error)
-			new Notice(`Error sending to Strapi: ${error.message}`)
+			throw new Error(`Error sending to Strapi: ${error.message}`)
 		}
 	}
 }

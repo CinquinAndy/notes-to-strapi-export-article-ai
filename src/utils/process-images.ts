@@ -8,9 +8,9 @@ export async function processInlineImages(
 	settings: StrapiExporterSettings,
 	content: string
 ): Promise<{ updatedContent: string; inlineImages: ImageDescription[] }> {
+	console.log('Starting processInlineImages')
 	const imagePaths = extractImagePaths(content)
 	const inlineImages: ImageDescription[] = []
-
 	let updatedContent = content
 
 	for (const imagePath of imagePaths) {
@@ -19,46 +19,58 @@ export async function processInlineImages(
 			continue
 		}
 
-		// Obtenir le fichier TFile à partir du chemin
+		console.log(`Processing image: ${imagePath}`)
 		const file = app.vault.getAbstractFileByPath(imagePath)
 		if (!(file instanceof TFile)) {
 			console.error(`File not found: ${imagePath}`)
 			continue
 		}
 
-		const uploadedImage = await uploadImageToStrapi(
-			file,
-			file.name,
-			settings,
-			app
-		)
-
-		if (uploadedImage) {
-			inlineImages.push(uploadedImage)
-
-			// Replace Obsidian internal links
-			const obsidianLinkRegex = new RegExp(
-				`!\\[\\[${escapeRegExp(imagePath)}\\]\\]`,
-				'g'
-			)
-			updatedContent = updatedContent.replace(
-				obsidianLinkRegex,
-				`![${uploadedImage.name || ''}](${uploadedImage.url})`
+		try {
+			const uploadedImage = await uploadImageToStrapi(
+				file,
+				file.name,
+				settings,
+				app
 			)
 
-			// Replace standard Markdown image links
-			const markdownLinkRegex = new RegExp(
-				`!\\[([^\\]]*)\\]\\(${escapeRegExp(imagePath)}\\)`,
-				'g'
-			)
-			updatedContent = updatedContent.replace(
-				markdownLinkRegex,
-				`![$1](${uploadedImage.url})`
-			)
+			if (uploadedImage) {
+				inlineImages.push(uploadedImage)
+				updatedContent = replaceImageLinks(
+					updatedContent,
+					imagePath,
+					uploadedImage
+				)
+			}
+		} catch (error) {
+			console.error(`Error processing image ${imagePath}:`, error)
 		}
 	}
 
+	console.log('Finished processInlineImages')
 	return { updatedContent, inlineImages }
+}
+
+function replaceImageLinks(
+	content: string,
+	originalPath: string,
+	uploadedImage: ImageDescription
+): string {
+	const obsidianLinkRegex = new RegExp(
+		`!\\[\\[${escapeRegExp(originalPath)}\\]\\]`,
+		'g'
+	)
+	const markdownLinkRegex = new RegExp(
+		`!\\[([^\\]]*)\\]\\(${escapeRegExp(originalPath)}\\)`,
+		'g'
+	)
+
+	return content
+		.replace(
+			obsidianLinkRegex,
+			`![${uploadedImage.name || ''}](${uploadedImage.url})`
+		)
+		.replace(markdownLinkRegex, `![$1](${uploadedImage.url})`)
 }
 
 export function extractImagePaths(content: string): string[] {
