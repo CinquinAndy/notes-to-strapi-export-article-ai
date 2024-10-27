@@ -2,7 +2,7 @@ import { TFile, App } from 'obsidian'
 import { StrapiExporterSettings, RouteConfig } from '../types'
 import { ImageSelectionModal } from '../components/ImageSelectionModal'
 import { extractFrontMatter } from './frontmatter-generator'
-import { Logger } from '../utils/logger'
+import { Logger } from './logger'
 
 /**
  * Process frontmatter of a file, handling images and field mappings

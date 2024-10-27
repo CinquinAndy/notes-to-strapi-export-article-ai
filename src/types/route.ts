@@ -23,10 +23,11 @@ export interface RouteConfig {
 
 export interface FieldMapping {
 	obsidianSource: 'frontmatter' | 'content'
+	frontmatterKey?: string
 	type?: string
 	format?: string
 	required?: boolean
-	transform?: string
+	transform?: string | ((value: any) => any) // Support des transformations fonction ou string
 	validation?: {
 		type: string
 		pattern?: string

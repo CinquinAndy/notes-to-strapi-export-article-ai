@@ -16,7 +16,6 @@ export function debounce<F extends (...args: any[]) => any>(
 	})
 
 	let timeout: ReturnType<typeof setTimeout> | null = null
-	let pendingPromise: Promise<ReturnType<F>> | null = null
 
 	return (...args: Parameters<F>): Promise<ReturnType<F>> => {
 		Logger.debug('Debounce', '91. Debounced function called with args', {
@@ -50,7 +49,6 @@ export function debounce<F extends (...args: any[]) => any>(
 					reject(error)
 				} finally {
 					timeout = null
-					pendingPromise = null
 					Logger.debug('Debounce', '97. Cleanup completed')
 				}
 			}, waitFor)
@@ -77,7 +75,6 @@ export function debounceCancellable<F extends (...args: any[]) => any>(
 	})
 
 	let timeout: ReturnType<typeof setTimeout> | null = null
-	let pendingPromise: Promise<ReturnType<F>> | null = null
 
 	const cancel = () => {
 		Logger.info('Debounce', '99. Cancelling debounced function')
@@ -119,7 +116,6 @@ export function debounceCancellable<F extends (...args: any[]) => any>(
 					reject(error)
 				} finally {
 					timeout = null
-					pendingPromise = null
 					Logger.debug('Debounce', '107. Cleanup completed')
 				}
 			}, waitFor)
@@ -127,11 +123,4 @@ export function debounceCancellable<F extends (...args: any[]) => any>(
 	}
 
 	return { debounced, cancel }
-}
-
-/**
- * Type guard to check if a value is a Promise
- */
-function isPromise<T>(value: any): value is Promise<T> {
-	return value && typeof value.then === 'function'
 }

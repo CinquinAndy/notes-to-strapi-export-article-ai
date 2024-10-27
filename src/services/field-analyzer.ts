@@ -2,7 +2,7 @@
 
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { Logger } from '../utils/logger'
 
 /**
@@ -35,10 +35,21 @@ const fieldAnalysisSchema = z.object({
 
 type FieldAnalysis = z.infer<typeof fieldAnalysisSchema>
 
+export interface FieldAnalyzerOptions {
+	openaiApiKey: string
+}
+
 export class StructuredFieldAnalyzer {
-	private model = openai('gpt-4-turbo-preview', {
-		structuredOutputs: true,
-	})
+	private model
+
+	constructor(options: FieldAnalyzerOptions) {
+		const openai = createOpenAI({
+			apiKey: options.openaiApiKey,
+		})
+		this.model = openai('gpt-4o-mini', {
+			structuredOutputs: true,
+		})
+	}
 
 	/**
 	 * Analyze JSON schema to identify field types and purposes

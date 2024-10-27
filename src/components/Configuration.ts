@@ -16,8 +16,8 @@ import { StructuredFieldAnalyzer } from '../services/field-analyzer'
 import { ConfigurationGenerator } from '../services/configuration-generator'
 
 export class Configuration {
-	private fieldAnalyzer = new StructuredFieldAnalyzer()
-	private configGenerator = new ConfigurationGenerator()
+	private fieldAnalyzer: StructuredFieldAnalyzer
+	private configGenerator: ConfigurationGenerator
 	private plugin: StrapiExporterPlugin
 	private containerEl: HTMLElement
 	private components: {
@@ -44,6 +44,10 @@ export class Configuration {
 		this.containerEl = containerEl
 		this.app = plugin.app
 		this.currentRouteId = this.plugin.settings.routes[0]?.id || ''
+
+		// Initialiser les services avec la clé API
+		this.initializeServices()
+
 		this.components = {
 			schemaInput: null,
 			schemaDescriptionInput: null,
@@ -52,6 +56,24 @@ export class Configuration {
 			languageDropdown: null,
 			routeSelector: null,
 		}
+	}
+
+	/**
+	 * Initialize or reinitialize services with current API key
+	 */
+	private initializeServices(): void {
+		if (!this.plugin.settings.openaiApiKey) {
+			Logger.warn('Configuration', 'OpenAI API key not configured')
+			return
+		}
+
+		this.fieldAnalyzer = new StructuredFieldAnalyzer({
+			openaiApiKey: this.plugin.settings.openaiApiKey,
+		})
+
+		this.configGenerator = new ConfigurationGenerator({
+			openaiApiKey: this.plugin.settings.openaiApiKey,
+		})
 	}
 
 	display(): void {
@@ -352,12 +374,20 @@ export class Configuration {
 	private async generateConfiguration(): Promise<void> {
 		Logger.info('Configuration', '378. Generating configuration')
 		try {
+			// this.validateServices()
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
 			)
 
 			if (!currentRoute) {
 				throw new Error('Current route not found')
+			}
+
+			let schema: any
+			try {
+				schema = JSON.parse(currentRoute.schema)
+			} catch {
+				throw new Error('Invalid JSON schema. Please check your schema format.')
 			}
 
 			const config = await this.configGenerator.generateConfiguration({
@@ -367,21 +397,25 @@ export class Configuration {
 			})
 
 			if (this.components.configOutput) {
-				this.components.configOutput.setValue(JSON.stringify(config, null, 2))
-				await this.updateCurrentRouteConfig(
-					'generatedConfig',
-					JSON.stringify(config)
-				)
+				const formattedConfig = JSON.stringify(config, null, 2)
+				this.components.configOutput.setValue(formattedConfig)
+				await this.updateCurrentRouteConfig('generatedConfig', formattedConfig)
+				new Notice('Configuration generated successfully!')
 			}
-
-			new Notice('Configuration generated successfully!')
 		} catch (error) {
 			Logger.error(
 				'Configuration',
 				'379. Error generating configuration',
 				error
 			)
-			new Notice(`Failed to generate configuration: ${error.message}`)
+			if (error) {
+				// Erreur de validation du schéma
+				new Notice(
+					'Invalid configuration format. Please check the schema requirements.'
+				)
+			} else {
+				new Notice(`Failed to generate configuration: ${error.message}`)
+			}
 		}
 	}
 
