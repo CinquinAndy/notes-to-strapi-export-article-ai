@@ -9,12 +9,15 @@ import {
 	TFile,
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
-import OpenAI from 'openai'
 import { uploadImageToStrapi } from '../utils/strapi-uploader'
 import { Logger } from '../utils/logger'
 import { RouteConfig } from '../types'
+import { StructuredFieldAnalyzer } from '../services/field-analyzer'
+import { ConfigurationGenerator } from '../services/configuration-generator'
 
 export class Configuration {
+	private fieldAnalyzer = new StructuredFieldAnalyzer()
+	private configGenerator = new ConfigurationGenerator()
 	private plugin: StrapiExporterPlugin
 	private containerEl: HTMLElement
 	private components: {
@@ -347,36 +350,30 @@ export class Configuration {
 	}
 
 	private async generateConfiguration(): Promise<void> {
-		Logger.info('Configuration', '378. Generating configuration using OpenAI')
+		Logger.info('Configuration', '378. Generating configuration')
 		try {
-			if (!this.validateOpenAIKey()) {
-				throw new Error('OpenAI API key is not configured')
-			}
-
-			if (!this.components.configOutput) {
-				throw new Error('Configuration output component not initialized')
-			}
-
-			new Notice('Generating configuration...')
-			const openai = new OpenAI({
-				apiKey: this.plugin.settings.openaiApiKey,
-				dangerouslyAllowBrowser: true,
-			})
-
-			const prompt = this.generateOpenAIPrompt()
-			const response = await openai.chat.completions.create({
-				model: 'gpt-4',
-				messages: [{ role: 'user', content: prompt }],
-				response_format: { type: 'json_object' },
-				max_tokens: 2000,
-			})
-
-			const generatedConfig = response.choices[0].message.content
-			this.components.configOutput.setValue(generatedConfig || '')
-			await this.updateCurrentRouteConfig(
-				'generatedConfig',
-				generatedConfig || ''
+			const currentRoute = this.plugin.settings.routes.find(
+				route => route.id === this.currentRouteId
 			)
+
+			if (!currentRoute) {
+				throw new Error('Current route not found')
+			}
+
+			const config = await this.configGenerator.generateConfiguration({
+				schema: currentRoute.schema,
+				language: currentRoute.language,
+				additionalInstructions: currentRoute.additionalInstructions,
+			})
+
+			if (this.components.configOutput) {
+				this.components.configOutput.setValue(JSON.stringify(config, null, 2))
+				await this.updateCurrentRouteConfig(
+					'generatedConfig',
+					JSON.stringify(config)
+				)
+			}
+
 			new Notice('Configuration generated successfully!')
 		} catch (error) {
 			Logger.error(
@@ -546,41 +543,12 @@ export class Configuration {
 	): Promise<string[]> {
 		Logger.debug('Configuration', '388. Identifying image fields')
 		try {
-			const openai = new OpenAI({
-				apiKey: this.plugin.settings.openaiApiKey,
-				dangerouslyAllowBrowser: true,
-			})
-
-			const prompt = `
-                Given the following generated configuration for a Strapi schema,
-                identify all fields that correspond to images or image URLs.
-                Only return the field names as a JSON array of strings.
-
-                Generated Configuration:
-                ${generatedConfig}
-
-                Example response format:
-                ["image_field1", "image_field2", "gallery_field"]
-            `
-
-			const response = await openai.chat.completions.create({
-				model: 'gpt-4',
-				messages: [{ role: 'user', content: prompt }],
-				response_format: { type: 'json_object' },
-				max_tokens: 500,
-			})
-
-			Logger.debug('Configuration', '389. Image fields identified', {
-				response,
-			})
-			const imageFields = JSON.parse(
-				<string>response.choices[0].message.content
-			)
-			return Array.isArray(imageFields) ? imageFields : []
+			const analysis = await this.fieldAnalyzer.analyzeSchema(generatedConfig)
+			return analysis.imageFields.map(field => field.fieldName)
 		} catch (error) {
 			Logger.error(
 				'Configuration',
-				'390. Error identifying image fields',
+				'389. Error identifying image fields',
 				error
 			)
 			new Notice('Error identifying image fields. Please try again.')
