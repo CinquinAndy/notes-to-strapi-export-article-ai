@@ -1,4 +1,4 @@
-import { StrapiExporterSettings } from './types/settings'
+import { StrapiExporterSettings } from './types'
 
 export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 	strapiUrl: '',
@@ -15,6 +15,13 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 			contentType: 'articles',
 			enabled: true,
 			fieldMappings: {},
+			description: '',
+			subtitle: '',
+			schema: '',
+			schemaDescription: '',
+			language: '',
+			contentField: '',
+			additionalInstructions: '',
 		},
 	],
 }

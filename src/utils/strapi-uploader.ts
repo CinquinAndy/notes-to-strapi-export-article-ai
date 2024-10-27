@@ -1,7 +1,18 @@
 import { App, Notice, TAbstractFile, TFile } from 'obsidian'
-import { StrapiExporterSettings } from '../types/settings'
-import { ImageDescription } from '../types/image'
+import { StrapiExporterSettings, ImageDescription } from '../types'
+import { Logger } from './logger'
 
+interface UploadResponse {
+	url: string
+	id: number
+	name: string
+	alternativeText?: string
+	caption?: string
+}
+
+/**
+ * Upload single image to Strapi
+ */
 export async function uploadImageToStrapi(
 	imageData: string | TFile,
 	fileName: string,
@@ -12,14 +23,168 @@ export async function uploadImageToStrapi(
 		caption?: string
 	}
 ): Promise<ImageDescription | null> {
-	console.log('46. uploadImageToStrapi called with:', {
-		imageData,
+	Logger.info('StrapiUploader', '257. Starting image upload', {
 		fileName,
-		settings,
-		additionalMetadata,
+		hasMetadata: !!additionalMetadata,
 	})
 
-	const formData = new FormData()
+	try {
+		// Validate settings
+		validateStrapiSettings(settings)
+
+		// Get file
+		const file = await getFileFromImageData(imageData, fileName, app)
+		if (!file) {
+			return null
+		}
+
+		// Prepare form data
+		const formData = await prepareFormData(file, fileName, additionalMetadata)
+
+		// Upload to Strapi
+		const uploadResult = await performStrapiUpload(formData, settings)
+
+		if (uploadResult) {
+			Logger.info('StrapiUploader', '258. Image upload successful')
+			return createImageDescription(uploadResult, fileName, additionalMetadata)
+		}
+
+		return null
+	} catch (error) {
+		Logger.error('StrapiUploader', '259. Image upload failed', error)
+		throw error
+	}
+}
+
+/**
+ * Upload multiple images to Strapi
+ */
+export async function uploadImagesToStrapi(
+	imageDescriptions: ImageDescription[],
+	settings: StrapiExporterSettings,
+	app: App | null = null,
+	imageFolderPath: string = ''
+): Promise<{ [key: string]: { url: string; data: any; id: number } }> {
+	Logger.info('StrapiUploader', '260. Starting batch image upload', {
+		imageCount: imageDescriptions.length,
+	})
+
+	const uploadedImages: {
+		[key: string]: { url: string; data: any; id: number }
+	} = {}
+
+	try {
+		validateStrapiSettings(settings)
+
+		for (const imageDescription of imageDescriptions) {
+			try {
+				Logger.debug(
+					'StrapiUploader',
+					`261. Processing image: ${imageDescription.name}`
+				)
+				const formData = await prepareImageDescriptionFormData(imageDescription)
+				const uploadResult = await performStrapiUpload(formData, settings)
+
+				if (uploadResult) {
+					uploadedImages[imageDescription.name || ''] = {
+						url: uploadResult.url,
+						data: uploadResult,
+						id: uploadResult.id,
+					}
+					Logger.debug('StrapiUploader', '262. Image uploaded successfully')
+				}
+			} catch (error) {
+				Logger.error(
+					'StrapiUploader',
+					`263. Error uploading image: ${imageDescription.name}`,
+					error
+				)
+				handleUploadError(error, imageDescription.name)
+			}
+		}
+
+		// Save metadata if needed
+		if (imageFolderPath && app && Object.keys(uploadedImages).length > 0) {
+			await saveMetadataToFile(uploadedImages, imageFolderPath, app)
+		}
+
+		Logger.info('StrapiUploader', '264. Batch upload completed', {
+			successCount: Object.keys(uploadedImages).length,
+		})
+		return uploadedImages
+	} catch (error) {
+		Logger.error('StrapiUploader', '265. Batch upload failed', error)
+		throw error
+	}
+}
+
+/**
+ * Upload gallery images to Strapi
+ */
+export async function uploadGalleryImagesToStrapi(
+	imageDescriptions: ImageDescription[],
+	settings: StrapiExporterSettings,
+	app: App | null = null,
+	galleryFolderPath: string = ''
+): Promise<ImageDescription[]> {
+	Logger.info('StrapiUploader', '266. Starting gallery upload', {
+		imageCount: imageDescriptions.length,
+	})
+
+	const uploadedImages: ImageDescription[] = []
+
+	try {
+		validateStrapiSettings(settings)
+
+		for (const imageDescription of imageDescriptions) {
+			try {
+				const formData = await prepareImageDescriptionFormData(imageDescription)
+				const uploadResult = await performStrapiUpload(formData, settings)
+
+				if (uploadResult) {
+					const processedImage = processGalleryUploadResult(
+						imageDescription,
+						uploadResult
+					)
+					uploadedImages.push(processedImage)
+					Logger.debug(
+						'StrapiUploader',
+						'267. Gallery image uploaded successfully'
+					)
+				}
+			} catch (error) {
+				Logger.error(
+					'StrapiUploader',
+					`268. Error uploading gallery image: ${imageDescription.name}`,
+					error
+				)
+				handleUploadError(error, imageDescription.name, true)
+			}
+		}
+
+		// Save metadata if needed
+		if (galleryFolderPath && app && uploadedImages.length > 0) {
+			await saveGalleryMetadata(uploadedImages, galleryFolderPath, app)
+		}
+
+		Logger.info('StrapiUploader', '269. Gallery upload completed', {
+			successCount: uploadedImages.length,
+		})
+		return uploadedImages
+	} catch (error) {
+		Logger.error('StrapiUploader', '270. Gallery upload failed', error)
+		throw error
+	}
+}
+
+// Helper functions
+
+async function getFileFromImageData(
+	imageData: string | TFile,
+	fileName: string,
+	app: App
+): Promise<TFile | null> {
+	Logger.debug('StrapiUploader', '271. Getting file from image data')
 
 	let file: TAbstractFile | null = null
 	if (typeof imageData === 'string') {
@@ -29,231 +194,175 @@ export async function uploadImageToStrapi(
 	}
 
 	if (!(file instanceof TFile)) {
-		console.error('47. Invalid file:', file)
+		Logger.error('StrapiUploader', '272. Invalid file')
 		new Notice(`Failed to find file: ${fileName}`)
 		return null
 	}
 
-	try {
-		console.log('48. Reading file:', file.path)
-		const arrayBuffer = await app.vault.readBinary(file)
-		const blob = new Blob([arrayBuffer], { type: `image/${file.extension}` })
-		formData.append('files', blob, fileName)
+	return file
+}
 
-		if (additionalMetadata) {
-			formData.append(
-				'fileInfo',
-				JSON.stringify({
-					name: fileName,
-					alternativeText: additionalMetadata.alternativeText,
-					caption: additionalMetadata.caption,
-				})
-			)
-		}
+async function prepareFormData(
+	file: TFile,
+	fileName: string,
+	metadata?: { alternativeText?: string; caption?: string }
+): Promise<FormData> {
+	Logger.debug('StrapiUploader', '273. Preparing form data')
 
-		console.log('49. Sending request to Strapi')
-		const response = await fetch(`${settings.strapiUrl}/api/upload`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${settings.strapiApiToken}`,
-			},
-			body: formData,
-		})
+	const formData = new FormData()
+	const arrayBuffer = await file.vault.readBinary(file)
+	const blob = new Blob([arrayBuffer], { type: `image/${file.extension}` })
+	formData.append('files', blob, fileName)
 
-		if (response.ok) {
-			const data = await response.json()
-			console.log('50. Upload successful:', data)
-			return {
-				url: data[0].url,
+	if (metadata) {
+		formData.append(
+			'fileInfo',
+			JSON.stringify({
 				name: fileName,
-				path: data[0].url,
-				id: data[0].id,
-				description: {
-					name: data[0].name,
-					alternativeText:
-						data[0].alternativeText || additionalMetadata?.alternativeText,
-					caption: data[0].caption || additionalMetadata?.caption,
-				},
-			}
-		} else {
-			const errorData = await response.json()
-			console.error('51. Upload failed:', errorData)
-			new Notice(
-				`Failed to upload image: ${fileName}. Error: ${errorData.error.message}`
-			)
-		}
+				alternativeText: metadata.alternativeText,
+				caption: metadata.caption,
+			})
+		)
+	}
+
+	return formData
+}
+
+async function performStrapiUpload(
+	formData: FormData,
+	settings: StrapiExporterSettings
+): Promise<UploadResponse | null> {
+	Logger.debug('StrapiUploader', '274. Performing Strapi upload')
+
+	const response = await fetch(`${settings.strapiUrl}/api/upload`, {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${settings.strapiApiToken}`,
+		},
+		body: formData,
+	})
+
+	if (!response.ok) {
+		const errorData = await response.json()
+		throw new Error(errorData.error.message)
+	}
+
+	const data = await response.json()
+	return data[0]
+}
+
+function validateStrapiSettings(settings: StrapiExporterSettings): void {
+	Logger.debug('StrapiUploader', '275. Validating Strapi settings')
+
+	if (!settings.strapiUrl) {
+		throw new Error('Strapi URL is not configured')
+	}
+	if (!settings.strapiApiToken) {
+		throw new Error('Strapi API token is not configured')
+	}
+}
+
+function handleUploadError(
+	error: Error | unknown,
+	fileName: string | undefined,
+	isGallery = false
+): void {
+	const prefix = isGallery ? 'gallery ' : ''
+	const name = fileName || 'unknown'
+	Logger.error(
+		'StrapiUploader',
+		`Error uploading ${prefix}image: ${name}`,
+		error
+	)
+	const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+	new Notice(`Error uploading ${prefix}image: ${name}. ${errorMessage}`)
+}
+
+async function saveMetadataToFile(
+	data: any,
+	folderPath: string,
+	app: App
+): Promise<void> {
+	Logger.debug('StrapiUploader', '277. Saving metadata to file')
+	const metadataFile = `${folderPath}/metadata.json`
+	await app.vault.adapter.write(metadataFile, JSON.stringify(data, null, 2))
+}
+
+function createImageDescription(
+	uploadResult: UploadResponse,
+	fileName: string,
+	metadata?: { alternativeText?: string; caption?: string }
+): ImageDescription {
+	return {
+		url: uploadResult.url,
+		name: fileName,
+		path: uploadResult.url,
+		id: uploadResult.id,
+		description: {
+			name: uploadResult.name,
+			alternativeText:
+				uploadResult.alternativeText || metadata?.alternativeText || '',
+			caption: uploadResult.caption || metadata?.caption || '',
+		},
+	}
+}
+
+function processGalleryUploadResult(
+	originalImage: ImageDescription,
+	uploadResult: UploadResponse
+): ImageDescription {
+	return {
+		...originalImage,
+		path: uploadResult.url,
+		id: uploadResult.id,
+		description: {
+			name: uploadResult.name,
+			alternativeText: uploadResult.alternativeText || '',
+			caption: uploadResult.caption || '',
+		},
+	}
+}
+
+export async function prepareImageDescriptionFormData(
+	imageDescription: ImageDescription
+): Promise<FormData> {
+	Logger.debug('StrapiUploader', 'Preparing image description form data')
+	const formData = new FormData()
+
+	if (imageDescription?.blob) {
+		formData.append(
+			'files',
+			imageDescription.blob,
+			imageDescription.name || 'image'
+		)
+	}
+
+	const fileInfo = {
+		name:
+			imageDescription?.description?.name || imageDescription.name || 'image',
+		alternativeText: imageDescription?.description?.alternativeText || '',
+		caption: imageDescription.description?.caption || '',
+	}
+
+	formData.append('fileInfo', JSON.stringify(fileInfo))
+	return formData
+}
+
+async function saveGalleryMetadata(
+	uploadedImages: ImageDescription[],
+	galleryFolderPath: string,
+	app: App
+): Promise<void> {
+	Logger.debug('StrapiUploader', 'Saving gallery metadata')
+	const metadataFile = `${galleryFolderPath}/metadata.json`
+	try {
+		await app.vault.adapter.write(
+			metadataFile,
+			JSON.stringify(uploadedImages, null, 2)
+		)
+		Logger.debug('StrapiUploader', 'Gallery metadata saved successfully')
 	} catch (error) {
-		console.error('52. Error in uploadImageToStrapi:', error)
-		new Notice(`Error uploading image: ${fileName}. Error: ${error.message}`)
+		Logger.error('StrapiUploader', 'Error saving gallery metadata', error)
+		throw new Error('Failed to save gallery metadata')
 	}
-
-	return null
 }
-
-export async function uploadImagesToStrapi(
-	imageDescriptions: ImageDescription[],
-	settings: StrapiExporterSettings,
-	app: any = null,
-	imageFolderPath: string = ''
-): Promise<{ [key: string]: { url: string; data: any; id: number } }> {
-	console.log('53. Starting uploadImagesToStrapi')
-	const uploadedImages: {
-		[key: string]: { url: string; data: any; id: number }
-	} = {}
-
-	for (const imageDescription of imageDescriptions) {
-		const formData = new FormData()
-		if (imageDescription?.blob) {
-			formData.append('files', imageDescription?.blob, imageDescription.name)
-		}
-		formData.append(
-			'fileInfo',
-			JSON.stringify({
-				name: imageDescription?.description?.name,
-				alternativeText: imageDescription?.description?.alternativeText,
-				caption: imageDescription.description?.caption,
-			})
-		)
-
-		try {
-			console.log(`54. Uploading image: ${imageDescription.name}`)
-			const response = await fetch(`${settings.strapiUrl}/api/upload`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${settings.strapiApiToken}`,
-				},
-				body: formData,
-			})
-
-			if (response.ok) {
-				const data = await response.json()
-				console.log(
-					`55. Upload successful for ${imageDescription.name}:`,
-					data[0].url
-				)
-				uploadedImages[imageDescription?.name || 0] = {
-					url: data[0].url,
-					data: data[0],
-					id: data[0].id,
-				}
-			} else {
-				const errorData = await response.json()
-				console.error(
-					`56. Failed to upload image: ${imageDescription.name}. Error:`,
-					errorData.error.message
-				)
-				new Notice(
-					`Failed to upload image: ${imageDescription.name}. Error: ${errorData.error.message}`
-				)
-			}
-		} catch (error) {
-			console.error(
-				`57. Error uploading image: ${imageDescription.name}. Error:`,
-				error.message
-			)
-			new Notice(
-				`Error uploading image: ${imageDescription.name}. Error: ${error.message}`
-			)
-		}
-	}
-
-	if (imageFolderPath && app) {
-		if (Object.keys(uploadedImages).length > 0) {
-			console.log('58. Saving metadata to file')
-			const metadataFile = `${imageFolderPath}/metadata.json`
-			await app.vault.adapter.write(
-				metadataFile,
-				JSON.stringify(uploadedImages)
-			)
-		}
-	}
-	return uploadedImages
-}
-
-export async function uploadGalleryImagesToStrapi(
-	imageDescriptions: ImageDescription[],
-	settings: StrapiExporterSettings,
-	app: any = null,
-	galleryFolderPath: string = ''
-): Promise<ImageDescription[]> {
-	console.log('59. Starting uploadGalleryImagesToStrapi')
-	const uploadedImages: ImageDescription[] = []
-
-	for (const imageDescription of imageDescriptions) {
-		const formData = new FormData()
-		if (imageDescription.blob) {
-			formData.append('files', imageDescription.blob, imageDescription.name)
-		}
-		formData.append(
-			'fileInfo',
-			JSON.stringify({
-				name: imageDescription?.description?.name,
-				alternativeText: imageDescription?.description?.alternativeText,
-				caption: imageDescription?.description?.caption,
-			})
-		)
-
-		try {
-			console.log(`60. Uploading gallery image: ${imageDescription.name}`)
-			const response = await fetch(`${settings.strapiUrl}/api/upload`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${settings.strapiApiToken}`,
-				},
-				body: formData,
-			})
-
-			if (response.ok) {
-				const data = await response.json()
-				console.log(
-					`61. Gallery image upload successful for ${imageDescription.name}:`,
-					data[0].url
-				)
-				uploadedImages.push({
-					...imageDescription,
-					path: data[0].url,
-					id: data[0].id,
-					description: {
-						name: data[0].name,
-						alternativeText: data[0].alternativeText,
-						caption: data[0].caption,
-					},
-				})
-			} else {
-				const errorData = await response.json()
-				console.error(
-					`62. Failed to upload gallery image: ${imageDescription.name}. Error:`,
-					errorData.error.message
-				)
-				new Notice(
-					`Failed to upload gallery image: ${imageDescription.name}. Error: ${errorData.error.message}`
-				)
-			}
-		} catch (error) {
-			console.error(
-				`63. Error uploading gallery image: ${imageDescription.name}. Error:`,
-				error.message
-			)
-			new Notice(
-				`Error uploading gallery image: ${imageDescription.name}. Error: ${error.message}`
-			)
-		}
-	}
-
-	if (galleryFolderPath && app) {
-		if (uploadedImages.length > 0) {
-			console.log('64. Saving gallery metadata to file')
-			const metadataFile = `${galleryFolderPath}/metadata.json`
-			await app.vault.adapter.write(
-				metadataFile,
-				JSON.stringify(uploadedImages)
-			)
-		}
-	}
-
-	return uploadedImages
-}
-
-// todo :
-// https://claude.ai/chat/ad37c90d-1b7e-4f18-b39b-21a33126d38d
-// gallery field doesnt work

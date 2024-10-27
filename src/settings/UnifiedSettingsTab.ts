@@ -1,109 +1,252 @@
-// src/settings/UnifiedSettingsTab.ts
-import { App, PluginSettingTab } from 'obsidian'
+import { App, PluginSettingTab, Notice } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { Dashboard } from '../components/Dashboard'
 import { Configuration } from '../components/Configuration'
 import { APIKeys } from '../components/APIKeys'
 import { Routes } from '../components/Routes'
+import { Logger } from '../utils/logger'
+
+interface TabDefinition {
+	id: string
+	name: string
+	icon?: string
+	description?: string
+	component?: any
+}
 
 export class UnifiedSettingsTab extends PluginSettingTab {
 	plugin: StrapiExporterPlugin
-	private dashboard: Dashboard
-	private configuration: Configuration
-	private apiKeys: APIKeys
-	private routes: Routes
+	private components: {
+		dashboard?: Dashboard
+		configuration?: Configuration
+		apiKeys?: APIKeys
+		routes?: Routes
+	} = {}
 	private contentContainer: HTMLElement
+
+	private readonly tabs: TabDefinition[] = [
+		{
+			id: 'dashboard',
+			name: 'Dashboard',
+			icon: 'gauge',
+			description: 'Overview and status',
+		},
+		{
+			id: 'configuration',
+			name: 'Configuration',
+			icon: 'settings',
+			description: 'Configure export settings',
+		},
+		{
+			id: 'apiKeys',
+			name: 'API Keys',
+			icon: 'key',
+			description: 'Manage API credentials',
+		},
+		{
+			id: 'routes',
+			name: 'Routes',
+			icon: 'git-branch',
+			description: 'Configure export routes',
+		},
+	]
 
 	constructor(app: App, plugin: StrapiExporterPlugin) {
 		super(app, plugin)
 		this.plugin = plugin
-		console.log('UnifiedSettingsTab constructed')
+		Logger.info('Settings', '451. UnifiedSettingsTab constructed')
 	}
 
 	display(): void {
-		console.log('UnifiedSettingsTab display called')
-		const { containerEl } = this
-		containerEl.empty()
+		Logger.info('Settings', '452. Displaying settings tab')
+		try {
+			const { containerEl } = this
+			containerEl.empty()
 
-		this.createTabButtons(containerEl)
+			this.createHeader()
+			this.createTabNavigation()
+			this.createContentContainer()
+			this.updateContent()
 
-		this.contentContainer = containerEl.createDiv('strapi-exporter-content')
-		this.updateContent()
+			Logger.info('Settings', '453. Settings tab displayed successfully')
+		} catch (error) {
+			Logger.error('Settings', '454. Error displaying settings tab', error)
+			this.showError('Failed to display settings')
+		}
 	}
 
-	createTabButtons(containerEl: HTMLElement): void {
-		console.log('Creating tab buttons')
-		const tabsContainer = containerEl.createDiv('strapi-exporter-nav')
+	private createHeader(): void {
+		Logger.debug('Settings', '455. Creating settings header')
+		const headerEl = this.containerEl.createDiv('settings-header')
 
-		const createTabButton = (id: string, name: string) => {
-			console.log(`Creating button for ${id}`)
-			const btn = tabsContainer.createEl('button', {
-				text: name,
-				cls: 'strapi-exporter-nav-button',
+		headerEl.createEl('h1', {
+			text: 'Strapi Exporter Settings',
+			cls: 'settings-title',
+		})
+
+		headerEl.createEl('p', {
+			text: 'Configure your Strapi export settings and manage your integrations.',
+			cls: 'settings-description',
+		})
+	}
+
+	private createTabNavigation(): void {
+		Logger.debug('Settings', '456. Creating tab navigation')
+
+		const navContainer = this.containerEl.createDiv('strapi-exporter-nav')
+
+		this.tabs.forEach(tab => {
+			this.createTabButton(navContainer, tab)
+		})
+	}
+
+	private createTabButton(container: HTMLElement, tab: TabDefinition): void {
+		Logger.debug('Settings', `457. Creating button for tab: ${tab.id}`)
+
+		const button = container.createEl('button', {
+			cls: 'strapi-exporter-nav-button',
+		})
+
+		// Icon if provided
+		if (tab.icon) {
+			button.createSpan({
+				cls: `nav-icon ${tab.icon}`,
+				attr: { 'aria-hidden': 'true' },
 			})
-
-			btn.addEventListener('click', () => {
-				console.log(`${id} button clicked`)
-				this.plugin.settings.currentTab = id
-				this.updateContent()
-				this.updateActiveButton(tabsContainer, btn)
-			})
-
-			if (this.plugin.settings.currentTab === id) {
-				btn.addClass('is-active')
-			}
 		}
 
-		createTabButton('dashboard', 'Dashboard')
-		createTabButton('configuration', 'Configuration')
-		createTabButton('apiKeys', 'API Keys')
-		createTabButton('routes', 'Routes')
+		// Button text
+		button.createSpan({
+			text: tab.name,
+			cls: 'nav-text',
+		})
+
+		// Add tooltip with description
+		if (tab.description) {
+			button.setAttribute('aria-label', tab.description)
+			button.setAttribute('title', tab.description)
+		}
+
+		// Set active state
+		if (this.plugin.settings.currentTab === tab.id) {
+			button.addClass('is-active')
+		}
+
+		// Add click handler
+		button.addEventListener('click', () => {
+			this.handleTabChange(tab.id, container, button)
+		})
 	}
 
-	updateActiveButton(
-		tabsContainer: HTMLElement,
+	private createContentContainer(): void {
+		Logger.debug('Settings', '458. Creating content container')
+		this.contentContainer = this.containerEl.createDiv(
+			'strapi-exporter-content'
+		)
+	}
+
+	private handleTabChange(
+		tabId: string,
+		container: HTMLElement,
+		button: HTMLElement
+	): void {
+		Logger.info('Settings', `459. Handling tab change to: ${tabId}`)
+
+		try {
+			this.plugin.settings.currentTab = tabId
+			this.updateActiveButton(container, button)
+			this.updateContent()
+
+			Logger.debug('Settings', '460. Tab change handled successfully')
+		} catch (error) {
+			Logger.error(
+				'Settings',
+				`461. Error handling tab change to ${tabId}`,
+				error
+			)
+			this.showError('Failed to change tab')
+		}
+	}
+
+	private updateActiveButton(
+		container: HTMLElement,
 		activeButton: HTMLElement
 	): void {
-		tabsContainer.findAll('.strapi-exporter-nav-button').forEach(btn => {
+		Logger.debug('Settings', '462. Updating active button state')
+
+		container.findAll('.strapi-exporter-nav-button').forEach(btn => {
 			btn.removeClass('is-active')
 		})
 		activeButton.addClass('is-active')
 	}
 
-	updateContent(): void {
-		console.log(`Updating content for tab: ${this.plugin.settings.currentTab}`)
-		this.contentContainer.empty()
+	private updateContent(): void {
+		Logger.info(
+			'Settings',
+			`463. Updating content for tab: ${this.plugin.settings.currentTab}`
+		)
 
-		switch (this.plugin.settings.currentTab) {
-			case 'dashboard':
-				if (!this.dashboard) {
-					this.dashboard = new Dashboard(this.plugin, this.contentContainer)
-				}
-				this.dashboard.display()
-				break
-			case 'configuration':
-				if (!this.configuration) {
-					this.configuration = new Configuration(
+		try {
+			this.contentContainer.empty()
+			const currentTab = this.plugin.settings.currentTab
+
+			if (!this.components[currentTab]) {
+				this.initializeComponent(currentTab)
+			}
+
+			this.components[currentTab]?.display()
+			Logger.debug('Settings', '464. Content updated successfully')
+		} catch (error) {
+			Logger.error('Settings', '465. Error updating content', error)
+			this.showError('Failed to update content')
+		}
+	}
+
+	private initializeComponent(tabId: string): void {
+		Logger.debug('Settings', `466. Initializing component for: ${tabId}`)
+
+		try {
+			switch (tabId) {
+				case 'dashboard':
+					this.components.dashboard = new Dashboard(
 						this.plugin,
 						this.contentContainer
 					)
-				}
-				this.configuration.display()
-				break
-			case 'apiKeys':
-				if (!this.apiKeys) {
-					this.apiKeys = new APIKeys(this.plugin, this.contentContainer)
-				}
-				this.apiKeys.display()
-				break
-			case 'routes':
-				if (!this.routes) {
-					this.routes = new Routes(this.plugin, this.contentContainer)
-				}
-				this.routes.display()
-				break
-			default:
-				console.error(`Unknown tab: ${this.plugin.settings.currentTab}`)
+					break
+				case 'configuration':
+					this.components.configuration = new Configuration(
+						this.plugin,
+						this.contentContainer
+					)
+					break
+				case 'apiKeys':
+					this.components.apiKeys = new APIKeys(
+						this.plugin,
+						this.contentContainer
+					)
+					break
+				case 'routes':
+					this.components.routes = new Routes(
+						this.plugin,
+						this.contentContainer
+					)
+					break
+				default:
+					Logger.error('Settings', `467. Unknown tab: ${tabId}`)
+					throw new Error(`Unknown tab: ${tabId}`)
+			}
+		} catch (error) {
+			Logger.error(
+				'Settings',
+				`468. Error initializing component for ${tabId}`,
+				error
+			)
+			throw error
 		}
+	}
+
+	private showError(message: string): void {
+		Logger.error('Settings', '469. Showing error message', { message })
+		new Notice(`Settings Error: ${message}`)
 	}
 }

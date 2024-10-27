@@ -1,331 +1,284 @@
-import { App, MarkdownView, Notice, TFile } from 'obsidian'
-import { StrapiExporterSettings, RouteConfig } from '../types/settings'
-import { processFrontMatter } from './frontmatter'
-import { processInlineImages } from './process-images'
-import * as yaml from 'js-yaml'
+import { App, TFile } from 'obsidian'
+import {
+	ImageDescription,
+	ImageProcessingResult,
+	StrapiExporterSettings,
+} from '../types'
+import { Logger } from './logger'
 import { uploadImageToStrapi } from './strapi-uploader'
-import { extractFrontMatter } from './frontmatter-generator'
-import { FieldConfig } from './config-analyzer'
-import { ImageFieldsModal } from './ImageFieldsModal' // Adjust the path as needed
 
-// Main function to process markdown content
-export async function processMarkdownContent(
+/**
+ * Process images in markdown content and handle uploads to Strapi
+ */
+export async function processImages(
 	app: App,
 	settings: StrapiExporterSettings,
-	routeId: string
-): Promise<Record<string, any> | null> {
-	console.log('--- Step 1: Initializing and validating inputs ---')
+	content: string
+): Promise<ImageProcessingResult> {
+	Logger.info('ImageProcessor', '167. Starting image processing')
+	Logger.debug('ImageProcessor', '168. Initial content length', {
+		length: content.length,
+	})
 
-	const file = validateAndGetFile(app)
-	if (!file) return null
+	try {
+		const imageRefs = extractImageReferences(content)
+		Logger.info(
+			'ImageProcessor',
+			`169. Found ${imageRefs.length} image references`
+		)
 
-	const { content, frontMatter } = await processFileContent(
-		file,
-		app,
-		settings,
-		routeId
-	)
+		const processedImages = await processImageReferences(
+			app,
+			settings,
+			imageRefs
+		)
+		const updatedContent = updateImageReferences(content, processedImages)
 
-	const currentRoute = getCurrentRoute(settings, routeId)
-	if (!currentRoute) return null
-
-	const parsedFrontMatter = parseFrontMatter(frontMatter)
-	const generatedConfig = parseGeneratedConfig(currentRoute)
-
-	const finalContent = await processFields(
-		content,
-		parsedFrontMatter,
-		generatedConfig,
-		app,
-		settings
-	)
-
-	await updateFileContent(file, app, frontMatter, content)
-
-	console.log('--- Final content prepared ---')
-	console.log(JSON.stringify(finalContent, null, 2))
-
-	return finalContent
+		Logger.info('ImageProcessor', '170. Image processing completed')
+		return {
+			content: updatedContent,
+			processedImages,
+		}
+	} catch (error) {
+		Logger.error('ImageProcessor', '171. Error during image processing', error)
+		throw new Error(`Image processing failed: ${error.message}`)
+	}
 }
 
-// Update these functions
-function validateAndGetFile(app: App): TFile | null {
-	const activeView = app.workspace.getActiveViewOfType(MarkdownView)
-	if (!activeView) {
-		console.error('No active Markdown view')
-		return null
-	}
-
-	const file = activeView.file
-	if (!file) {
-		console.error('No file found in active view')
-		return null
-	}
-
-	console.log('Processing file:', file.path)
-	return file
+interface ImageReference {
+	fullMatch: string
+	path: string
+	altText: string
+	type: 'wikilink' | 'markdown'
 }
 
-// Process file content and handle front matter
-async function processFileContent(
-	file: TFile,
+/**
+ * Extract image references from content
+ */
+function extractImageReferences(content: string): ImageReference[] {
+	Logger.debug('ImageProcessor', '172. Extracting image references')
+	const references: ImageReference[] = []
+
+	try {
+		// Wiki-style image links (![[image.png]])
+		const wikiLinkRegex = /!\[\[([^\]]+\.(png|jpe?g|gif|svg|bmp|webp))\]\]/gi
+		let match
+
+		while ((match = wikiLinkRegex.exec(content)) !== null) {
+			Logger.debug('ImageProcessor', `173. Found wiki-style image: ${match[1]}`)
+			references.push({
+				fullMatch: match[0],
+				path: match[1],
+				altText: '',
+				type: 'wikilink',
+			})
+		}
+
+		// Markdown-style image links (![alt](path.png))
+		const markdownLinkRegex =
+			/!\[([^\]]*)\]\(([^)]+\.(png|jpe?g|gif|svg|bmp|webp))\)/gi
+		while ((match = markdownLinkRegex.exec(content)) !== null) {
+			Logger.debug(
+				'ImageProcessor',
+				`174. Found markdown-style image: ${match[2]}`
+			)
+			references.push({
+				fullMatch: match[0],
+				path: match[2],
+				altText: match[1],
+				type: 'markdown',
+			})
+		}
+
+		Logger.info(
+			'ImageProcessor',
+			`175. Extracted ${references.length} image references`
+		)
+		return references
+	} catch (error) {
+		Logger.error(
+			'ImageProcessor',
+			'176. Error extracting image references',
+			error
+		)
+		throw new Error(`Failed to extract image references: ${error.message}`)
+	}
+}
+
+/**
+ * Process image references and upload to Strapi
+ */
+async function processImageReferences(
 	app: App,
 	settings: StrapiExporterSettings,
-	routeId: string
-): Promise<{ content: string; frontMatter: string }> {
-	let content = await app.vault.read(file)
-	console.log('Initial file content length:', content.length)
+	references: ImageReference[]
+): Promise<ImageDescription[]> {
+	Logger.info('ImageProcessor', '177. Processing image references')
+	const processedImages: ImageDescription[] = []
 
-	let frontMatter = ''
-	if (!extractFrontMatter(content)) {
-		console.log('No front matter found, generating one...')
-		const result = await processFrontMatter(file, app, settings, routeId)
-		if (result) {
-			frontMatter = result.frontMatter
-			const imageFields = result.imageFields
+	for (const ref of references) {
+		Logger.debug('ImageProcessor', `178. Processing image: ${ref.path}`)
 
-			if (imageFields.length > 0) {
-				frontMatter = await handleImageFields(
-					app,
-					imageFields,
-					frontMatter,
-					settings
+		try {
+			if (isExternalUrl(ref.path)) {
+				Logger.debug(
+					'ImageProcessor',
+					`179. Skipping external image: ${ref.path}`
 				)
+				processedImages.push({
+					url: ref.path,
+					name: ref.path,
+					path: ref.path,
+					description: {
+						name: ref.path,
+						alternativeText: ref.altText,
+						caption: ref.altText,
+					},
+				})
+				continue
 			}
 
-			content = `${frontMatter}\n\n${content}`
-			await app.vault.modify(file, content)
-		} else {
-			console.error('Failed to generate front matter')
-			throw new Error('Failed to generate front matter')
-		}
-	}
+			const file = app.vault.getAbstractFileByPath(ref.path)
+			if (!(file instanceof TFile)) {
+				Logger.warn('ImageProcessor', `180. File not found: ${ref.path}`)
+				continue
+			}
 
-	const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
-	if (frontMatterMatch) {
-		frontMatter = frontMatterMatch[1]
-		content = frontMatterMatch[2].trim()
-	}
-
-	console.log('Content length after removing front matter:', content.length)
-
-	// Process inline images in the main content
-	const { updatedContent } = await processInlineImages(app, settings, content)
-	content = updatedContent
-
-	console.log('Updated content length:', content.length)
-
-	return { content, frontMatter }
-}
-
-// Handle image fields in front matter
-async function handleImageFields(
-	app: App,
-	imageFields: string[],
-	frontMatter: string,
-	settings: StrapiExporterSettings
-): Promise<string> {
-	return new Promise<string>(resolve => {
-		new ImageFieldsModal(
-			app,
-			imageFields,
-			imageValues => {
-				Object.entries(imageValues).forEach(([field, value]) => {
-					if (value) {
-						frontMatter = frontMatter.replace(
-							`${field}: ""`,
-							`${field}: "${value}"`
-						)
-					}
-				})
-				resolve(frontMatter)
-			},
-			settings
-		).open()
-	})
-}
-
-// Get the current route configuration
-function getCurrentRoute(
-	settings: StrapiExporterSettings,
-	routeId: string
-): RouteConfig | null {
-	const currentRoute = settings.routes.find(route => route.id === routeId)
-	if (!currentRoute) {
-		console.error('Route not found')
-		new Notice('Route configuration not found')
-		return null
-	}
-	return currentRoute
-}
-
-// Parse front matter
-function parseFrontMatter(frontMatter: string): Record<string, any> {
-	return frontMatter ? (yaml.load(frontMatter) as Record<string, any>) : {}
-}
-
-// Parse generated configuration
-function parseGeneratedConfig(currentRoute: RouteConfig): {
-	fieldMappings: Record<string, FieldConfig>
-	contentField: string
-} {
-	return JSON.parse(currentRoute.generatedConfig) as {
-		fieldMappings: Record<string, FieldConfig>
-		contentField: string
-	}
-}
-
-// Process fields according to the generated configuration
-async function processFields(
-	content: string,
-	parsedFrontMatter: Record<string, any>,
-	generatedConfig: {
-		fieldMappings: Record<string, FieldConfig>
-		contentField: string
-	},
-	app: App,
-	settings: StrapiExporterSettings
-): Promise<Record<string, any>> {
-	const finalContent: Record<string, any> = {}
-
-	for (const [field, fieldConfig] of Object.entries(
-		generatedConfig.fieldMappings
-	)) {
-		let value =
-			fieldConfig.obsidianField === 'content'
-				? content
-				: parsedFrontMatter[fieldConfig.obsidianField.split('.')[1]]
-
-		value = await processFieldValue(value, fieldConfig, app, settings)
-		value = applyTransformation(value, fieldConfig)
-		finalContent[field] = handleFieldType(value, fieldConfig.type)
-	}
-
-	// Handle the main content field
-	const contentField = generatedConfig.contentField
-	if (contentField && !finalContent[contentField]) {
-		finalContent[contentField] = content
-	}
-
-	return finalContent
-}
-
-// Process field value (handle images)
-async function processFieldValue(
-	value: any,
-	fieldConfig: FieldConfig,
-	app: App,
-	settings: StrapiExporterSettings
-): Promise<any> {
-	if (fieldConfig.type === 'string' && fieldConfig.format === 'url') {
-		return processImageField(value, app, settings)
-	} else if (
-		fieldConfig.type === 'array' &&
-		fieldConfig.obsidianField === 'galery'
-	) {
-		return processImageField(value, app, settings)
-	}
-	return value
-}
-
-// Apply transformation to field value
-function applyTransformation(value: any, fieldConfig: FieldConfig): any {
-	if (fieldConfig.transformation && fieldConfig.transformation !== 'value') {
-		try {
-			const transformFunc = new Function(
-				'value',
-				`return ${fieldConfig.transformation}`
+			const uploadResult = await uploadImageToStrapi(
+				file,
+				file.name,
+				settings,
+				app,
+				{
+					alternativeText: ref.altText || file.basename,
+					caption: ref.altText || file.basename,
+				}
 			)
-			return transformFunc(value)
+
+			if (uploadResult) {
+				Logger.debug(
+					'ImageProcessor',
+					`181. Image uploaded successfully: ${ref.path}`
+				)
+				processedImages.push(uploadResult)
+			} else {
+				Logger.warn('ImageProcessor', `182. Upload failed for: ${ref.path}`)
+			}
 		} catch (error) {
-			console.error(
-				`Error applying transformation for ${fieldConfig.obsidianField}:`,
+			Logger.error(
+				'ImageProcessor',
+				`183. Error processing image: ${ref.path}`,
 				error
 			)
-			return value // Use the original value if transformation fails
+			throw new Error(`Failed to process image ${ref.path}: ${error.message}`)
 		}
 	}
-	return value
+
+	Logger.info(
+		'ImageProcessor',
+		`184. Processed ${processedImages.length} images`
+	)
+	return processedImages
 }
 
-// Handle different field types
-function handleFieldType(value: any, type: string): any {
-	switch (type) {
-		case 'string':
-			return String(value || '')
-		case 'number':
-			return Number(value || 0)
-		case 'array':
-			return Array.isArray(value) ? value : value ? [value] : []
-		case 'object':
-			return typeof value === 'object' ? value : {}
-		default:
-			return value
-	}
-}
-
-// Update file content
-async function updateFileContent(
-	file: TFile,
-	app: App,
-	frontMatter: string,
-	content: string
-): Promise<void> {
-	const updatedContent = `---\n${frontMatter}\n---\n\n${content}`
-	await app.vault.modify(file, updatedContent)
-}
-
-// Process image field
-async function processImageField(
-	value: any,
-	app: App,
-	settings: StrapiExporterSettings
-): Promise<any> {
-	if (typeof value === 'string') {
-		if (value.startsWith('![[') && value.endsWith(']]')) {
-			const imagePath = value.slice(3, -2)
-			const file = app.vault.getAbstractFileByPath(imagePath)
-			if (file instanceof TFile) {
-				const uploadedImage = await uploadImageToStrapi(
-					file.path,
-					file.name,
-					settings,
-					app
-				)
-				return uploadedImage ? uploadedImage.url : value
-			} else {
-				console.error(`File not found: ${imagePath}`)
-				return value
-			}
-		} else if (value.startsWith('http')) {
-			return value // Keep external URLs as they are
-		}
-	} else if (Array.isArray(value)) {
-		return Promise.all(
-			value.map(item => processImageField(item, app, settings))
-		)
-	}
-	return value
-}
-
-// Transform image links in content (currently unused)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function transformImageLinks(
+/**
+ * Update image references in content with uploaded URLs
+ */
+function updateImageReferences(
 	content: string,
-	strapiUploader: (path: string) => Promise<string>
-): Promise<string> {
-	const imageRegex = /!\[.*?\]\((.*?)\)/g
-	let match
-	let transformedContent = content
+	processedImages: ImageDescription[]
+): string {
+	Logger.info('ImageProcessor', '185. Updating image references in content')
 
-	while ((match = imageRegex.exec(content)) !== null) {
-		const [fullMatch, imagePath] = match
-		const strapiUrl = await strapiUploader(imagePath)
-		transformedContent = transformedContent.replace(
-			fullMatch,
-			`![](${strapiUrl})`
+	try {
+		let updatedContent = content
+		for (const image of processedImages) {
+			if (image.url) {
+				Logger.debug(
+					'ImageProcessor',
+					`186. Replacing reference for image: ${image.name}`
+				)
+				const imageRegex = new RegExp(
+					`!\\[([^\\]]*)\\]\\(${image.path}\\)|!\\[\\[${image.path}\\]\\]`,
+					'g'
+				)
+				updatedContent = updatedContent.replace(
+					imageRegex,
+					`![${image.description?.alternativeText || ''}](${image.url})`
+				)
+			}
+		}
+
+		Logger.info('ImageProcessor', '187. Image references updated successfully')
+		return updatedContent
+	} catch (error) {
+		Logger.error(
+			'ImageProcessor',
+			'188. Error updating image references',
+			error
 		)
+		throw new Error(`Failed to update image references: ${error.message}`)
 	}
+}
 
-	return transformedContent
+/**
+ * Check if a path is an external URL
+ */
+function isExternalUrl(path: string): boolean {
+	Logger.debug('ImageProcessor', `189. Checking if path is external: ${path}`)
+	return path.startsWith('http://') || path.startsWith('https://')
+}
+
+/**
+ * Process and optimize an individual image
+ */
+export async function processIndividualImage(
+	app: App,
+	settings: StrapiExporterSettings,
+	imagePath: string,
+	altText?: string
+): Promise<string | null> {
+	Logger.info(
+		'ImageProcessor',
+		`190. Processing individual image: ${imagePath}`
+	)
+
+	try {
+		if (isExternalUrl(imagePath)) {
+			Logger.debug('ImageProcessor', '191. Returning external URL as-is')
+			return imagePath
+		}
+
+		const file = app.vault.getAbstractFileByPath(imagePath)
+		if (!(file instanceof TFile)) {
+			Logger.error('ImageProcessor', `192. File not found: ${imagePath}`)
+			return null
+		}
+
+		const uploadResult = await uploadImageToStrapi(
+			file,
+			file.name,
+			settings,
+			app,
+			{
+				alternativeText: altText || file.basename,
+				caption: altText || file.basename,
+			}
+		)
+
+		if (uploadResult?.url) {
+			Logger.info('ImageProcessor', '193. Image processed successfully')
+			return uploadResult.url
+		}
+
+		Logger.warn('ImageProcessor', '194. Image processing failed')
+		return null
+	} catch (error) {
+		Logger.error(
+			'ImageProcessor',
+			'195. Error processing individual image',
+			error
+		)
+		return null
+	}
 }
