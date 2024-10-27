@@ -1,38 +1,194 @@
-import { Setting, Notice } from 'obsidian'
+import { Setting, Notice, TextComponent } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { Logger } from '../utils/logger'
 
+/**
+ * Represents a field validator for API keys
+ */
 interface APIKeyValidator {
 	validate: (key: string) => boolean
 	pattern: RegExp
 	message: string
 }
 
-export class APIKeys {
-	private plugin: StrapiExporterPlugin
-	private containerEl: HTMLElement
-	private validators: Record<string, APIKeyValidator> = {
-		strapiUrl: {
-			validate: (url: string) => /^https?:\/\/.+/.test(url),
-			pattern: /^https?:\/\/.+/,
-			message: 'Must be a valid URL starting with http:// or https://',
-		},
-		strapiApiToken: {
-			validate: (token: string) => token.length >= 32,
-			pattern: /.{32,}/,
-			message: 'Must be at least 32 characters long',
-		},
-		openaiApiKey: {
-			validate: (key: string) => /^sk-[A-Za-z0-9]{32,}$/.test(key),
-			pattern: /^sk-[A-Za-z0-9]{32,}$/,
-			message: 'Must start with "sk-" followed by at least 32 characters',
-		},
+/**
+ * Component for handling API key input fields with validation
+ */
+class APIKeyField {
+	private setting: Setting
+	private textComponent: TextComponent
+	private validationEl: HTMLElement
+
+	constructor(
+		containerEl: HTMLElement,
+		private options: {
+			name: string
+			desc: string
+			placeholder: string
+			value: string
+			settingKey: string
+			type: 'text' | 'password' | 'url'
+			onChange: (value: string) => Promise<void>
+			validator?: APIKeyValidator
+		}
+	) {
+		Logger.debug('APIKeyField', `Creating field: ${options.name}`)
+		this.createField(containerEl)
 	}
 
-	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
-		Logger.debug('APIKeys', '278. Initializing API Keys component')
-		this.plugin = plugin
-		this.containerEl = containerEl
+	/**
+	 * Creates the input field with validation
+	 */
+	private createField(containerEl: HTMLElement): void {
+		Logger.debug('APIKeyField', 'Setting up field elements')
+
+		// Create main setting component
+		this.setting = new Setting(containerEl)
+			.setName(this.options.name)
+			.setDesc(this.options.desc)
+
+		// Add text input
+		this.setting.addText(text => {
+			this.textComponent = text
+			this.setupTextComponent(text)
+			return text
+		})
+
+		// Create validation message element
+		this.setupValidation()
+	}
+
+	/**
+	 * Sets up the text component with its properties and event handlers
+	 */
+	private setupTextComponent(text: TextComponent): void {
+		text
+			.setPlaceholder(this.options.placeholder)
+			.setValue(this.options.value)
+			.onChange(async newValue => {
+				try {
+					await this.options.onChange(newValue)
+					Logger.debug('APIKeyField', `Value updated for: ${this.options.name}`)
+				} catch (error) {
+					Logger.error(
+						'APIKeyField',
+						`Update failed for: ${this.options.name}`,
+						error
+					)
+					new Notice(`Failed to update ${this.options.name}: ${error.message}`)
+				}
+			})
+
+		// Handle password type fields
+		if (this.options.type === 'password') {
+			text.inputEl.type = 'password'
+			text.inputEl.addClass('api-key-input')
+		}
+
+		// Add blur event for validation
+		text.inputEl.addEventListener('blur', () => this.validate())
+	}
+
+	/**
+	 * Sets up the validation message element
+	 */
+	private setupValidation(): void {
+		this.validationEl = this.setting.settingEl.createDiv('validation-message')
+		this.validationEl.hide()
+	}
+
+	/**
+	 * Validates the current field value
+	 * @returns boolean indicating if the value is valid
+	 */
+	public validate(): boolean {
+		const value = this.getValue()
+		Logger.debug('APIKeyField', `Validating field: ${this.options.name}`)
+
+		if (!this.options.validator) {
+			return true
+		}
+
+		const isValid = this.options.validator.validate(value)
+		this.updateValidationUI(isValid)
+
+		return isValid
+	}
+
+	/**
+	 * Updates the validation UI elements based on validation result
+	 */
+	private updateValidationUI(isValid: boolean): void {
+		if (isValid) {
+			this.validationEl.hide()
+			this.validationEl.empty()
+		} else {
+			this.validationEl.show()
+			this.validationEl.setText(this.options.validator?.message || '')
+			this.validationEl.toggleClass('invalid', true)
+		}
+	}
+
+	/**
+	 * Gets the current value of the field
+	 */
+	public getValue(): string {
+		return this.textComponent.getValue()
+	}
+
+	/**
+	 * Sets the value of the field
+	 */
+	public setValue(value: string): void {
+		this.textComponent.setValue(value)
+		this.validate()
+	}
+
+	/**
+	 * Clears the field value
+	 */
+	public clear(): void {
+		this.setValue('')
+		this.validationEl.hide()
+	}
+}
+
+/**
+ * Class for managing API key settings in Obsidian
+ */
+export class APIKeys {
+	private keyFields: Map<string, APIKeyField> = new Map()
+	private readonly validators: Record<string, APIKeyValidator>
+
+	constructor(
+		private plugin: StrapiExporterPlugin,
+		private containerEl: HTMLElement
+	) {
+		Logger.debug('APIKeys', 'Initializing API Keys management')
+		this.validators = this.initializeValidators()
+	}
+
+	/**
+	 * Initializes field validators
+	 */
+	private initializeValidators(): Record<string, APIKeyValidator> {
+		return {
+			strapiUrl: {
+				validate: (url: string) => /^https?:\/\/.+/.test(url),
+				pattern: /^https?:\/\/.+/,
+				message: 'Must be a valid URL starting with http:// or https://',
+			},
+			strapiApiToken: {
+				validate: (token: string) => token.length >= 32,
+				pattern: /.{32,}/,
+				message: 'Must be at least 32 characters long',
+			},
+			openaiApiKey: {
+				validate: (key: string) => /^sk-[A-Za-z0-9]{32,}$/.test(key),
+				pattern: /^sk-[A-Za-z0-9]{32,}$/,
+				message: 'Must start with "sk-" followed by at least 32 characters',
+			},
+		}
 	}
 
 	display(): void {
@@ -129,7 +285,13 @@ export class APIKeys {
 
 		const setting = new Setting(this.containerEl).setName(name).setDesc(desc)
 
-		const inputEl = setting.addText(text => {
+		// Add validation message element first
+		const validationEl = setting.settingEl.createDiv('validation-message')
+		validationEl.style.display = 'none'
+
+		// Create text component
+		setting.addText(text => {
+			// Configure text component
 			text
 				.setPlaceholder(placeholder)
 				.setValue(value)
@@ -142,21 +304,18 @@ export class APIKeys {
 					}
 				})
 
+			// Handle password type
 			if (type === 'password') {
 				text.inputEl.type = 'password'
 				text.inputEl.classList.add('api-key-input')
 			}
 
+			// Add blur event listener directly
+			text.inputEl.addEventListener('blur', () => {
+				this.validateField(settingKey, text.getValue(), validationEl)
+			})
+
 			return text
-		})
-
-		// Add validation message element
-		const validationEl = setting.settingEl.createDiv('validation-message')
-		validationEl.style.display = 'none'
-
-		// Add validation on blur
-		inputEl.inputEl.addEventListener('blur', () => {
-			this.validateField(settingKey, inputEl.inputEl.value, validationEl)
 		})
 	}
 

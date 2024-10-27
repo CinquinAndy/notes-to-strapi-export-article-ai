@@ -218,9 +218,31 @@ export class Routes {
 	private async updateRouteField(
 		route: RouteConfig,
 		field: keyof RouteConfig,
-		value: string
+		value: string | boolean
 	): Promise<void> {
-		route[field] = value
+		if (field === 'enabled') {
+			route[field] = value as boolean
+		} else {
+			const stringFields: (keyof RouteConfig)[] = [
+				'id',
+				'name',
+				'icon',
+				'url',
+				'contentType',
+				'contentField',
+				'additionalInstructions',
+				'description',
+				'subtitle',
+				'schema',
+				'schemaDescription',
+				'language',
+			]
+
+			if (stringFields.includes(field)) {
+				;(route[field] as string) = value as string
+			}
+		}
+
 		await this.plugin.saveSettings()
 
 		if (field === 'icon' || field === 'enabled') {

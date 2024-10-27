@@ -1,6 +1,5 @@
 import {
 	App,
-	ButtonComponent,
 	DropdownComponent,
 	Modal,
 	Notice,
@@ -13,33 +12,25 @@ import StrapiExporterPlugin from '../main'
 import OpenAI from 'openai'
 import { uploadImageToStrapi } from '../utils/strapi-uploader'
 import { Logger } from '../utils/logger'
-
-interface RouteConfig {
-	id: string
-	name: string
-	schema: string
-	schemaDescription: string
-	language: string
-	contentField: string
-	fieldMappings: Record<string, any>
-	additionalInstructions?: string
-}
-
-interface ImageFieldConfig {
-	name: string
-	path: string
-}
+import { RouteConfig } from '../types'
 
 export class Configuration {
 	private plugin: StrapiExporterPlugin
 	private containerEl: HTMLElement
 	private components: {
-		schemaInput: TextAreaComponent
-		schemaDescriptionInput: TextAreaComponent
-		contentFieldInput: TextComponent
-		configOutput: TextAreaComponent
-		languageDropdown: DropdownComponent
-		routeSelector: DropdownComponent
+		schemaInput: TextAreaComponent | null
+		schemaDescriptionInput: TextAreaComponent | null
+		contentFieldInput: TextComponent | null
+		configOutput: TextAreaComponent | null
+		languageDropdown: DropdownComponent | null
+		routeSelector: DropdownComponent | null
+	} = {
+		schemaInput: null,
+		schemaDescriptionInput: null,
+		contentFieldInput: null,
+		configOutput: null,
+		languageDropdown: null,
+		routeSelector: null,
 	}
 	private currentRouteId: string
 	private app: App
@@ -148,14 +139,36 @@ export class Configuration {
 		Logger.info('Configuration', '366. Creating new route')
 		try {
 			const newRoute: RouteConfig = {
+				// Base properties
 				id: `route-${Date.now()}`,
 				name: 'New Route',
+
+				// Strapi configuration
 				schema: '',
 				schemaDescription: '',
-				language: 'en',
+				contentType: 'articles', // Default content type
 				contentField: 'content',
+
+				// UI configuration
+				icon: 'file-text', // Default icon
+				description: 'New export route',
+				subtitle: '',
+
+				// Route settings
+				url: '',
+				enabled: true,
+				language: 'en',
+
+				// Mappings and instructions
 				fieldMappings: {},
+				additionalInstructions: '',
 			}
+
+			Logger.debug(
+				'Configuration',
+				'Created new route with default values',
+				newRoute
+			)
 
 			this.plugin.settings.routes.push(newRoute)
 			await this.plugin.saveSettings()
@@ -303,14 +316,16 @@ export class Configuration {
 				)
 				.addTextArea(text => {
 					this.components.configOutput = text
-					text
-						.setValue(this.plugin.settings.generatedConfig || '')
-						.onChange(async value => {
-							this.plugin.settings.generatedConfig = value
-							await this.plugin.saveSettings()
-						})
-					text.inputEl.rows = 10
-					text.inputEl.cols = 50
+					if (text) {
+						text
+							.setValue(this.plugin.settings.generatedConfig || '')
+							.onChange(async value => {
+								this.plugin.settings.generatedConfig = value
+								await this.plugin.saveSettings()
+							})
+						text.inputEl.rows = 10
+						text.inputEl.cols = 50
+					}
 				})
 
 			new Setting(this.containerEl)
@@ -336,6 +351,10 @@ export class Configuration {
 		try {
 			if (!this.validateOpenAIKey()) {
 				throw new Error('OpenAI API key is not configured')
+			}
+
+			if (!this.components.configOutput) {
+				throw new Error('Configuration output component not initialized')
 			}
 
 			new Notice('Generating configuration...')
@@ -372,7 +391,17 @@ export class Configuration {
 	private async applyConfiguration(): Promise<void> {
 		Logger.info('Configuration', '380. Applying generated configuration')
 		try {
-			const config = JSON.parse(this.components.configOutput.getValue())
+			if (!this.components.configOutput) {
+				Logger.error(
+					'Configuration',
+					'Configuration output component is not initialized'
+				)
+				throw new Error('Configuration component not initialized')
+			}
+
+			const configValue = this.components.configOutput.getValue()
+			const config = JSON.parse(configValue)
+
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
 			)
@@ -382,9 +411,7 @@ export class Configuration {
 				currentRoute.additionalInstructions = config.additionalInstructions
 				currentRoute.contentField = config.contentField
 
-				const imageFields = await this.identifyImageFields(
-					this.components.configOutput.getValue()
-				)
+				const imageFields = await this.identifyImageFields(configValue)
 
 				if (imageFields.length > 0) {
 					Logger.debug('Configuration', '381. Image fields detected', {
@@ -396,6 +423,8 @@ export class Configuration {
 
 				await this.plugin.saveSettings()
 				new Notice('Configuration applied successfully!')
+			} else {
+				throw new Error('Current route not found')
 			}
 		} catch (error) {
 			Logger.error('Configuration', '382. Error applying configuration', error)
@@ -493,8 +522,14 @@ export class Configuration {
 				route => route.id === this.currentRouteId
 			)
 			if (currentRoute) {
-				this.components.schemaInput.setValue(currentRoute.schema || '')
-				this.components.languageDropdown.setValue(currentRoute.language || 'en')
+				if (this.components.schemaInput) {
+					this.components.schemaInput.setValue(currentRoute.schema || '')
+				}
+				if (this.components.languageDropdown) {
+					this.components.languageDropdown.setValue(
+						currentRoute.language || 'en'
+					)
+				}
 			}
 		} catch (error) {
 			Logger.error(
@@ -615,10 +650,24 @@ export class Configuration {
 			)
 
 			if (result?.url) {
+				// Initialiser le fieldMapping avec les propriétés requises
 				if (!currentRoute.fieldMappings[field]) {
-					currentRoute.fieldMappings[field] = {}
+					currentRoute.fieldMappings[field] = {
+						obsidianSource: 'frontmatter', // ou 'content' selon le cas
+						type: 'string',
+						format: 'url',
+						required: false,
+						transform: 'value => value', // transformation par défaut
+						validation: {
+							type: 'string',
+							pattern: '^https?://.+',
+						},
+					}
 				}
+
+				// Mettre à jour la valeur
 				currentRoute.fieldMappings[field].value = result.url
+
 				Logger.debug(
 					'Configuration',
 					`396. Image processed successfully for: ${field}`
@@ -669,7 +718,7 @@ class ImageSelectionModal extends Modal {
 		this.createButtons(contentEl)
 	}
 
-	private createFieldSelector(container: HTMLElement, field: string): void {
+	private createFieldSelector(container: HTMLElement, field: string): Setting {
 		const setting = new Setting(container)
 			.setName(field)
 			.setDesc(`Select an image for ${field}`)

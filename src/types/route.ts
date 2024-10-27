@@ -23,12 +23,28 @@ export interface RouteConfig {
 
 export interface FieldMapping {
 	obsidianSource: 'frontmatter' | 'content'
-	frontmatterKey?: string
-	transform?: string | ((value: any) => any)
 	type?: string
 	format?: string
 	required?: boolean
-	validation?: FieldValidation
+	transform?: string
+	validation?: {
+		type: string
+		pattern?: string
+		min?: number
+		max?: number
+	}
+	value?: string
+}
+
+export interface RouteConfig {
+	id: string
+	name: string
+	schema: string
+	schemaDescription: string
+	language: string
+	contentField: string
+	fieldMappings: Record<string, FieldMapping>
+	additionalInstructions?: string
 }
 
 export interface FieldValidation {
