@@ -1,11 +1,10 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
+import { z } from 'zod'
 import { Logger } from '../utils/logger'
-import { SchemaProcessor } from './schema-processor'
 
 export class ConfigurationGenerator {
 	private model
-	private schemaProcessor: SchemaProcessor
 
 	constructor(options: { openaiApiKey: string }) {
 		Logger.info('ConfigGenerator', 'Initializing')
@@ -17,8 +16,6 @@ export class ConfigurationGenerator {
 		this.model = openai('gpt-4o-mini', {
 			structuredOutputs: true,
 		})
-
-		this.schemaProcessor = new SchemaProcessor()
 	}
 
 	async generateConfiguration(params: {
@@ -30,21 +27,42 @@ export class ConfigurationGenerator {
 		Logger.info('ConfigGenerator', 'Starting generation')
 
 		try {
-			const processedSchema = this.schemaProcessor.processSchema(
-				params.schema,
-				params.schemaDescription
-			)
+			// Parse input schemas
+			const schema = JSON.parse(params.schema)
+			const descriptions = JSON.parse(params.schemaDescription)
 
-			// Use simple JSON mode for OpenAI
-			const { object } = await generateObject({
-				model: this.model,
-				mode: 'json',
-				schema: processedSchema.validation,
-				schemaName: 'StrapiSchema',
-				schemaDescription: 'Field configuration for Strapi CMS',
-				prompt: this.buildPrompt(processedSchema, params),
+			Logger.debug('ConfigGenerator', 'Parsed inputs', {
+				schemaFields: Object.keys(schema.data),
+				descriptions: Object.keys(descriptions.data),
 			})
 
+			// Define simple output schema for OpenAI
+			const outputSchema = z.object({
+				fields: z.record(
+					z.object({
+						type: z.string(),
+						description: z.string(),
+						required: z.boolean(),
+						source: z.enum(['frontmatter', 'content']),
+						format: z.string().optional(),
+					})
+				),
+			})
+
+			// Generate field configurations
+			const { object } = await generateObject({
+				model: this.model,
+				schema: outputSchema,
+				schemaName: 'StrapiFieldConfig',
+				schemaDescription: 'Configuration for Strapi content type fields',
+				prompt: this.buildPrompt(
+					schema.data,
+					descriptions.data,
+					params.language
+				),
+			})
+
+			// Transform to final configuration
 			return this.transformToConfiguration(object)
 		} catch (error) {
 			Logger.error('ConfigGenerator', 'Generation failed', error)
@@ -53,47 +71,107 @@ export class ConfigurationGenerator {
 	}
 
 	private buildPrompt(
-		processedSchema: any,
-		params: { language: string; additionalInstructions?: string }
+		schema: Record<string, any>,
+		descriptions: Record<string, any>,
+		language: string
 	): string {
-		return `Create a Strapi configuration based on this schema:
+		return `Analyze this Strapi schema and create field configurations:
 
-Schema Fields:
-${JSON.stringify(processedSchema.fields, null, 2)}
+SCHEMA:
+${JSON.stringify(schema, null, 2)}
 
-Target Language: ${params.language}
+FIELD DESCRIPTIONS:
+${JSON.stringify(descriptions, null, 2)}
 
-Requirements:
-1. For each field, provide:
-   - type (string, number, media, array, object)
-   - description
-   - required status (true/false)
+Create a configuration where each field has:
+1. type: 
+   - "string" for text fields
+   - "media" for image fields (when type is "string or id")
+   - "array" for lists (gallery, tags)
+   - "object" for complex fields (links)
+   - "number" for numeric fields
 
-2. Special handling needed for:
-   - Media fields (image_presentation) - expect URLs
-   - Arrays (gallery, tags) - expect multiple items
-   - Objects (links) - maintain structure
-   - SEO fields - proper descriptions
+2. source:
+   - "content" for the main content field
+   - "frontmatter" for metadata fields
 
-Additional Instructions:
-${params.additionalInstructions || 'None provided'}`
+3. description:
+   - Use the provided descriptions
+   - Keep descriptions in ${language}
+   - Make them clear and concise
+
+4. required: 
+   - true for essential fields (title, content)
+   - false for optional fields
+
+5. format (when applicable):
+   - "url" for media fields
+   - "slug" for URL-friendly fields
+
+Example field configuration:
+{
+  "title": {
+    "type": "string",
+    "description": "The main title of the article",
+    "required": true,
+    "source": "frontmatter"
+  },
+  "image_presentation": {
+    "type": "media",
+    "description": "Main article image",
+    "required": true,
+    "source": "frontmatter",
+    "format": "url"
+  }
+}
+
+Generate field configurations maintaining the original schema structure.`
 	}
 
-	private transformToConfiguration(generatedSchema: any) {
-		// Transform the generated schema into the final configuration
+	private transformToConfiguration(generated: any) {
+		// Transform the output to the expected format
+		const fieldMappings = Object.entries(generated.fields).reduce(
+			(acc, [key, field]: [string, any]) => ({
+				...acc,
+				[key]: {
+					obsidianSource: field.source,
+					type: field.type,
+					description: field.description,
+					required: field.required,
+					...(field.format && { format: field.format }),
+					...(field.type === 'media' && {
+						validation: {
+							type: 'string',
+							pattern: '^https?://.+',
+						},
+					}),
+					...(field.type === 'array' && {
+						transform: this.getArrayTransform(key),
+					}),
+				},
+			}),
+			{}
+		)
+
 		return {
-			fieldMappings: Object.entries(generatedSchema).reduce(
-				(acc, [key, value]: [string, any]) => ({
-					...acc,
-					[key]: {
-						type: value.type,
-						description: value.description,
-						required: value.required,
-					},
-				}),
-				{}
-			),
+			fieldMappings,
 			contentField: 'content',
 		}
+	}
+
+	private getArrayTransform(fieldName: string): string {
+		const transforms = {
+			gallery:
+				'value => Array.isArray(value) ? value : value.split(",").map(url => url.trim())',
+			tags: 'value => Array.isArray(value) ? value : value.split(",").map(tag => ({ name: tag.trim() }))',
+			links: `value => Array.isArray(value) ? value : value.split(";").map(link => {
+        const [label, url] = link.split("|").map(s => s.trim());
+        return { label, url };
+      })`,
+		}
+
+		return (
+			transforms[fieldName] || 'value => Array.isArray(value) ? value : [value]'
+		)
 	}
 }
