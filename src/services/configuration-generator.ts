@@ -122,28 +122,54 @@ Generate field configurations maintaining the original schema structure.`
 
 	private transformToConfiguration(generated: any) {
 		// Transform the output to the expected format
-		const fieldMappings = Object.entries(generated.fields).reduce(
-			(acc, [key, field]: [string, any]) => ({
-				...acc,
-				[key]: {
-					obsidianSource: field.source,
-					type: field.type,
-					description: field.description,
-					required: field.required,
-					...(field.format && { format: field.format }),
-					...(field.type === 'media' && {
-						validation: {
-							type: 'string',
-							pattern: '^https?://.+',
-						},
-					}),
-					...(field.type === 'array' && {
-						transform: this.getArrayTransform(key),
-					}),
-				},
-			}),
-			{}
-		)
+		let fieldMappings = {}
+		if (!generated.fields) {
+			fieldMappings = Object.entries(generated).reduce(
+				(acc, [key, field]: [string, any]) => ({
+					...acc,
+					[key]: {
+						obsidianSource: field.source,
+						type: field.type,
+						description: field.description,
+						required: field.required,
+						...(field.format && { format: field.format }),
+						...(field.type === 'media' && {
+							validation: {
+								type: 'string',
+								pattern: '^https?://.+',
+							},
+						}),
+						...(field.type === 'array' && {
+							transform: this.getArrayTransform(key),
+						}),
+					},
+				}),
+				{}
+			)
+		} else {
+			fieldMappings = Object.entries(generated.fields).reduce(
+				(acc, [key, field]: [string, any]) => ({
+					...acc,
+					[key]: {
+						obsidianSource: field.source,
+						type: field.type,
+						description: field.description,
+						required: field.required,
+						...(field.format && { format: field.format }),
+						...(field.type === 'media' && {
+							validation: {
+								type: 'string',
+								pattern: '^https?://.+',
+							},
+						}),
+						...(field.type === 'array' && {
+							transform: this.getArrayTransform(key),
+						}),
+					},
+				}),
+				{}
+			)
+		}
 
 		return {
 			fieldMappings,

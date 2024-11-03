@@ -171,6 +171,7 @@ export class Configuration {
 				// Strapi configuration
 				schema: '',
 				schemaDescription: '',
+				generatedConfig: '',
 				contentType: 'articles', // Default content type
 				contentField: 'content',
 
@@ -365,16 +366,13 @@ export class Configuration {
 				)
 				.addTextArea(text => {
 					this.components.configOutput = text
-					if (text) {
-						text
-							.setValue(this.plugin.settings.generatedConfig || '')
-							.onChange(async value => {
-								this.plugin.settings.generatedConfig = value
-								await this.plugin.saveSettings()
-							})
-						text.inputEl.rows = 10
-						text.inputEl.cols = 50
-					}
+					text
+						.setValue(this.getCurrentRouteGeneratedConfig())
+						.onChange(async value => {
+							await this.updateCurrentRouteConfig('generatedConfig', value)
+						})
+					text.inputEl.rows = 10
+					text.inputEl.cols = 50
 				})
 
 			new Setting(this.containerEl)
@@ -441,8 +439,9 @@ export class Configuration {
 				const formattedConfig = JSON.stringify(config, null, 2)
 
 				// Update the UI and save
-				this.components.configOutput.setValue(formattedConfig)
 				await this.updateCurrentRouteConfig('generatedConfig', formattedConfig)
+
+				this.components.configOutput.setValue(formattedConfig)
 
 				new Notice('Configuration generated successfully!')
 
@@ -478,9 +477,11 @@ export class Configuration {
 			}
 
 			const configValue = this.components.configOutput.getValue()
+			console.log('configValue', configValue)
 
 			// Validate configuration format
 			const config = JSON.parse(configValue)
+			console.log('config', config)
 
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
@@ -494,23 +495,6 @@ export class Configuration {
 			currentRoute.fieldMappings = config.fieldMappings || {}
 			currentRoute.additionalInstructions = config.additionalInstructions || ''
 			currentRoute.contentField = config.contentField || 'content'
-
-			// Process image fields if any
-			const imageFields = Object.entries(config.fieldMappings)
-				.filter(
-					([_, mapping]) =>
-						mapping.type === 'image' || mapping.type === 'gallery'
-				)
-				.map(([field]) => field)
-
-			if (imageFields.length > 0) {
-				Logger.debug('Configuration', 'Image fields detected', {
-					fields: imageFields,
-				})
-
-				new Notice('Image fields detected. Opening image selection modal...')
-				await this.openImageSelectionModal(imageFields, currentRoute)
-			}
 
 			await this.plugin.saveSettings()
 			new Notice('Configuration applied successfully!')
@@ -538,25 +522,15 @@ export class Configuration {
 		}
 	}
 
-	private validateOpenAIKey(): boolean {
-		return (
-			!!this.plugin.settings.openaiApiKey &&
-			this.plugin.settings.openaiApiKey.startsWith('sk-')
-		)
-	}
-
-	private generateOpenAIPrompt(): string {
-		return `[Your prompt here - previous implementation]`
-	}
-
-	// ... [Rest of the utility methods]
-
 	private showError(message: string): void {
 		Logger.error('Configuration', '383. Error occurred', { message })
 		new Notice(`Configuration Error: ${message}`)
 	}
 
-	// Route configuration getters
+	private getCurrentRouteGeneratedConfig(): string {
+		return this.getCurrentRouteConfig('generatedConfig')
+	}
+
 	private getCurrentRouteSchema(): string {
 		return this.getCurrentRouteConfig('schema')
 	}
@@ -612,6 +586,16 @@ export class Configuration {
 			if (currentRoute) {
 				if (this.components.schemaInput) {
 					this.components.schemaInput.setValue(currentRoute.schema || '')
+				}
+				if (this.components.schemaDescriptionInput) {
+					this.components.schemaDescriptionInput.setValue(
+						currentRoute.schemaDescription || ''
+					)
+				}
+				if (this.components.configOutput) {
+					this.components.configOutput.setValue(
+						currentRoute.generatedConfig || ''
+					)
 				}
 				if (this.components.languageDropdown) {
 					this.components.languageDropdown.setValue(

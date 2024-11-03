@@ -14,6 +14,7 @@ export interface RouteConfig {
 	// Schema Configuration
 	schema: string
 	schemaDescription: string
+	generatedConfig: string
 	language: string
 
 	// Field Mappings
@@ -42,6 +43,7 @@ export interface RouteConfig {
 	name: string
 	schema: string
 	schemaDescription: string
+	generatedConfig: string
 	language: string
 	contentField: string
 	fieldMappings: Record<string, FieldMapping>

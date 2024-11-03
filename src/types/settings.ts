@@ -13,8 +13,6 @@ export interface StrapiExporterSettings {
 	// Routes Configuration
 	routes: RouteConfig[]
 
-	// Additional Settings
-	generatedConfig?: string
 	lastExport?: {
 		date: string
 		status: 'success' | 'failure'
