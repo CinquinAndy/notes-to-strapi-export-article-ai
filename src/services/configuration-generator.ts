@@ -8,7 +8,7 @@ export class ConfigurationGenerator {
 	private schemaProcessor: SchemaProcessor
 
 	constructor(options: { openaiApiKey: string }) {
-		Logger.info('ConfigGenerator', 'Initializing Configuration Generator')
+		Logger.info('ConfigGenerator', 'Initializing')
 
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
@@ -19,8 +19,6 @@ export class ConfigurationGenerator {
 		})
 
 		this.schemaProcessor = new SchemaProcessor()
-
-		Logger.debug('ConfigGenerator', 'Initialization complete')
 	}
 
 	async generateConfiguration(params: {
@@ -29,63 +27,73 @@ export class ConfigurationGenerator {
 		language: string
 		additionalInstructions?: string
 	}) {
-		Logger.info('ConfigGenerator', 'Starting configuration generation')
+		Logger.info('ConfigGenerator', 'Starting generation')
 
-		console.log(params)
 		try {
-			// Process schema
 			const processedSchema = this.schemaProcessor.processSchema(
 				params.schema,
 				params.schemaDescription
 			)
 
-			Logger.debug('ConfigGenerator', 'Schema processed', {
-				fieldCount: Object.keys(processedSchema.fields).length,
-			})
-
-			// Generate configuration
+			// Use simple JSON mode for OpenAI
 			const { object } = await generateObject({
 				model: this.model,
 				mode: 'json',
 				schema: processedSchema.validation,
-				schemaName: 'StrapiConfiguration',
-				schemaDescription: 'Strapi content configuration with field mappings',
+				schemaName: 'StrapiSchema',
+				schemaDescription: 'Field configuration for Strapi CMS',
 				prompt: this.buildPrompt(processedSchema, params),
 			})
 
-			Logger.info('ConfigGenerator', 'Configuration generated successfully')
-			return object
+			return this.transformToConfiguration(object)
 		} catch (error) {
-			Logger.error('ConfigGenerator', 'Configuration generation failed', error)
+			Logger.error('ConfigGenerator', 'Generation failed', error)
 			throw error
 		}
 	}
 
 	private buildPrompt(
 		processedSchema: any,
-		params: {
-			language: string
-			additionalInstructions?: string
-		}
+		params: { language: string; additionalInstructions?: string }
 	): string {
-		return `Generate a Strapi content configuration based on this schema:
+		return `Create a Strapi configuration based on this schema:
 
 Schema Fields:
 ${JSON.stringify(processedSchema.fields, null, 2)}
 
-Example Data:
-${JSON.stringify(processedSchema.example, null, 2)}
+Target Language: ${params.language}
 
 Requirements:
-1. Target language: ${params.language}
-2. Process fields according to their types and descriptions
-3. Handle arrays and nested objects appropriately
-4. Include all required fields
-5. Follow field descriptions for proper content generation
+1. For each field, provide:
+   - type (string, number, media, array, object)
+   - description
+   - required status (true/false)
+
+2. Special handling needed for:
+   - Media fields (image_presentation) - expect URLs
+   - Arrays (gallery, tags) - expect multiple items
+   - Objects (links) - maintain structure
+   - SEO fields - proper descriptions
 
 Additional Instructions:
-${params.additionalInstructions || 'No additional instructions'}
+${params.additionalInstructions || 'None provided'}`
+	}
 
-Generate a complete configuration following the provided schema structure.`
+	private transformToConfiguration(generatedSchema: any) {
+		// Transform the generated schema into the final configuration
+		return {
+			fieldMappings: Object.entries(generatedSchema).reduce(
+				(acc, [key, value]: [string, any]) => ({
+					...acc,
+					[key]: {
+						type: value.type,
+						description: value.description,
+						required: value.required,
+					},
+				}),
+				{}
+			),
+			contentField: 'content',
+		}
 	}
 }
