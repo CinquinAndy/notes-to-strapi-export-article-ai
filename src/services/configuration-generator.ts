@@ -1,47 +1,39 @@
-// src/services/configuration-generator.ts
-
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { Logger } from '../utils/logger'
 
 /**
- * Schema for field validation rules
+ * Validation schema for field rules
  */
-const validationSchema = z
-	.object({
-		type: z.string(),
-		pattern: z.string().optional(),
-		min: z.number().optional(),
-		max: z.number().optional(),
-	})
-	.required()
+const validationSchema = z.object({
+	type: z.string(),
+	pattern: z.string().optional(),
+	min: z.number().optional(),
+	max: z.number().optional(),
+})
 
 /**
- * Schema for individual field mapping
+ * Schema for individual field configuration
  */
-const fieldMappingSchema = z
-	.object({
-		obsidianSource: z.enum(['frontmatter', 'content']),
-		frontmatterKey: z.string().optional(),
-		type: z.string(),
-		format: z.string().optional(),
-		required: z.boolean().default(false),
-		transform: z.string().optional(),
-		validation: validationSchema.optional(),
-	})
-	.required()
+const fieldMappingSchema = z.object({
+	obsidianSource: z.enum(['frontmatter', 'content']),
+	frontmatterKey: z.string().optional(),
+	type: z.string(),
+	format: z.string().optional(),
+	required: z.boolean(),
+	transform: z.string().optional(),
+	validation: validationSchema.optional(),
+})
 
 /**
  * Main configuration schema
  */
-const configurationSchema = z
-	.object({
-		fieldMappings: z.record(fieldMappingSchema),
-		additionalInstructions: z.string().optional().default(''),
-		contentField: z.string(),
-	})
-	.required()
+const configurationSchema = z.object({
+	fieldMappings: z.record(fieldMappingSchema),
+	additionalInstructions: z.string(),
+	contentField: z.string(),
+})
 
 type ConfigurationOutput = z.infer<typeof configurationSchema>
 
@@ -53,67 +45,214 @@ export class ConfigurationGenerator {
 	private model
 
 	constructor(options: ConfigGeneratorOptions) {
+		Logger.info('ConfigGenerator', 'Initializing ConfigurationGenerator')
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
 		})
-		this.model = openai('gpt-4o-mini', {
+
+		this.model = openai('gpt-4-turbo-preview', {
 			structuredOutputs: true,
+		})
+		Logger.debug('ConfigGenerator', 'Model initialized', {
+			modelType: 'gpt-4-turbo-preview',
 		})
 	}
 
 	/**
-	 * Generate structured configuration based on route settings
+	 * Generate configuration from schema
 	 */
 	async generateConfiguration(route: {
 		schema: string
 		language: string
 		additionalInstructions?: string
 	}): Promise<ConfigurationOutput> {
-		Logger.info('ConfigGenerator', 'Starting configuration generation')
+		Logger.info('ConfigGenerator', 'Starting configuration generation', {
+			language: route.language,
+			hasInstructions: !!route.additionalInstructions,
+		})
 
 		try {
+			// Parse and validate schema
+			let parsedSchema: any
+			try {
+				Logger.debug('ConfigGenerator', 'Parsing schema JSON')
+				parsedSchema = JSON.parse(route.schema)
+				Logger.debug('ConfigGenerator', 'Schema parsed successfully', {
+					parsedSchema,
+				})
+			} catch (error) {
+				Logger.error('ConfigGenerator', 'Schema parsing failed', error)
+				throw new Error('Invalid JSON schema format')
+			}
+
+			// Extract fields from data property if present
+			const fields = parsedSchema.data || parsedSchema
+			Logger.debug('ConfigGenerator', 'Extracted schema fields', { fields })
+
+			// Build and log the prompt
+			const prompt = this.buildConfigurationPrompt(
+				fields,
+				route.language,
+				route.additionalInstructions
+			)
+			Logger.debug('ConfigGenerator', 'Generated prompt', { prompt })
+			console.log(prompt)
+
+			// Generate configuration
+			Logger.info(
+				'ConfigGenerator',
+				'Calling OpenAI for configuration generation'
+			)
+			console.log('configuration schema', configurationSchema)
 			const { object } = await generateObject({
 				model: this.model,
 				schema: configurationSchema,
 				schemaName: 'StrapiConfiguration',
 				schemaDescription:
 					'Configuration for mapping Obsidian content to Strapi fields',
-				prompt: this.buildConfigurationPrompt(route),
+				prompt: prompt,
 			})
 
-			Logger.debug('ConfigGenerator', 'Configuration generated', {
-				config: object,
+			Logger.debug('ConfigGenerator', 'Raw configuration received', { object })
+
+			// Process and validate
+			Logger.debug('ConfigGenerator', 'Processing generated configuration')
+			const processedObject = this.processGeneratedConfig(object)
+			Logger.debug('ConfigGenerator', 'Processed configuration', {
+				processedObject,
 			})
-			const validatedConfig = configurationSchema.parse(object)
+
+			const validatedConfig = configurationSchema.parse(processedObject)
+			Logger.info(
+				'ConfigGenerator',
+				'Configuration generated and validated successfully'
+			)
+
 			return validatedConfig
 		} catch (error) {
-			Logger.error('ConfigGenerator', 'Error generating configuration', error)
-			throw new Error(`Configuration generation failed: ${error.message}`)
+			Logger.error('ConfigGenerator', 'Configuration generation failed', error)
+			throw this.handleError(error)
 		}
 	}
 
-	private buildConfigurationPrompt(route: {
-		schema: string
-		language: string
+	/**
+	 * Build the prompt for OpenAI
+	 */
+	private buildConfigurationPrompt(
+		fields: Record<string, any>,
+		language: string,
 		additionalInstructions?: string
-	}): string {
-		return `Generate a Strapi configuration mapping based on the following schema:
+	): string {
+		Logger.debug('ConfigGenerator', 'Building prompt', {
+			fieldCount: Object.keys(fields).length,
+			language,
+		})
 
-Schema:
-${route.schema}
+		return `Generate a Strapi configuration mapping based on the following schema fields:
+
+Schema Fields:
+${JSON.stringify(fields, null, 2)}
 
 Requirements:
-1. Create field mappings for each schema property
-2. For content fields, use 'content' as obsidianSource
-3. For metadata fields, use 'frontmatter' as obsidianSource with appropriate frontmatterKey
+1. Create field mappings for each schema property above
+2. Main content field should use 'content' as obsidianSource
+3. Metadata fields should use 'frontmatter' with appropriate frontmatterKey
 4. Include validation rules where appropriate
-5. Content should be in ${route.language}
-6. Set appropriate field types and formats
-7. Include transformations for special formatting needs
+5. Language settings: ${language}
+6. Arrays handling:
+   - Gallery: comma-separated values
+   - Tags: comma-separated values
+   - Links: format as 'label|url' with semicolon separation
 
-Additional Instructions:
-${route.additionalInstructions || 'None provided'}
+Field Typing Guidelines:
+- Text fields: string type
+- Numeric fields: number type
+- Array fields: appropriate array typing
+- Image fields: handle URLs or IDs
+- Nested objects: maintain proper structure
 
-Ensure all mappings are complete and properly structured according to the schema requirements.`
+Additional Context:
+${additionalInstructions || 'No specific instructions provided'}
+
+Required Output Structure:
+1. fieldMappings: Record of field configurations
+2. contentField: String identifying main content
+3. additionalInstructions: String for processing instructions`
+	}
+
+	/**
+	 * Process the generated configuration
+	 */
+	private processGeneratedConfig(config: any): ConfigurationOutput {
+		Logger.debug('ConfigGenerator', 'Processing configuration', {
+			fieldCount: Object.keys(config.fieldMappings || {}).length,
+		})
+
+		return {
+			fieldMappings: Object.entries(config.fieldMappings).reduce(
+				(acc, [key, mapping]: [string, any]) => {
+					Logger.debug('ConfigGenerator', `Processing field: ${key}`, {
+						mapping,
+					})
+					return {
+						...acc,
+						[key]: {
+							...mapping,
+							required: mapping.required ?? false,
+							transform: this.getFieldTransform(key, mapping),
+						},
+					}
+				},
+				{}
+			),
+			contentField: config.contentField || 'content',
+			additionalInstructions: config.additionalInstructions || '',
+		}
+	}
+
+	/**
+	 * Get appropriate transform for field type
+	 */
+	private getFieldTransform(fieldName: string, mapping: any): string {
+		Logger.debug(
+			'ConfigGenerator',
+			`Determining transform for field: ${fieldName}`,
+			{
+				fieldType: mapping.type,
+			}
+		)
+
+		if (mapping.transform) {
+			return mapping.transform
+		}
+
+		// Default transformations based on field type
+		const transforms: Record<string, string> = {
+			gallery:
+				'value => Array.isArray(value) ? value : value.split(",").map(item => item.trim())',
+			tags: 'value => Array.isArray(value) ? value : value.split(",").map(item => item.trim())',
+			links: `value => Array.isArray(value) ? value : value.split(";").map(link => {
+        const [label, url] = link.split("|").map(s => s.trim());
+        return { label, url };
+      })`,
+		}
+
+		return transforms[fieldName] || 'value => value'
+	}
+
+	/**
+	 * Handle errors with proper context
+	 */
+	private handleError(error: unknown): Error {
+		if (error instanceof z.ZodError) {
+			const details = error.errors
+				.map(err => `${err.path.join('.')}: ${err.message}`)
+				.join('; ')
+			return new Error(`Configuration validation failed: ${details}`)
+		}
+
+		return error instanceof Error
+			? error
+			: new Error('Unknown error during configuration generation')
 	}
 }
