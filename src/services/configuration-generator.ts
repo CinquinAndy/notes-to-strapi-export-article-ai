@@ -25,6 +25,8 @@ export class ConfigurationGenerator {
 		additionalInstructions?: string
 	}) {
 		Logger.info('ConfigGenerator', 'Starting generation')
+		console.log('params.schema', params.schema)
+		console.log('params.schemaDescription', params.schemaDescription)
 
 		try {
 			// Parse input schemas
