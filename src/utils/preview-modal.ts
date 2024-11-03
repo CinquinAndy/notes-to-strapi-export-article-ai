@@ -1,15 +1,20 @@
-import { App, Modal, Setting } from 'obsidian'
-import { AnalyzedContent } from '../types'
+import { App, Modal, Notice, Setting } from 'obsidian'
+import { AnalyzedContent, RouteConfig } from '../types'
 import { Logger } from './logger'
+import { FrontmatterGenerator } from '../services/fronmatter'
+import StrapiExporterPlugin from '../main'
 
 export class PreviewModal extends Modal {
 	private content: AnalyzedContent
+	private route: RouteConfig
 	private onConfirm: () => void
 	private onCancel: () => void
+	private frontmatterGenerator: FrontmatterGenerator
 
 	constructor(
 		app: App,
 		content: AnalyzedContent,
+		plugin: StrapiExporterPlugin,
 		onConfirm: () => void,
 		onCancel?: () => void
 	) {
@@ -17,56 +22,104 @@ export class PreviewModal extends Modal {
 		this.content = content
 		this.onConfirm = onConfirm
 		this.onCancel = onCancel || (() => {})
-
-		Logger.debug('PreviewModal', '196. Preview modal initialized', {
-			contentKeys: Object.keys(content),
-		})
+		this.frontmatterGenerator = new FrontmatterGenerator(plugin)
 	}
 
 	onOpen() {
-		Logger.info('PreviewModal', '197. Opening preview modal')
+		Logger.info('PreviewModal', 'Opening preview modal')
 		const { contentEl } = this
 
 		try {
-			// Title
-			contentEl.createEl('h2', {
-				text: 'Content Preview',
-				cls: 'preview-modal-title',
-			})
-
-			// Description
-			contentEl.createEl('p', {
-				text: 'Please review the content before exporting to Strapi.',
-				cls: 'preview-modal-description',
-			})
-
-			// Preview container with scrolling
-			const previewContainer = contentEl.createDiv('preview-container')
-
-			// Create sections for different content types
-			this.createContentSections(previewContainer)
-
-			// Buttons
+			this.createHeader(contentEl)
+			this.createGenerateButton(contentEl)
+			this.createPreviewContainer(contentEl)
 			this.createButtons(contentEl)
-
-			// Add styles
 			this.addStyles()
 
-			Logger.info('PreviewModal', '198. Preview modal rendered successfully')
+			Logger.info('PreviewModal', 'Preview modal rendered successfully')
 		} catch (error) {
-			Logger.error('PreviewModal', '199. Error rendering preview modal', error)
+			Logger.error('PreviewModal', 'Error rendering preview modal', error)
 			this.showError('Failed to render preview')
 		}
 	}
 
-	private createContentSections(container: HTMLElement) {
+	private createHeader(container: HTMLElement) {
+		container.createEl('h2', {
+			text: 'Content Preview',
+			cls: 'preview-modal-title',
+		})
+
+		container.createEl('p', {
+			text: 'Review or generate frontmatter before exporting to Strapi.',
+			cls: 'preview-modal-description',
+		})
+	}
+
+	private createGenerateButton(container: HTMLElement) {
+		new Setting(container)
+			.setName('Generate Frontmatter')
+			.setDesc('Use AI to generate frontmatter for your content')
+			.addButton(button =>
+				button
+					.setButtonText('Generate')
+					.setCta()
+					.onClick(async () => {
+						try {
+							await this.generateFrontmatter()
+						} catch (error) {
+							new Notice(`Failed to generate frontmatter: ${error.message}`)
+						}
+					})
+			)
+	}
+
+	private async generateFrontmatter() {
+		try {
+			new Notice('Generating frontmatter...')
+
+			// Get the active file
+			const file = this.app.workspace.getActiveFile()
+			if (!file) {
+				throw new Error('No active file')
+			}
+
+			// Generate frontmatter
+			const updatedContent =
+				await this.frontmatterGenerator.updateContentFrontmatter(file, this.app)
+
+			// Update content object
+			this.content.content = updatedContent
+
+			// Update preview
+			this.updatePreview()
+			new Notice('Frontmatter generated successfully!')
+		} catch (error) {
+			Logger.error('PreviewModal', 'Error generating frontmatter', error)
+			throw error
+		}
+	}
+
+	private createPreviewContainer(container: HTMLElement) {
+		const previewContainer = container.createDiv('preview-container')
+		this.createContentSections(previewContainer)
+	}
+
+	private updatePreview() {
+		const previewContainer = this.contentEl.querySelector('.preview-container')
+		if (previewContainer) {
+			previewContainer.empty()
+			this.createContentSections(previewContainer)
+		}
+	}
+
+	private createContentSections(container: Element) {
 		Logger.debug('PreviewModal', '200. Creating content sections')
 
 		try {
 			// Main content section
 			if (this.content.content) {
 				const contentSection = this.createSection(
-					container,
+					container.createDiv(),
 					'Main Content',
 					this.content.content,
 					'content-section'
@@ -79,21 +132,22 @@ export class PreviewModal extends Modal {
 			delete metadata.content
 
 			if (Object.keys(metadata).length > 0) {
-				this.createSection(container, 'Metadata', metadata, 'metadata-section')
+				this.createSection(
+					container.createDiv(),
+					'Metadata',
+					metadata,
+					'metadata-section'
+				)
 			}
 
 			Logger.debug('PreviewModal', '201. Content sections created')
 		} catch (error) {
-			Logger.error(
-				'PreviewModal',
-				'202. Error creating content sections',
-				error
-			)
+			Logger.error('PreviewModal', 'Error creating content sections', error)
 			throw error
 		}
 	}
 
-	private createSection(
+	createSection(
 		container: HTMLElement,
 		title: string,
 		content: any,
@@ -102,7 +156,6 @@ export class PreviewModal extends Modal {
 		Logger.debug('PreviewModal', `203. Creating section: ${title}`)
 
 		const section = container.createDiv(className)
-
 		section.createEl('h3', { text: title })
 
 		const previewEl = section.createEl('pre')
@@ -193,7 +246,7 @@ export class PreviewModal extends Modal {
             }
         `
 
-		const styleEl = document.head.createEl('style', {
+		document.head.createEl('style', {
 			attr: { type: 'text/css' },
 			text: styles,
 		})
@@ -228,20 +281,22 @@ export class PreviewModal extends Modal {
 
 export function showPreviewToUser(
 	app: App,
-	content: AnalyzedContent
+	content: AnalyzedContent,
+	plugin: StrapiExporterPlugin
 ): Promise<boolean> {
-	Logger.info('PreviewModal', '211. Showing preview to user')
+	Logger.info('PreviewModal', 'Showing preview to user')
 
 	return new Promise(resolve => {
 		new PreviewModal(
 			app,
 			content,
+			plugin,
 			() => {
-				Logger.info('PreviewModal', '212. User confirmed preview')
+				Logger.info('PreviewModal', 'User confirmed preview')
 				resolve(true)
 			},
 			() => {
-				Logger.info('PreviewModal', '213. User cancelled preview')
+				Logger.info('PreviewModal', 'User cancelled preview')
 				resolve(false)
 			}
 		).open()

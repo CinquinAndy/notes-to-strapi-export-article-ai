@@ -22,3 +22,5 @@ data.json
 .DS_Store
 package-lock.json
 bun.lockb
+versions.json
+version-bump.mjs
