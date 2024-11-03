@@ -231,21 +231,34 @@ export class Configuration {
 		}
 	}
 
+	/**
+	 * Updates schema input handler
+	 */
 	private addSchemaConfigSection(): void {
-		Logger.debug('Configuration', '370. Adding schema configuration section')
+		Logger.debug('Configuration', 'Adding schema configuration section')
+
 		try {
+			// Strapi Schema Input
 			new Setting(this.containerEl)
 				.setName('Strapi Schema')
 				.setDesc('Paste your complete Strapi schema JSON here')
 				.addTextArea(text => {
 					this.components.schemaInput = text
 					text.setValue(this.getCurrentRouteSchema()).onChange(async value => {
-						await this.updateCurrentRouteConfig('schema', value)
+						try {
+							// Validate JSON format
+							JSON.parse(value)
+							await this.updateCurrentRouteConfig('schema', value)
+						} catch {
+							Logger.warn('Configuration', 'Invalid JSON in schema input')
+							// Don't show error immediately to avoid disrupting typing
+						}
 					})
 					text.inputEl.rows = 10
 					text.inputEl.cols = 50
 				})
 
+			// Schema Description Input
 			new Setting(this.containerEl)
 				.setName('Schema Description')
 				.setDesc('Provide descriptions for each field in the schema')
@@ -254,7 +267,17 @@ export class Configuration {
 					text
 						.setValue(this.getCurrentRouteSchemaDescription())
 						.onChange(async value => {
-							await this.updateCurrentRouteConfig('schemaDescription', value)
+							try {
+								// Validate JSON format
+								JSON.parse(value)
+								await this.updateCurrentRouteConfig('schemaDescription', value)
+							} catch {
+								Logger.warn(
+									'Configuration',
+									'Invalid JSON in schema description'
+								)
+								// Don't show error immediately to avoid disrupting typing
+							}
 						})
 					text.inputEl.rows = 10
 					text.inputEl.cols = 50
@@ -262,9 +285,10 @@ export class Configuration {
 		} catch (error) {
 			Logger.error(
 				'Configuration',
-				'371. Error setting up schema configuration',
+				'Error setting up schema configuration',
 				error
 			)
+			this.showError('Failed to set up schema configuration section')
 		}
 	}
 
@@ -372,9 +396,9 @@ export class Configuration {
 	}
 
 	private async generateConfiguration(): Promise<void> {
-		Logger.info('Configuration', '378. Generating configuration')
+		Logger.info('Configuration', 'Starting configuration generation')
+
 		try {
-			// this.validateServices()
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
 			)
@@ -383,82 +407,115 @@ export class Configuration {
 				throw new Error('Current route not found')
 			}
 
-			let schema: any
-			try {
-				schema = JSON.parse(currentRoute.schema)
-			} catch {
-				throw new Error('Invalid JSON schema. Please check your schema format.')
+			// Validate OpenAI API key
+			if (!this.plugin.settings.openaiApiKey) {
+				throw new Error(
+					'OpenAI API key not configured. Please configure it in settings.'
+				)
 			}
 
+			// Get both schema and schema description
+			const schema = currentRoute.schema
+			const schemaDescription = currentRoute.schemaDescription
+
+			if (!schema || !schemaDescription) {
+				throw new Error('Both schema and schema description are required')
+			}
+
+			Logger.debug('Configuration', 'Generating configuration', {
+				schemaLength: schema.length,
+				descriptionLength: schemaDescription.length,
+				language: currentRoute.language,
+			})
+
+			// Generate configuration using the new service
 			const config = await this.configGenerator.generateConfiguration({
-				schema: currentRoute.schema,
+				schema,
+				schemaDescription,
 				language: currentRoute.language,
 				additionalInstructions: currentRoute.additionalInstructions,
 			})
 
 			if (this.components.configOutput) {
+				// Format the output configuration
 				const formattedConfig = JSON.stringify(config, null, 2)
+
+				// Update the UI and save
 				this.components.configOutput.setValue(formattedConfig)
 				await this.updateCurrentRouteConfig('generatedConfig', formattedConfig)
+
 				new Notice('Configuration generated successfully!')
+
+				// Log the successful generation
+				Logger.info('Configuration', 'Configuration generated successfully', {
+					fieldCount: Object.keys(config.fieldMappings || {}).length,
+				})
 			}
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'379. Error generating configuration',
-				error
-			)
-			if (error) {
-				// Erreur de validation du schéma
-				new Notice(
-					'Invalid configuration format. Please check the schema requirements.'
-				)
-			} else {
-				new Notice(`Failed to generate configuration: ${error.message}`)
+			Logger.error('Configuration', 'Error generating configuration', error)
+
+			let errorMessage = 'Failed to generate configuration'
+
+			if (error instanceof SyntaxError) {
+				errorMessage = 'Invalid JSON format in schema or description'
+			} else if (error instanceof Error) {
+				errorMessage = error.message
 			}
+
+			new Notice(errorMessage)
 		}
 	}
 
+	/**
+	 * Apply the generated configuration
+	 */
 	private async applyConfiguration(): Promise<void> {
-		Logger.info('Configuration', '380. Applying generated configuration')
+		Logger.info('Configuration', 'Applying generated configuration')
+
 		try {
 			if (!this.components.configOutput) {
-				Logger.error(
-					'Configuration',
-					'Configuration output component is not initialized'
-				)
-				throw new Error('Configuration component not initialized')
+				throw new Error('Configuration output not initialized')
 			}
 
 			const configValue = this.components.configOutput.getValue()
+
+			// Validate configuration format
 			const config = JSON.parse(configValue)
 
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
 			)
 
-			if (currentRoute) {
-				currentRoute.fieldMappings = config.fieldMappings
-				currentRoute.additionalInstructions = config.additionalInstructions
-				currentRoute.contentField = config.contentField
-
-				const imageFields = await this.identifyImageFields(configValue)
-
-				if (imageFields.length > 0) {
-					Logger.debug('Configuration', '381. Image fields detected', {
-						count: imageFields.length,
-					})
-					new Notice('Image fields detected. Opening image selection modal...')
-					await this.openImageSelectionModal(imageFields, currentRoute)
-				}
-
-				await this.plugin.saveSettings()
-				new Notice('Configuration applied successfully!')
-			} else {
+			if (!currentRoute) {
 				throw new Error('Current route not found')
 			}
+
+			// Update route with new configuration
+			currentRoute.fieldMappings = config.fieldMappings || {}
+			currentRoute.additionalInstructions = config.additionalInstructions || ''
+			currentRoute.contentField = config.contentField || 'content'
+
+			// Process image fields if any
+			const imageFields = Object.entries(config.fieldMappings)
+				.filter(
+					([_, mapping]) =>
+						mapping.type === 'image' || mapping.type === 'gallery'
+				)
+				.map(([field]) => field)
+
+			if (imageFields.length > 0) {
+				Logger.debug('Configuration', 'Image fields detected', {
+					fields: imageFields,
+				})
+
+				new Notice('Image fields detected. Opening image selection modal...')
+				await this.openImageSelectionModal(imageFields, currentRoute)
+			}
+
+			await this.plugin.saveSettings()
+			new Notice('Configuration applied successfully!')
 		} catch (error) {
-			Logger.error('Configuration', '382. Error applying configuration', error)
+			Logger.error('Configuration', 'Error applying configuration', error)
 			new Notice(`Failed to apply configuration: ${error.message}`)
 		}
 	}
