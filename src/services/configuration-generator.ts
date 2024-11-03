@@ -1,6 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
-import { z } from 'zod'
 import { Logger } from '../utils/logger'
 
 export class ConfigurationGenerator {
@@ -13,9 +12,7 @@ export class ConfigurationGenerator {
 			apiKey: options.openaiApiKey,
 		})
 
-		this.model = openai('gpt-4o-mini', {
-			structuredOutputs: true,
-		})
+		this.model = openai('gpt-4o-mini')
 	}
 
 	async generateConfiguration(params: {
@@ -38,31 +35,18 @@ export class ConfigurationGenerator {
 				descriptions: Object.keys(descriptions.data),
 			})
 
-			// Define simple output schema for OpenAI
-			const outputSchema = z.object({
-				fields: z.record(
-					z.object({
-						type: z.string(),
-						description: z.string(),
-						required: z.boolean(),
-						source: z.enum(['frontmatter', 'content']),
-						format: z.string().optional(),
-					})
-				),
-			})
-
 			// Generate field configurations
 			const { object } = await generateObject({
 				model: this.model,
-				schema: outputSchema,
-				schemaName: 'StrapiFieldConfig',
-				schemaDescription: 'Configuration for Strapi content type fields',
+				output: 'no-schema',
 				prompt: this.buildPrompt(
 					schema.data,
 					descriptions.data,
 					params.language
 				),
 			})
+
+			console.log('object', object)
 
 			// Transform to final configuration
 			return this.transformToConfiguration(object)
@@ -89,13 +73,13 @@ Create a configuration where each field has:
 1. type: 
    - "string" for text fields
    - "media" for image fields (when type is "string or id")
-   - "array" for lists (gallery, tags)
-   - "object" for complex fields (links)
+   - "array" for lists
+   - "object" for complex fields
    - "number" for numeric fields
 
 2. source:
    - "content" for the main content field
-   - "frontmatter" for metadata fields
+   - "frontmatter" for frontmatter fields
 
 3. description:
    - Use the provided descriptions
@@ -124,7 +108,13 @@ Example field configuration:
     "required": true,
     "source": "frontmatter",
     "format": "url"
-  }
+  }, 
+  "content": {
+  		"type": "string",
+			"description": "The main content of the article",
+			"required": true,
+			"source": "content"
+		}
 }
 
 Generate field configurations maintaining the original schema structure.`
