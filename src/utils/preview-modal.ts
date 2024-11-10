@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Setting } from 'obsidian'
-import { AnalyzedContent, RouteConfig } from '../types'
+import { AnalyzedContent } from '../types'
 import { Logger } from './logger'
 import { FrontmatterGenerator } from '../services/fronmatter'
 import StrapiExporterPlugin from '../main'
@@ -95,6 +95,8 @@ export class PreviewModal extends Modal {
 
 			// Update preview
 			this.updatePreview()
+			await this.app.vault.modify(file, updatedContent)
+
 			new Notice('Frontmatter generated successfully!')
 		} catch (error) {
 			Logger.error('PreviewModal', 'Error generating frontmatter', error)
@@ -128,19 +130,6 @@ export class PreviewModal extends Modal {
 					'content-section'
 				)
 				contentSection.addClass('main-content')
-			}
-
-			// Metadata section
-			const metadata = { ...this.content }
-			delete metadata.content
-
-			if (Object.keys(metadata).length > 0) {
-				this.createSection(
-					container.createDiv(),
-					'Metadata',
-					metadata,
-					'metadata-section'
-				)
 			}
 
 			Logger.debug('PreviewModal', '201. Content sections created')
