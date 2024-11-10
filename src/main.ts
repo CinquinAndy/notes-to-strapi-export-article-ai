@@ -7,6 +7,7 @@ import { analyzeFile } from './utils/analyse-file'
 import { showPreviewToUser } from './utils/preview-modal'
 import { processImages } from './utils/process-file'
 import { Logger } from './utils/logger'
+import { StrapiExportService } from './services/strapi-export'
 
 export default class StrapiExporterPlugin extends Plugin {
 	settings: StrapiExporterSettings
@@ -173,37 +174,22 @@ export default class StrapiExporterPlugin extends Plugin {
 			return
 		}
 
-		Logger.info(
-			'Export',
-			`24. Preparing content for export using route: ${route.name}`
-		)
-		new Notice(`Preparing content for export using route: ${route.name}`)
-
 		try {
 			// File analysis
-			Logger.info('Export', '25. Starting file content analysis')
 			const analyzedContent = await analyzeFile(activeFile, this.app, route)
-			Logger.debug('Export', '26. Analyzed content', analyzedContent)
 
 			// Image processing
-			Logger.info('Export', '27. Processing images')
 			const processedContent = await processImages(
 				analyzedContent,
 				this.app,
 				this.settings
 			)
-			Logger.debug(
-				'Export',
-				'28. Content processed with images',
-				processedContent
-			)
 
-			// User preview - Modification ici: passage de this comme plugin
-			Logger.info('Export', '29. Displaying preview to user')
+			// User preview
 			const userConfirmed = await showPreviewToUser(
 				this.app,
 				processedContent,
-				this // Passage de l'instance du plugin
+				this
 			)
 
 			if (!userConfirmed) {
@@ -212,11 +198,17 @@ export default class StrapiExporterPlugin extends Plugin {
 				return
 			}
 
-			// Strapi submission
-			Logger.info('Export', '31. Submitting to Strapi')
-			await this.sendToStrapi(processedContent, route)
-			Logger.info('Export', '32. Export completed successfully')
-			new Notice('Export to Strapi completed successfully')
+			// Initialize Strapi export service
+			const strapiExport = new StrapiExportService(
+				this.settings,
+				this.app,
+				activeFile
+			)
+
+			// Export to Strapi
+			await strapiExport.exportContent(processedContent, route)
+
+			new Notice('Content successfully exported to Strapi!')
 		} catch (error) {
 			Logger.error('Export', '33. Error during export process', error)
 			new Notice(`Export failed: ${error.message}`)

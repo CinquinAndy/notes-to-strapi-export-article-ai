@@ -280,7 +280,8 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 
 			const cleanedText = await this.formatAndValidateYAML(
 				this.cleanGPTOutput(text),
-				config
+				config,
+				currentRoute.language
 			)
 
 			Logger.debug('FrontMatterGen', 'Generated and cleaned frontmatter', {
@@ -309,7 +310,8 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 
 	private async formatAndValidateYAML(
 		initialText: string,
-		config: GeneratedConfig
+		config: GeneratedConfig,
+		language: string
 	): Promise<string> {
 		const formattingPrompt = `As a YAML formatting expert, review and clean this frontmatter content. 
 Here are the specific requirements:
@@ -319,7 +321,7 @@ Here are the specific requirements:
 - Ensure consistent indentation (2 spaces)
 - Maintain compact array formatting
 - Verify all strings are properly quoted
-- Ensure locale matches the content language (if specified)
+- Ensure locale matches the content language (if specified) ${language}
 
 2. Content Validation:
 - All URLs should be valid format

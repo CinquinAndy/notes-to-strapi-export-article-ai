@@ -22,26 +22,37 @@ export async function analyzeFile(
 		Logger.info('FileAnalysis', '43. Extracting frontmatter and content')
 		const { frontmatter, body } = extractFrontMatterAndContent(content)
 		Logger.debug('FileAnalysis', '44. Extracted components', {
+			frontmatter,
 			hasFrontmatter: Object.keys(frontmatter).length > 0,
 			bodyLength: body.length,
 		})
 
-		const result: AnalyzedContent = {}
+		// Initialize result with existing frontmatter
+		const result: AnalyzedContent = {
+			...frontmatter, // Copy all existing frontmatter fields
+		}
 
 		// Processing field mappings
 		Logger.info('FileAnalysis', '45. Processing field mappings')
+		console.log('*'.repeat(50))
+		console.log(result)
 		for (const [strapiField, mapping] of Object.entries(route.fieldMappings)) {
 			Logger.debug('FileAnalysis', `46. Processing field: ${strapiField}`, {
 				mapping,
+				currentValue: result[strapiField],
 			})
 
-			// Handle frontmatter fields
+			// Only override if mapping exists and field is not already set
 			if (mapping.obsidianSource === 'frontmatter' && mapping.frontmatterKey) {
 				Logger.debug(
 					'FileAnalysis',
 					`47. Processing frontmatter field: ${mapping.frontmatterKey}`
 				)
-				result[strapiField] = frontmatter[mapping.frontmatterKey] ?? null
+
+				// Only set if not already present
+				if (result[strapiField] === undefined) {
+					result[strapiField] = frontmatter[mapping.frontmatterKey] ?? null
+				}
 
 				if (result[strapiField] === null) {
 					Logger.warn(
@@ -63,7 +74,8 @@ export async function analyzeFile(
 			if (mapping.transform && result[strapiField] !== null) {
 				Logger.debug(
 					'FileAnalysis',
-					`50. Applying transformation for: ${strapiField}`
+					`50. Applying transformation for: ${strapiField}`,
+					{ beforeTransform: result[strapiField] }
 				)
 				try {
 					result[strapiField] = await applyTransformation(
@@ -71,6 +83,9 @@ export async function analyzeFile(
 						mapping.transform,
 						strapiField
 					)
+					Logger.debug('FileAnalysis', `50.1 Transformation result:`, {
+						afterTransform: result[strapiField],
+					})
 				} catch (error) {
 					Logger.error(
 						'FileAnalysis',
@@ -86,6 +101,8 @@ export async function analyzeFile(
 
 		Logger.info('FileAnalysis', '52. File analysis completed successfully')
 		Logger.debug('FileAnalysis', '53. Final analysis result', result)
+		console.log('*'.repeat(50))
+		console.log(result)
 		return result
 	} catch (error) {
 		Logger.error('FileAnalysis', '54. Error during file analysis', error)
@@ -123,7 +140,7 @@ async function applyTransformation(
 	}
 }
 
-function extractFrontMatterAndContent(fileContent: string): {
+export function extractFrontMatterAndContent(fileContent: string): {
 	frontmatter: Record<string, any>
 	body: string
 } {
@@ -142,6 +159,7 @@ function extractFrontMatterAndContent(fileContent: string): {
 				frontmatterKeys: Object.keys(frontmatter),
 				bodyLength: body.length,
 			})
+			console.log(frontmatter)
 
 			return { frontmatter, body }
 		}
