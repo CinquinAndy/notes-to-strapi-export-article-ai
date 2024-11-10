@@ -22,6 +22,7 @@ export const DEFAULT_STRAPI_EXPORTER_SETTINGS: StrapiExporterSettings = {
 			language: '',
 			contentField: '',
 			additionalInstructions: '',
+			generatedConfig: '',
 		},
 	],
 }

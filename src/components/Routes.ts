@@ -296,6 +296,7 @@ export class Routes {
 
 	private async createNewRoute(): Promise<void> {
 		const newRoute: RouteConfig = {
+			generatedConfig: '',
 			id: `route-${Date.now()}`,
 			name: 'New Route',
 			icon: 'star',

@@ -2,13 +2,16 @@ import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { App, TFile } from 'obsidian'
 import { Logger } from '../utils/logger'
+import StrapiExporterPlugin from '../main'
+import { RouteConfig } from '../types'
 
 export class FrontmatterGenerator {
 	private model
+	private plugin: StrapiExporterPlugin
 
-	constructor(private plugin: any) {
-		// Pass the plugin instance instead of just the API key
+	constructor(plugin: StrapiExporterPlugin) {
 		Logger.info('FrontMatterGen', 'Initializing FrontmatterGenerator')
+		this.plugin = plugin
 		const openai = createOpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
 		})
@@ -26,37 +29,29 @@ export class FrontmatterGenerator {
 	}
 
 	/**
-	 * Generate frontmatter based on content and plugin settings
+	 * Generate frontmatter based on content and Strapi schema
 	 */
-	async generateFrontmatter(file: TFile, app: App): Promise<string> {
+	async generateFrontmatter(
+		file: TFile,
+		app: App,
+		route: RouteConfig
+	): Promise<string> {
 		Logger.info('FrontMatterGen', 'Starting frontmatter generation')
 
 		try {
 			// Read file content
 			const content = await app.vault.read(file)
 
-			// Get active route from settings
-			const activeRoute = this.getActiveRoute()
-			if (!activeRoute) {
-				throw new Error('No active route configured')
+			// Validate schema
+			if (!route.schema || !route.schemaDescription) {
+				throw new Error('Route schema or schema description is missing')
 			}
-
-			// Get field mappings from active route
-			const fieldMappings = activeRoute.fieldMappings || {}
 
 			const { object } = await generateObject({
 				model: this.model,
 				output: 'no-schema',
-				prompt: this.buildPrompt(
-					content,
-					fieldMappings,
-					activeRoute.language || 'en',
-					activeRoute.schema,
-					activeRoute.schemaDescription
-				),
+				prompt: this.buildPrompt(content, route),
 			})
-
-			Logger.debug('FrontMatterGen', 'Generated frontmatter', object)
 
 			// Format to YAML frontmatter
 			const formattedFrontmatter = this.formatToYAML(
@@ -72,44 +67,30 @@ export class FrontmatterGenerator {
 	/**
 	 * Build prompt for the AI model
 	 */
-	private buildPrompt(
-		content: string,
-		fieldMappings: Record<string, any>,
-		language: string,
-		schema: string,
-		schemaDescription: string
-	): string {
-		let prompt = `Generate frontmatter metadata in ${language} for this content.`
+	private buildPrompt(content: string, route: RouteConfig): string {
+		const schemaObj = JSON.parse(route.schema)
+		const descObj = JSON.parse(route.schemaDescription)
 
-		// Add schema information if available
-		if (schema && schemaDescription) {
-			try {
-				const schemaObj = JSON.parse(schema)
-				const descObj = JSON.parse(schemaDescription)
-				prompt += `\n\nSchema structure:\n${JSON.stringify(schemaObj.data, null, 2)}`
-				prompt += `\n\nField descriptions:\n${JSON.stringify(descObj.data, null, 2)}`
-			} catch (e) {
-				Logger.warn('FrontMatterGen', 'Could not parse schema or description')
-			}
-		}
+		return `Generate frontmatter metadata in ${route.language || 'en'} for this content.
 
-		prompt += `\n\nAvailable fields: ${Object.keys(fieldMappings).join(', ')}
+Available fields from Strapi schema:
+${JSON.stringify(schemaObj.data, null, 2)}
 
-    The frontmatter should:
-    - Have SEO-friendly title and description
-    - Include relevant tags based on content
-    - Generate URL-friendly slug from title
-    - Create a brief excerpt
-    - Use appropriate content type and rank
+Field descriptions:
+${JSON.stringify(descObj.data, null, 2)}
 
-    Only include fields that match the available fields list.
+The frontmatter should:
+- Follow the exact field structure from the schema
+- Include all required fields
+- Generate SEO-friendly metadata
+- Create URL-friendly slugs
+- Include relevant tags based on content
+- Handle any special fields (dates, numbers, etc.) appropriately
 
-    Content to analyze:
-    ${content.substring(0, 1500)}...
+Content to analyze:
+${content.substring(0, 2000)}...
 
-    Return a JSON object with the field values.`
-
-		return prompt
+Return a JSON object with field values that match the schema structure.`
 	}
 
 	/**
@@ -124,6 +105,7 @@ export class FrontmatterGenerator {
 				value.forEach(item => {
 					if (typeof item === 'object' && item.name) {
 						yaml.push(`  - name: "${item.name}"`)
+						if (item.id) yaml.push(`    id: ${item.id}`)
 					} else {
 						yaml.push(`  - ${item}`)
 					}
@@ -143,27 +125,44 @@ export class FrontmatterGenerator {
 	}
 
 	/**
-	 * Extract existing frontmatter from content
+	 * Update existing content with new frontmatter
 	 */
-	extractFrontmatter(content: string): string | null {
-		const match = content.match(/^---\s*\n([\s\S]*?)\n---/)
-		return match ? match[1] : null
+	async updateContentFrontmatter(file: TFile, app: App): Promise<string> {
+		Logger.info('FrontMatterGen', 'Updating content frontmatter')
+
+		try {
+			// Get current route
+			const currentRoute = this.getCurrentRoute()
+			if (!currentRoute) {
+				throw new Error('No active route found')
+			}
+
+			// Generate new frontmatter
+			const content = await app.vault.read(file)
+			const newFrontmatter = await this.generateFrontmatter(
+				file,
+				app,
+				currentRoute
+			)
+
+			// Replace existing frontmatter or add new one
+			const updatedContent =
+				content.replace(/^---\n[\s\S]*?\n---\n/, '') || content
+			return `${newFrontmatter}${updatedContent}`
+		} catch (error) {
+			Logger.error(
+				'FrontMatterGen',
+				'Error updating content frontmatter',
+				error
+			)
+			throw error
+		}
 	}
 
 	/**
-	 * Update or create frontmatter in content
+	 * Get current active route from settings
 	 */
-	async updateContentFrontmatter(file: TFile, app: App): Promise<string> {
-		const content = await app.vault.read(file)
-		const existingFrontmatter = this.extractFrontmatter(content)
-
-		if (!existingFrontmatter) {
-			// Generate new frontmatter
-			const newFrontmatter = await this.generateFrontmatter(file, app)
-			return `${newFrontmatter}\n${content}`
-		}
-
-		// Keep existing frontmatter
-		return content
+	private getCurrentRoute(): RouteConfig | undefined {
+		return this.plugin.settings.routes.find(route => route.enabled)
 	}
 }

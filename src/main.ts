@@ -198,9 +198,13 @@ export default class StrapiExporterPlugin extends Plugin {
 				processedContent
 			)
 
-			// User preview
+			// User preview - Modification ici: passage de this comme plugin
 			Logger.info('Export', '29. Displaying preview to user')
-			const userConfirmed = await showPreviewToUser(this.app, processedContent)
+			const userConfirmed = await showPreviewToUser(
+				this.app,
+				processedContent,
+				this // Passage de l'instance du plugin
+			)
 
 			if (!userConfirmed) {
 				Logger.info('Export', '30. Export cancelled by user')

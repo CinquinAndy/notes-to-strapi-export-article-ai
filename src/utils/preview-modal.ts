@@ -6,7 +6,7 @@ import StrapiExporterPlugin from '../main'
 
 export class PreviewModal extends Modal {
 	private content: AnalyzedContent
-	private route: RouteConfig
+	private plugin: StrapiExporterPlugin
 	private onConfirm: () => void
 	private onCancel: () => void
 	private frontmatterGenerator: FrontmatterGenerator
@@ -19,10 +19,13 @@ export class PreviewModal extends Modal {
 		onCancel?: () => void
 	) {
 		super(app)
+		this.plugin = plugin
 		this.content = content
 		this.onConfirm = onConfirm
 		this.onCancel = onCancel || (() => {})
-		this.frontmatterGenerator = new FrontmatterGenerator(plugin)
+
+		// Initialize with plugin instance
+		this.frontmatterGenerator = new FrontmatterGenerator(this.plugin)
 	}
 
 	onOpen() {
@@ -57,8 +60,8 @@ export class PreviewModal extends Modal {
 
 	private createGenerateButton(container: HTMLElement) {
 		new Setting(container)
-			.setName('Generate Frontmatter')
-			.setDesc('Use AI to generate frontmatter for your content')
+			.setName('Generate Metadata')
+			.setDesc('Use AI to generate frontmatter metadata for your content')
 			.addButton(button =>
 				button
 					.setButtonText('Generate')
@@ -67,7 +70,7 @@ export class PreviewModal extends Modal {
 						try {
 							await this.generateFrontmatter()
 						} catch (error) {
-							new Notice(`Failed to generate frontmatter: ${error.message}`)
+							new Notice(`Failed to generate metadata: ${error.message}`)
 						}
 					})
 			)
@@ -243,6 +246,11 @@ export class PreviewModal extends Modal {
                 justify-content: flex-end;
                 gap: 1em;
                 margin-top: 1em;
+            }
+            
+            .button-container .setting-item {
+            		align-items: end;
+            		border: none;
             }
         `
 
