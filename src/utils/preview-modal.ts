@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Setting } from 'obsidian'
 import { AnalyzedContent } from '../types'
 import { Logger } from './logger'
-import { FrontmatterGenerator } from '../services/fronmatter'
+import { FrontmatterGenerator } from '../services/frontmatter'
 import StrapiExporterPlugin from '../main'
 
 export class PreviewModal extends Modal {
