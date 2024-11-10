@@ -1,10 +1,13 @@
-import StrapiExporterPlugin from '../main'
-import { Logger } from '../utils/logger'
+import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { App, TFile } from 'obsidian'
+import { Logger } from '../utils/logger'
 import { RouteConfig } from '../types'
-import { generateObject } from 'ai'
+import StrapiExporterPlugin from '../main'
 
+/**
+ * Interface defining the structure of a field in the schema
+ */
 interface FieldMapping {
 	obsidianSource: 'frontmatter' | 'content'
 	type: string
@@ -18,15 +21,26 @@ interface FieldMapping {
 	}
 }
 
+/**
+ * Interface for the complete configuration of field mappings
+ */
 interface GeneratedConfig {
 	fieldMappings: Record<string, FieldMapping>
 	contentField: string
 }
 
+/**
+ * FrontmatterGenerator class handles the generation of YAML frontmatter
+ * based on a dynamic schema configuration from Strapi
+ */
 export class FrontmatterGenerator {
 	private model
 	private plugin: StrapiExporterPlugin
 
+	/**
+	 * Initialize the generator with the plugin instance
+	 * @param plugin - The Strapi Exporter plugin instance
+	 */
 	constructor(plugin: StrapiExporterPlugin) {
 		Logger.info('FrontMatterGen', 'Initializing FrontmatterGenerator')
 		this.plugin = plugin
@@ -37,22 +51,17 @@ export class FrontmatterGenerator {
 	}
 
 	/**
-	 * Updates or creates frontmatter in content
+	 * Updates or creates frontmatter in an existing file
 	 * @param file - The file to update
 	 * @param app - The Obsidian app instance
-	 * @returns Promise<string> - The updated content with new frontmatter
+	 * @returns Promise<string> Updated content with new frontmatter
 	 */
 	async updateContentFrontmatter(file: TFile, app: App): Promise<string> {
 		Logger.info('FrontMatterGen', 'Updating content frontmatter')
 
 		try {
-			// Get existing content
 			const content = await app.vault.read(file)
-
-			// Generate new frontmatter
 			const newFrontmatter = await this.generateFrontmatter(file, app)
-
-			// Replace existing frontmatter or add new one
 			const updatedContent = this.replaceFrontmatter(content, newFrontmatter)
 
 			Logger.debug('FrontMatterGen', 'Content updated with new frontmatter')
@@ -63,32 +72,187 @@ export class FrontmatterGenerator {
 				'Error updating content frontmatter',
 				error
 			)
-			throw new Error(`Failed to update content frontmatter: ${error.message}`)
+			throw error
 		}
 	}
 
 	/**
-	 * Replaces existing frontmatter or adds new frontmatter to content
+	 * Generates structured example data based on field type and format
+	 * @param field - The field mapping configuration
+	 * @returns An appropriate example value for the field type
+	 */
+	private generateExampleValue(field: FieldMapping): any {
+		const { type, format } = field
+
+		// Handle arrays with specific structures
+		if (type === 'array') {
+			return this.generateArrayExample(field)
+		}
+
+		// Handle media fields
+		if (type === 'media') {
+			return 'https://example.com/image.jpg'
+		}
+
+		// Handle standard types with formats
+		switch (type) {
+			case 'string':
+				if (format === 'url') return 'https://example.com'
+				if (format === 'slug') return 'example-slug'
+				return 'Example text'
+			case 'number':
+				return 1
+			case 'boolean':
+				return true
+			default:
+				return 'Example value'
+		}
+	}
+
+	/**
+	 * Generates example array content based on the field's transform configuration
+	 * @param field - The field mapping configuration
+	 * @returns An example array structure
+	 */
+	private generateArrayExample(field: FieldMapping): any {
+		if (!field.transform) {
+			return ['example1', 'example2']
+		}
+
+		// Analyze transform string to determine array structure
+		const transform = field.transform
+
+		// Handle different array structures based on transform content
+		if (transform.includes('name:')) {
+			return [
+				{ name: 'example1', id: 1 },
+				{ name: 'example2', id: 2 },
+			]
+		}
+
+		if (transform.includes('label:') && transform.includes('url:')) {
+			return [
+				{ label: 'Example Link', url: 'https://example.com' },
+				{ label: 'Another Link', url: 'https://example.com/page' },
+			]
+		}
+
+		return ['example1', 'example2']
+	}
+
+	/**
+	 * Builds a detailed prompt for GPT based on the schema configuration
+	 * @param content - The content to analyze
+	 * @param config - The generated configuration
+	 * @returns A structured prompt string
+	 */
+	private buildPrompt(content: string, config: GeneratedConfig): string {
+		const exampleData = {}
+		for (const [field, mapping] of Object.entries(config.fieldMappings)) {
+			exampleData[field] = this.generateExampleValue(mapping)
+		}
+
+		const exampleYaml = this.convertToYaml(exampleData)
+		const requiredFields = Object.entries(config.fieldMappings)
+			.filter(([_, mapping]) => mapping.required)
+			.map(([field]) => field)
+			.join(', ')
+
+		const prompt = `Generate YAML frontmatter that follows this exact schema and format:
+
+Schema Definition:
+${JSON.stringify(config.fieldMappings, null, 2)}
+
+Expected Format Example:
+---
+${exampleYaml}---
+
+Requirements:
+1. Maintain exact field names as shown in the schema
+2. Follow YAML formatting and indentation precisely
+3. Generate appropriate content for each field type
+4. Preserve array structures as shown in the example
+5. Required fields: ${requiredFields}
+6. Use quotes for string values
+7. Maintain proper data types (strings, numbers, arrays)
+
+Content for Analysis:
+${content.substring(0, 2000)}
+
+DO NOT include the content IN the generated frontmatter. Just use the content to generate the frontmatter as context.
+the content field is ${config.contentField}. Please delete the content field from the frontmatter.
+
+Return complete YAML frontmatter with opening and closing "---" markers.`
+
+		console.log('*'.repeat(100))
+		console.log(prompt)
+		return prompt
+	}
+
+	/**
+	 * Converts a JavaScript object to properly formatted YAML
+	 * @param obj - The object to convert
+	 * @param indent - Current indentation level
+	 * @returns Formatted YAML string
+	 */
+	private convertToYaml(obj: any, indent: number = 0): string {
+		const spaces = ' '.repeat(indent)
+		let yaml = ''
+
+		for (const [key, value] of Object.entries(obj)) {
+			if (Array.isArray(value)) {
+				yaml += `${spaces}${key}:\n`
+				value.forEach(item => {
+					if (typeof item === 'object') {
+						yaml += `${spaces}  -\n`
+						Object.entries(item).forEach(([k, v]) => {
+							yaml += `${spaces}    ${k}: "${v}"\n`
+						})
+					} else {
+						yaml += `${spaces}  - "${item}"\n`
+					}
+				})
+			} else if (typeof value === 'object' && value !== null) {
+				yaml += `${spaces}${key}:\n`
+				yaml += this.convertToYaml(value, indent + 2)
+			} else {
+				const formattedValue = typeof value === 'string' ? `"${value}"` : value
+				yaml += `${spaces}${key}: ${formattedValue}\n`
+			}
+		}
+
+		return yaml
+	}
+
+	/**
+	 * Replaces or adds frontmatter in content
 	 * @param content - Original content
 	 * @param newFrontmatter - New frontmatter to add
-	 * @returns string - Updated content with new frontmatter
-	 * @private
+	 * @returns Updated content with new frontmatter
 	 */
 	private replaceFrontmatter(content: string, newFrontmatter: string): string {
-		// Check if content already has frontmatter
 		const hasFrontmatter = /^---\n[\s\S]*?\n---/.test(content)
 
 		if (hasFrontmatter) {
-			// Replace existing frontmatter
 			return content.replace(/^---\n[\s\S]*?\n---/, newFrontmatter.trim())
 		} else {
-			// Add new frontmatter at the beginning
 			return `${newFrontmatter}${content}`
 		}
 	}
 
 	/**
-	 * Generate frontmatter using the generated configuration
+	 * Gets the currently active route from plugin settings
+	 * @returns The active route configuration or undefined
+	 */
+	private getCurrentRoute(): RouteConfig | undefined {
+		return this.plugin.settings.routes.find(route => route.enabled)
+	}
+
+	/**
+	 * Main method to generate frontmatter based on file content and schema
+	 * @param file - The file to process
+	 * @param app - The Obsidian app instance
+	 * @returns Promise<string> Generated frontmatter
 	 */
 	async generateFrontmatter(file: TFile, app: App): Promise<string> {
 		Logger.info('FrontMatterGen', 'Starting frontmatter generation')
@@ -101,17 +265,30 @@ export class FrontmatterGenerator {
 				throw new Error('Generated configuration not found')
 			}
 
-			console.log('Current route', currentRoute)
-			// Parse the generated configuration
+			// Parse configuration and generate frontmatter
 			const config: GeneratedConfig = JSON.parse(currentRoute.generatedConfig)
-			console.log('Parsed config', config)
 
-			// Generate content using AI
-			const generated = await this.generateContent(content, config)
+			console.log('generation')
+			const { text } = await generateText({
+				model: this.model,
+				system:
+					'You are an author writing frontmatter for a new document, we are using Obsidian, and we need the correct format for the data given by the user.' +
+					'Think about the data structure and the fields that are required for the frontmatter. The data should be in YAML format and follow the schema provided by the user.' +
+					'And think about SEO to include the right metadata for the document.',
+				prompt: this.buildPrompt(content, config),
+			})
 
-			console.log('Generated content', generated)
-			// Format to YAML
-			return this.formatToYAML(generated, config)
+			const cleanedText = await this.formatAndValidateYAML(
+				this.cleanGPTOutput(text),
+				config
+			)
+
+			Logger.debug('FrontMatterGen', 'Generated and cleaned frontmatter', {
+				before: text,
+				after: cleanedText,
+			})
+
+			return cleanedText
 		} catch (error) {
 			Logger.error('FrontMatterGen', 'Error generating frontmatter', error)
 			throw error
@@ -119,301 +296,59 @@ export class FrontmatterGenerator {
 	}
 
 	/**
-	 * Generate content based on field mappings
+	 * Cleans the GPT output by removing code block markers
+	 * @param text - The raw GPT output
+	 * @returns Cleaned YAML content
 	 */
-	private async generateContent(
-		content: string,
+	private cleanGPTOutput(text: string): string {
+		return text
+			.replace(/^```ya?ml\n?/i, '') // Remove starting ```yaml or ```yml
+			.replace(/```$/, '') // Remove ending ```
+			.trim() // Remove extra whitespace
+	}
+
+	private async formatAndValidateYAML(
+		initialText: string,
 		config: GeneratedConfig
-	): Promise<Record<string, any>> {
-		const { object } = await generateObject({
+	): Promise<string> {
+		const formattingPrompt = `As a YAML formatting expert, review and clean this frontmatter content. 
+Here are the specific requirements:
+
+1. Format Validation:
+- Remove any unnecessary blank lines
+- Ensure consistent indentation (2 spaces)
+- Maintain compact array formatting
+- Verify all strings are properly quoted
+- Ensure locale matches the content language (if specified)
+
+2. Content Validation:
+- All URLs should be valid format
+- Tags should be compact without empty lines
+- Array structures should be consistent
+- Remove any suspicious or placeholder content
+
+3. Structure Requirements:
+- Keep fields in logical order
+- Ensure all required fields are present
+- Verify data types match schema
+- Check language consistency
+
+4. Stringified Context from the user : 
+content field: ${JSON.stringify(config.contentField)}
+field mapping: ${JSON.stringify(config.fieldMappings)}
+
+Original frontmatter to clean:
+${initialText}
+
+Return only the cleaned YAML frontmatter, maintaining exact and correct formatting. No explanation needed.`
+
+		const { text } = await generateText({
 			model: this.model,
-			output: 'no-schema',
-			prompt: this.buildPrompt(content, config),
+			system:
+				'You are a YAML formatting expert. Your only task is to clean and validate YAML frontmatter. Return only the cleaned YAML with no additional comments or explanations.',
+			prompt: formattingPrompt,
 		})
 
-		console.log('Generated object', object)
-		// Apply field transformations
-		return this.applyTransformations(
-			object as Record<string, any>,
-			config.fieldMappings
-		)
-	}
-
-	/**
-	 * Build AI prompt based on field mappings
-	 */
-	private buildPrompt(content: string, config: GeneratedConfig): string {
-		// Create field descriptions from mappings
-		const fieldDescriptions = Object.entries(config.fieldMappings)
-			.map(([field, mapping]) => {
-				let desc = `${field}:
-  Type: ${mapping.type}
-  Required: ${mapping.required}
-  Description: ${mapping.description}`
-
-				if (mapping.format) {
-					desc += `\n  Format: ${mapping.format}`
-				}
-				if (mapping.validation) {
-					desc += `\n  Validation: ${JSON.stringify(mapping.validation)}`
-				}
-				return desc
-			})
-			.join('\n\n')
-
-		return `Generate metadata for this content following these field specifications:
-
-${fieldDescriptions}
-
-Special Requirements:
-- For URLs (format: "url"): Ensure they are valid and complete
-- For slugs (format: "slug"): Create URL-friendly versions of titles
-- For arrays: Follow the specified structure (e.g., tags with name property)
-- For media: Provide complete URLs
-- Follow all validation patterns specified
-
-Additional Notes:
-- Ensure SEO optimization for titles and descriptions
-- Keep excerpts concise but informative
-- Generate appropriate tags based on content
-- Use proper locale codes (e.g., 'fr', 'en')
-
-Content to analyze:
-${content.substring(0, 2000)}
-
-Return a JSON object with all specified fields.`
-	}
-
-	/**
-	 * Formats content to YAML based on the provided schema configuration
-	 * Dynamically adapts to any schema structure
-	 * @param content The content to format
-	 * @param config The schema configuration
-	 * @returns Formatted YAML string
-	 */
-	private formatToYAML(
-		content: Record<string, any>,
-		config: GeneratedConfig
-	): string {
-		const yaml = ['---']
-
-		for (const [field, mapping] of Object.entries(config.fieldMappings)) {
-			const value = content[field]
-			if (value === undefined) continue
-
-			try {
-				if (SchemaAnalyzer.isStructuredArray(mapping)) {
-					// Handle complex arrays containing objects
-					this.formatStructuredArray(field, value, mapping, yaml)
-				} else if (SchemaAnalyzer.isSimpleArray(mapping)) {
-					// Handle simple value arrays
-					this.formatSimpleArray(field, value, yaml)
-				} else {
-					// Handle simple values (strings, numbers, etc.)
-					this.formatSimpleValue(field, value, mapping, yaml)
-				}
-			} catch (error) {
-				Logger.error('FrontMatterGen', `Error formatting field ${field}`, error)
-				// Fallback to raw value if formatting fails
-				yaml.push(`${field}: "${this.escapeYamlString(String(value))}"`)
-			}
-		}
-
-		yaml.push('---\n')
-		return yaml.join('\n')
-	}
-
-	/**
-	 * Formats an array of objects according to its schema definition
-	 * @param field Field name
-	 * @param value Field value
-	 * @param mapping Field mapping configuration
-	 * @param yaml Array of YAML lines being built
-	 */
-	private formatStructuredArray(
-		field: string,
-		value: any,
-		mapping: FieldMapping,
-		yaml: string[]
-	): void {
-		const arrayValue = Array.isArray(value) ? value : [value]
-		if (arrayValue.length === 0) return
-
-		yaml.push(`${field}:`)
-
-		// Extract expected structure from transform or first item
-		const expectedProps = mapping.transform
-			? SchemaAnalyzer.getArrayStructure(mapping.transform)
-			: Object.keys(arrayValue[0])
-
-		arrayValue.forEach(item => {
-			yaml.push('  -')
-			expectedProps.forEach(prop => {
-				if (item[prop] !== undefined) {
-					yaml.push(
-						`    ${prop}: "${this.escapeYamlString(String(item[prop]))}"`
-					)
-				}
-			})
-		})
-	}
-
-	/**
-	 * Formats a simple array of values
-	 * @param field Field name
-	 * @param value Array values
-	 * @param yaml Array of YAML lines being built
-	 */
-	private formatSimpleArray(field: string, value: any, yaml: string[]): void {
-		const arrayValue = Array.isArray(value) ? value : [value]
-		if (arrayValue.length === 0) return
-
-		yaml.push(`${field}:`)
-		arrayValue.forEach(item => {
-			yaml.push(`  - "${this.escapeYamlString(String(item))}"`)
-		})
-	}
-
-	/**
-	 * Formats a simple value based on its type
-	 * @param field Field name
-	 * @param value Field value
-	 * @param mapping Field mapping configuration
-	 * @param yaml Array of YAML lines being built
-	 */
-	private formatSimpleValue(
-		field: string,
-		value: any,
-		mapping: FieldMapping,
-		yaml: string[]
-	): void {
-		if (mapping.type === 'number') {
-			yaml.push(`${field}: ${value}`)
-		} else {
-			yaml.push(`${field}: "${this.escapeYamlString(String(value))}"`)
-		}
-	}
-
-	/**
-	 * Applies schema-defined transformations to generated content
-	 * @param generated Generated content
-	 * @param fieldMappings Schema field mappings
-	 * @returns Transformed content
-	 */
-	private applyTransformations(
-		generated: Record<string, any>,
-		fieldMappings: Record<string, FieldMapping>
-	): Record<string, any> {
-		const transformed: Record<string, any> = {}
-
-		for (const [field, value] of Object.entries(generated)) {
-			const mapping = fieldMappings[field]
-			if (!mapping) continue
-
-			try {
-				if (mapping.transform) {
-					const transformFn = this.createTransformFunction(mapping.transform)
-					transformed[field] = transformFn(value)
-				} else {
-					transformed[field] = this.validateFieldValue(value, mapping)
-				}
-			} catch (error) {
-				Logger.error(
-					'FrontMatterGen',
-					`Transform error for field ${field}`,
-					error
-				)
-				transformed[field] = value
-			}
-		}
-
-		return transformed
-	}
-
-	/**
-	 * Creates a transformation function from a transform string
-	 * @param transform Transform function string
-	 * @returns Function that applies the transformation
-	 */
-	private createTransformFunction(transform: string): any {
-		try {
-			return new Function('value', `return ${transform}`)
-		} catch (error) {
-			Logger.error('FrontMatterGen', 'Error creating transform function', error)
-			return (value: any) => value
-		}
-	}
-
-	/**
-	 * Validates and converts field values based on their schema type
-	 * @param value Value to validate
-	 * @param mapping Field mapping configuration
-	 * @returns Validated and converted value
-	 */
-	private validateFieldValue(value: any, mapping: FieldMapping): any {
-		if (!value && mapping.required) {
-			throw new Error(`Required field is missing`)
-		}
-
-		switch (mapping.type) {
-			case 'string':
-				return String(value)
-			case 'number':
-				return Number(value)
-			case 'array':
-				return Array.isArray(value) ? value : [value]
-			default:
-				return value
-		}
-	}
-
-	private escapeYamlString(str: string): string {
-		return str.replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r')
-	}
-
-	private getCurrentRoute(): RouteConfig | undefined {
-		return this.plugin.settings.routes.find(route => route.enabled)
-	}
-}
-
-/**
- * Utility class to analyze schema structure and field types
- */
-class SchemaAnalyzer {
-	/**
-	 * Determines if a field is an array containing objects with specific structure
-	 * @param field The field mapping to analyze
-	 * @returns boolean indicating if field is a structured array
-	 */
-	static isStructuredArray(field: FieldMapping): boolean {
-		return (
-			field.type === 'array' &&
-			!!field.transform &&
-			field.transform.includes('map')
-		)
-	}
-
-	/**
-	 * Determines if a field is a simple array of values
-	 * @param field The field mapping to analyze
-	 * @returns boolean indicating if field is a simple array
-	 */
-	static isSimpleArray(field: FieldMapping): boolean {
-		return (
-			field.type === 'array' &&
-			(!field.transform ||
-				field.transform === 'value => Array.isArray(value) ? value : [value]')
-		)
-	}
-
-	/**
-	 * Extracts the expected object structure from a transform string
-	 * @param transform The transform string to analyze
-	 * @returns Array of property names expected in the object structure
-	 */
-	static getArrayStructure(transform: string): string[] {
-		const match = transform.match(/\{([^}]+)\}/)
-		if (!match) return []
-		return match[1].split(',').map(prop => prop.trim().split(':')[0].trim())
+		return this.cleanGPTOutput(text)
 	}
 }
