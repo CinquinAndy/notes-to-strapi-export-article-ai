@@ -27,6 +27,10 @@ export class StrapiExportService {
 				this.file,
 				route
 			)
+			// todo : here : analyse images and replace them with the correct remote url
+			// the "exportData" object should be updated with the correct image urls , (sent to strapi)
+			// (if it's not an image from the vault or from strapi)
+
 			await this.sendToStrapi(exportData, route)
 
 			Logger.info('StrapiExport', 'Content exported successfully')
