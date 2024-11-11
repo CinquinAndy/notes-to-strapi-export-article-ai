@@ -1,4 +1,3 @@
-import { Logger } from '../utils/logger'
 import { RouteConfig, AnalyzedContent } from '../types'
 import { StrapiExporterSettings } from '../types/settings'
 import { extractFrontMatterAndContent } from '../utils/analyse-file'
@@ -15,49 +14,33 @@ export class StrapiExportService {
 
 	private async sendToStrapi(data: any, route: RouteConfig): Promise<void> {
 		const url = `${this.settings.strapiUrl}${route.url}`
-		// Logger.info('StrapiExport', `Sending to Strapi: ${url}`)
-		// Logger.debug('StrapiExport', 'Request data', data)
-		console.log('StrapiExport', 'Request data', data)
-		// console.log('StrapiExport', 'Strapi URL', url)
-		// console.log(
-		// 	'StrapiExport',
-		// 	'Strapi API Token',
-		// 	this.settings.strapiApiToken
-		// )
+
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${this.settings.strapiApiToken}`,
+			},
+			body: JSON.stringify(data),
+		})
+
+		const responseText = await response.text()
+		let responseData
 
 		try {
-			const response = await fetch(url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${this.settings.strapiApiToken}`,
-				},
-				body: JSON.stringify(data),
-			})
+			responseData = JSON.parse(responseText)
+		} catch {
+			responseData = responseText
+		}
 
-			const responseText = await response.text()
-			let responseData
-
-			try {
-				responseData = JSON.parse(responseText)
-			} catch {
-				responseData = responseText
-			}
-
-			if (!response.ok) {
-				throw new Error(
-					`Strapi API error (${response.status}): ${
-						typeof responseData === 'object'
-							? JSON.stringify(responseData)
-							: responseData
-					}`
-				)
-			}
-
-			Logger.debug('StrapiExport', 'Strapi response', responseData)
-		} catch (error) {
-			Logger.error('StrapiExport', 'Error sending to Strapi', error)
-			throw error
+		if (!response.ok) {
+			throw new Error(
+				`Strapi API error (${response.status}): ${
+					typeof responseData === 'object'
+						? JSON.stringify(responseData)
+						: responseData
+				}`
+			)
 		}
 	}
 
@@ -90,8 +73,6 @@ export class StrapiExportService {
 	private async processContentImages(
 		content: string
 	): Promise<{ content: string; wasModified: boolean }> {
-		Logger.info('StrapiExport', 'Processing content images')
-
 		// Regular expressions for both internal and external images
 		const internalImageRegex = /!\[\[([^\]]+\.(png|jpe?g|gif|webp))\]\]/g
 		const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
@@ -139,19 +120,10 @@ export class StrapiExportService {
 		imagePath: string,
 		isInternal: boolean
 	): Promise<string | null> {
-		try {
-			if (isInternal) {
-				return await this.handleInternalImage(imagePath)
-			} else {
-				return await this.handleExternalImage(imagePath)
-			}
-		} catch (error) {
-			Logger.error(
-				'StrapiExport',
-				`Error processing image: ${imagePath}`,
-				error
-			)
-			return null
+		if (isInternal) {
+			return await this.handleInternalImage(imagePath)
+		} else {
+			return await this.handleExternalImage(imagePath)
 		}
 	}
 
@@ -161,7 +133,6 @@ export class StrapiExportService {
 	private async handleInternalImage(imagePath: string): Promise<string | null> {
 		const file = this.app.vault.getAbstractFileByPath(imagePath)
 		if (!(file instanceof TFile)) {
-			Logger.error('StrapiExport', `Internal file not found: ${imagePath}`)
 			return null
 		}
 
@@ -181,45 +152,35 @@ export class StrapiExportService {
 	private async handleExternalImage(imageUrl: string): Promise<string | null> {
 		// First, check if image already exists in Strapi
 		const existingImage = await this.checkExistingImage(imageUrl)
-		console.log('StrapiExport', 'Existing image', existingImage)
 		if (existingImage) {
 			return existingImage.data.url
 		}
 
 		// If not, download and upload to Strapi
-		try {
-			const response = await fetch(imageUrl)
-			const blob = await response.blob()
-			const fileName = this.getFileNameFromUrl(imageUrl)
+		const response = await fetch(imageUrl)
+		const blob = await response.blob()
+		const fileName = this.getFileNameFromUrl(imageUrl)
 
-			const formData = new FormData()
-			formData.append('files', blob, fileName)
+		const formData = new FormData()
+		formData.append('files', blob, fileName)
 
-			const uploadResponse = await fetch(
-				`${this.settings.strapiUrl}/api/upload`,
-				{
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${this.settings.strapiApiToken}`,
-					},
-					body: formData,
-				}
-			)
-
-			if (!uploadResponse.ok) {
-				throw new Error('Failed to upload image to Strapi')
+		const uploadResponse = await fetch(
+			`${this.settings.strapiUrl}/api/upload`,
+			{
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${this.settings.strapiApiToken}`,
+				},
+				body: formData,
 			}
+		)
 
-			const uploadResult = await uploadResponse.json()
-			return uploadResult[0]?.url || null
-		} catch (error) {
-			Logger.error(
-				'StrapiExport',
-				`Error handling external image: ${imageUrl}`,
-				error
-			)
-			return null
+		if (!uploadResponse.ok) {
+			throw new Error('Failed to upload image to Strapi')
 		}
+
+		const uploadResult = await uploadResponse.json()
+		return uploadResult[0]?.url || null
 	}
 
 	/**
@@ -228,37 +189,28 @@ export class StrapiExportService {
 	private async checkExistingImage(
 		imageUrl: string
 	): Promise<{ data: { id: number; url: string } } | null> {
-		try {
-			const response = await fetch(
-				`${this.settings.strapiUrl}/api/upload/files?filters[url][$eq]=${encodeURIComponent(imageUrl)}`,
-				{
-					headers: {
-						Authorization: `Bearer ${this.settings.strapiApiToken}`,
-					},
-				}
-			)
-
-			if (!response.ok) {
-				return null
+		const response = await fetch(
+			`${this.settings.strapiUrl}/api/upload/files?filters[url][$eq]=${encodeURIComponent(imageUrl)}`,
+			{
+				headers: {
+					Authorization: `Bearer ${this.settings.strapiApiToken}`,
+				},
 			}
+		)
 
-			const results = await response.json()
-			return results.length > 0
-				? {
-						data: {
-							id: results[0].id,
-							url: results[0].url,
-						},
-					}
-				: null
-		} catch (error) {
-			Logger.error(
-				'StrapiExport',
-				`Error checking existing image: ${imageUrl}`,
-				error
-			)
+		if (!response.ok) {
 			return null
 		}
+
+		const results = await response.json()
+		return results.length > 0
+			? {
+					data: {
+						id: results[0].id,
+						url: results[0].url,
+					},
+				}
+			: null
 	}
 
 	/**
@@ -278,8 +230,6 @@ export class StrapiExportService {
 	private async processFrontmatterImages(
 		frontmatter: any
 	): Promise<{ frontmatter: any; wasModified: boolean }> {
-		Logger.info('StrapiExport', 'Processing frontmatter images')
-
 		let wasModified = false
 		const processedFrontmatter = { ...frontmatter }
 
@@ -413,11 +363,6 @@ export class StrapiExportService {
 		newFrontmatter: any
 	): Promise<void> {
 		try {
-			Logger.info(
-				'StrapiExport',
-				'Updating Obsidian file with processed content and frontmatter'
-			)
-
 			let updatedContent = ''
 
 			// Add updated frontmatter
@@ -432,11 +377,8 @@ export class StrapiExportService {
 
 			// Update the file
 			await this.app.vault.modify(this.file, updatedContent)
-
-			Logger.info('StrapiExport', 'Obsidian file updated successfully')
 		} catch (error) {
-			Logger.error('StrapiExport', 'Error updating Obsidian file', error)
-			throw new Error('Failed to update Obsidian file')
+			throw new Error('Failed to update Obsidian file' + error.message)
 		}
 	}
 
@@ -445,39 +387,21 @@ export class StrapiExportService {
 		content: AnalyzedContent,
 		route: RouteConfig
 	): Promise<void> {
-		Logger.info('StrapiExport', 'Starting content export')
+		this.validateSettings()
+		this.validateRoute(route)
 
-		try {
-			this.validateSettings()
-			this.validateRoute(route)
+		const exportData = await this.prepareExportData(this.app, this.file, route)
 
-			const exportData = await this.prepareExportData(
-				this.app,
-				this.file,
-				route
+		if (exportData.data[route.contentField]) {
+			const { content: processedContent } = await this.processContentImages(
+				exportData.data[route.contentField]
 			)
-
-			if (exportData.data[route.contentField]) {
-				const { content: processedContent } = await this.processContentImages(
-					exportData.data[route.contentField]
-				)
-				exportData.data[route.contentField] = processedContent
-			}
-
-			Logger.info(
-				'StrapiExport',
-				'Converting image URLs to Strapi IDs before sending'
-			)
-			exportData.data = await this.convertImageUrlsToIds(exportData.data)
-
-			Logger.debug('StrapiExport', 'Final export data:', exportData)
-
-			await this.sendToStrapi(exportData, route)
-			Logger.info('StrapiExport', 'Content exported successfully')
-		} catch (error) {
-			Logger.error('StrapiExport', 'Export failed', error)
-			throw error
+			exportData.data[route.contentField] = processedContent
 		}
+
+		exportData.data = await this.convertImageUrlsToIds(exportData.data)
+
+		await this.sendToStrapi(exportData, route)
 	}
 
 	/**
@@ -486,21 +410,10 @@ export class StrapiExportService {
 	 * @returns Promise<any> - Updated data with image IDs
 	 */
 	private async convertImageUrlsToIds(data: any): Promise<any> {
-		Logger.info('StrapiExport', 'Converting image URLs to Strapi IDs')
-
 		const processValue = async (value: any): Promise<any> => {
 			if (typeof value === 'string' && this.isImagePath(value)) {
-				try {
-					const imageInfo = await this.checkExistingImage(value)
-					return imageInfo?.data?.id || value
-				} catch (error) {
-					Logger.error(
-						'StrapiExport',
-						`Error converting image URL to ID: ${value}`,
-						error
-					)
-					return value
-				}
+				const imageInfo = await this.checkExistingImage(value)
+				return imageInfo?.data?.id || value
 			}
 
 			if (Array.isArray(value)) {

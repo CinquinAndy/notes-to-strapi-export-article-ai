@@ -4,7 +4,6 @@ import {
 	ImageProcessingResult,
 	StrapiExporterSettings,
 } from '../types'
-import { Logger } from './logger'
 import { uploadImageToStrapi } from './strapi-uploader'
 
 /**
@@ -15,17 +14,8 @@ export async function processImages(
 	settings: StrapiExporterSettings,
 	content: string
 ): Promise<ImageProcessingResult> {
-	Logger.info('ImageProcessor', '167. Starting image processing')
-	Logger.debug('ImageProcessor', '168. Initial content length', {
-		length: content.length,
-	})
-
 	try {
 		const imageRefs = extractImageReferences(content)
-		Logger.info(
-			'ImageProcessor',
-			`169. Found ${imageRefs.length} image references`
-		)
 
 		const processedImages = await processImageReferences(
 			app,
@@ -33,14 +23,11 @@ export async function processImages(
 			imageRefs
 		)
 		const updatedContent = updateImageReferences(content, processedImages)
-
-		Logger.info('ImageProcessor', '170. Image processing completed')
 		return {
 			content: updatedContent,
 			processedImages,
 		}
 	} catch (error) {
-		Logger.error('ImageProcessor', '171. Error during image processing', error)
 		throw new Error(`Image processing failed: ${error.message}`)
 	}
 }
@@ -56,7 +43,6 @@ interface ImageReference {
  * Extract image references from content
  */
 function extractImageReferences(content: string): ImageReference[] {
-	Logger.debug('ImageProcessor', '172. Extracting image references')
 	const references: ImageReference[] = []
 
 	try {
@@ -65,7 +51,6 @@ function extractImageReferences(content: string): ImageReference[] {
 		let match
 
 		while ((match = wikiLinkRegex.exec(content)) !== null) {
-			Logger.debug('ImageProcessor', `173. Found wiki-style image: ${match[1]}`)
 			references.push({
 				fullMatch: match[0],
 				path: match[1],
@@ -78,10 +63,6 @@ function extractImageReferences(content: string): ImageReference[] {
 		const markdownLinkRegex =
 			/!\[([^\]]*)\]\(([^)]+\.(png|jpe?g|gif|svg|bmp|webp))\)/gi
 		while ((match = markdownLinkRegex.exec(content)) !== null) {
-			Logger.debug(
-				'ImageProcessor',
-				`174. Found markdown-style image: ${match[2]}`
-			)
 			references.push({
 				fullMatch: match[0],
 				path: match[2],
@@ -90,17 +71,8 @@ function extractImageReferences(content: string): ImageReference[] {
 			})
 		}
 
-		Logger.info(
-			'ImageProcessor',
-			`175. Extracted ${references.length} image references`
-		)
 		return references
 	} catch (error) {
-		Logger.error(
-			'ImageProcessor',
-			'176. Error extracting image references',
-			error
-		)
 		throw new Error(`Failed to extract image references: ${error.message}`)
 	}
 }
@@ -113,18 +85,11 @@ async function processImageReferences(
 	settings: StrapiExporterSettings,
 	references: ImageReference[]
 ): Promise<ImageDescription[]> {
-	Logger.info('ImageProcessor', '177. Processing image references')
 	const processedImages: ImageDescription[] = []
 
 	for (const ref of references) {
-		Logger.debug('ImageProcessor', `178. Processing image: ${ref.path}`)
-
 		try {
 			if (isExternalUrl(ref.path)) {
-				Logger.debug(
-					'ImageProcessor',
-					`179. Skipping external image: ${ref.path}`
-				)
 				processedImages.push({
 					url: ref.path,
 					name: ref.path,
@@ -140,7 +105,6 @@ async function processImageReferences(
 
 			const file = app.vault.getAbstractFileByPath(ref.path)
 			if (!(file instanceof TFile)) {
-				Logger.warn('ImageProcessor', `180. File not found: ${ref.path}`)
 				continue
 			}
 
@@ -156,28 +120,13 @@ async function processImageReferences(
 			)
 
 			if (uploadResult) {
-				Logger.debug(
-					'ImageProcessor',
-					`181. Image uploaded successfully: ${ref.path}`
-				)
 				processedImages.push(uploadResult)
-			} else {
-				Logger.warn('ImageProcessor', `182. Upload failed for: ${ref.path}`)
 			}
 		} catch (error) {
-			Logger.error(
-				'ImageProcessor',
-				`183. Error processing image: ${ref.path}`,
-				error
-			)
 			throw new Error(`Failed to process image ${ref.path}: ${error.message}`)
 		}
 	}
 
-	Logger.info(
-		'ImageProcessor',
-		`184. Processed ${processedImages.length} images`
-	)
 	return processedImages
 }
 
@@ -188,16 +137,10 @@ function updateImageReferences(
 	content: string,
 	processedImages: ImageDescription[]
 ): string {
-	Logger.info('ImageProcessor', '185. Updating image references in content')
-
 	try {
 		let updatedContent = content
 		for (const image of processedImages) {
 			if (image.url) {
-				Logger.debug(
-					'ImageProcessor',
-					`186. Replacing reference for image: ${image.name}`
-				)
 				const imageRegex = new RegExp(
 					`!\\[([^\\]]*)\\]\\(${image.path}\\)|!\\[\\[${image.path}\\]\\]`,
 					'g'
@@ -209,14 +152,8 @@ function updateImageReferences(
 			}
 		}
 
-		Logger.info('ImageProcessor', '187. Image references updated successfully')
 		return updatedContent
 	} catch (error) {
-		Logger.error(
-			'ImageProcessor',
-			'188. Error updating image references',
-			error
-		)
 		throw new Error(`Failed to update image references: ${error.message}`)
 	}
 }
@@ -225,6 +162,5 @@ function updateImageReferences(
  * Check if a path is an external URL
  */
 function isExternalUrl(path: string): boolean {
-	Logger.debug('ImageProcessor', `189. Checking if path is external: ${path}`)
 	return path.startsWith('http://') || path.startsWith('https://')
 }

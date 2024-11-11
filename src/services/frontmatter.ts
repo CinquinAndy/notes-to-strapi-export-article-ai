@@ -1,7 +1,6 @@
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { App, TFile } from 'obsidian'
-import { Logger } from '../utils/logger'
 import { RouteConfig } from '../types'
 import StrapiExporterPlugin from '../main'
 
@@ -42,7 +41,6 @@ export class FrontmatterGenerator {
 	 * @param plugin - The Strapi Exporter plugin instance
 	 */
 	constructor(plugin: StrapiExporterPlugin) {
-		Logger.info('FrontMatterGen', 'Initializing FrontmatterGenerator')
 		this.plugin = plugin
 		const openai = createOpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
@@ -57,23 +55,11 @@ export class FrontmatterGenerator {
 	 * @returns Promise<string> Updated content with new frontmatter
 	 */
 	async updateContentFrontmatter(file: TFile, app: App): Promise<string> {
-		Logger.info('FrontMatterGen', 'Updating content frontmatter')
+		const content = await app.vault.read(file)
+		const newFrontmatter = await this.generateFrontmatter(file, app)
+		const updatedContent = this.replaceFrontmatter(content, newFrontmatter)
 
-		try {
-			const content = await app.vault.read(file)
-			const newFrontmatter = await this.generateFrontmatter(file, app)
-			const updatedContent = this.replaceFrontmatter(content, newFrontmatter)
-
-			Logger.debug('FrontMatterGen', 'Content updated with new frontmatter')
-			return updatedContent
-		} catch (error) {
-			Logger.error(
-				'FrontMatterGen',
-				'Error updating content frontmatter',
-				error
-			)
-			throw error
-		}
+		return updatedContent
 	}
 
 	/**
@@ -253,44 +239,32 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 	 * @returns Promise<string> Generated frontmatter
 	 */
 	async generateFrontmatter(file: TFile, app: App): Promise<string> {
-		Logger.info('FrontMatterGen', 'Starting frontmatter generation')
+		const content = await app.vault.read(file)
+		const currentRoute = this.getCurrentRoute()
 
-		try {
-			const content = await app.vault.read(file)
-			const currentRoute = this.getCurrentRoute()
-
-			if (!currentRoute?.generatedConfig) {
-				throw new Error('Generated configuration not found')
-			}
-
-			// Parse configuration and generate frontmatter
-			const config: GeneratedConfig = JSON.parse(currentRoute.generatedConfig)
-
-			const { text } = await generateText({
-				model: this.model,
-				system:
-					'You are an author writing frontmatter for a new document, we are using Obsidian, and we need the correct format for the data given by the user.' +
-					'Think about the data structure and the fields that are required for the frontmatter. The data should be in YAML format and follow the schema provided by the user.' +
-					'And think about SEO to include the right metadata for the document.',
-				prompt: this.buildPrompt(content, config),
-			})
-
-			const cleanedText = await this.formatAndValidateYAML(
-				this.cleanGPTOutput(text),
-				config,
-				currentRoute.language
-			)
-
-			Logger.debug('FrontMatterGen', 'Generated and cleaned frontmatter', {
-				before: text,
-				after: cleanedText,
-			})
-
-			return cleanedText
-		} catch (error) {
-			Logger.error('FrontMatterGen', 'Error generating frontmatter', error)
-			throw error
+		if (!currentRoute?.generatedConfig) {
+			throw new Error('Generated configuration not found')
 		}
+
+		// Parse configuration and generate frontmatter
+		const config: GeneratedConfig = JSON.parse(currentRoute.generatedConfig)
+
+		const { text } = await generateText({
+			model: this.model,
+			system:
+				'You are an author writing frontmatter for a new document, we are using Obsidian, and we need the correct format for the data given by the user.' +
+				'Think about the data structure and the fields that are required for the frontmatter. The data should be in YAML format and follow the schema provided by the user.' +
+				'And think about SEO to include the right metadata for the document.',
+			prompt: this.buildPrompt(content, config),
+		})
+
+		const cleanedText = await this.formatAndValidateYAML(
+			this.cleanGPTOutput(text),
+			config,
+			currentRoute.language
+		)
+
+		return cleanedText
 	}
 
 	/**
@@ -343,15 +317,12 @@ Return only the cleaned YAML frontmatter, maintaining exact and correct formatti
 - if the frontmatter is not in the correct language, please change it to "${language}"
 - TRANSLATE EVERYTHING TO "${language}"`
 
-		console.log('Formatting Prompt:', formattingPrompt)
 		const { text } = await generateText({
 			model: this.model,
 			system:
 				'You are a YAML formatting expert. Your only task is to clean and validate YAML frontmatter. Return only the cleaned YAML with no additional comments or explanations.',
 			prompt: formattingPrompt,
 		})
-
-		console.log('Formatted Text:', text)
 
 		return this.cleanGPTOutput(text)
 	}

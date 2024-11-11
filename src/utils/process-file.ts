@@ -1,7 +1,6 @@
 import { App, TFile } from 'obsidian'
 import { StrapiExporterSettings, AnalyzedContent } from '../types'
 import { uploadImageToStrapi } from './strapi-uploader'
-import { Logger } from './logger'
 
 interface ImageMatch {
 	fullMatch: string
@@ -17,51 +16,15 @@ export async function processImages(
 	app: App,
 	settings: StrapiExporterSettings
 ): Promise<AnalyzedContent> {
-	Logger.info('ProcessFile', '214. Starting content image processing')
-	Logger.debug('ProcessFile', '215. Initial content structure', {
-		fields: Object.keys(content),
-	})
+	const processedContent = { ...content }
 
-	try {
-		const processedContent = { ...content }
-		let processedFieldCount = 0
-		let errorCount = 0
-
-		for (const [key, value] of Object.entries(processedContent)) {
-			if (typeof value === 'string') {
-				Logger.debug('ProcessFile', `216. Processing field: ${key}`)
-				try {
-					processedContent[key] = await processImageLinks(value, app, settings)
-					processedFieldCount++
-					Logger.debug(
-						'ProcessFile',
-						`217. Field processed successfully: ${key}`
-					)
-				} catch (error) {
-					errorCount++
-					Logger.error(
-						'ProcessFile',
-						`218. Error processing field: ${key}`,
-						error
-					)
-				}
-			}
+	for (const [key, value] of Object.entries(processedContent)) {
+		if (typeof value === 'string') {
+			processedContent[key] = await processImageLinks(value, app, settings)
 		}
-
-		Logger.info('ProcessFile', '219. Image processing completed', {
-			processedFields: processedFieldCount,
-			errorCount,
-		})
-
-		return processedContent
-	} catch (error) {
-		Logger.error(
-			'ProcessFile',
-			'220. Fatal error during image processing',
-			error
-		)
-		throw new Error(`Image processing failed: ${error.message}`)
 	}
+
+	return processedContent
 }
 
 /**
@@ -72,65 +35,30 @@ async function processImageLinks(
 	app: App,
 	settings: StrapiExporterSettings
 ): Promise<string> {
-	Logger.debug('ProcessFile', '221. Processing image links in content', {
-		contentLength: content.length,
-	})
+	const imageMatches = extractImageMatches(content)
 
-	try {
-		const imageMatches = extractImageMatches(content)
-		Logger.debug(
-			'ProcessFile',
-			`222. Found ${imageMatches.length} image matches`
+	let processedContent = content
+
+	for (const match of imageMatches) {
+		const replacedContent = await processImageMatch(
+			match,
+			processedContent,
+			app,
+			settings
 		)
 
-		let processedContent = content
-		let successCount = 0
-		let errorCount = 0
-
-		for (const match of imageMatches) {
-			try {
-				const replacedContent = await processImageMatch(
-					match,
-					processedContent,
-					app,
-					settings
-				)
-
-				if (replacedContent !== processedContent) {
-					processedContent = replacedContent
-					successCount++
-					Logger.debug(
-						'ProcessFile',
-						`223. Successfully processed image: ${match.imagePath}`
-					)
-				}
-			} catch (error) {
-				errorCount++
-				Logger.error('ProcessFile', `224. Error processing image match`, {
-					imagePath: match.imagePath,
-					error,
-				})
-			}
+		if (replacedContent !== processedContent) {
+			processedContent = replacedContent
 		}
-
-		Logger.info('ProcessFile', '225. Image link processing completed', {
-			totalImages: imageMatches.length,
-			successCount,
-			errorCount,
-		})
-
-		return processedContent
-	} catch (error) {
-		Logger.error('ProcessFile', '226. Error processing image links', error)
-		throw error
 	}
+
+	return processedContent
 }
 
 /**
  * Extract image matches from content
  */
 function extractImageMatches(content: string): ImageMatch[] {
-	Logger.debug('ProcessFile', '227. Extracting image matches')
 	const matches: ImageMatch[] = []
 	const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
 	let match
@@ -143,7 +71,6 @@ function extractImageMatches(content: string): ImageMatch[] {
 		})
 	}
 
-	Logger.debug('ProcessFile', `228. Extracted ${matches.length} image matches`)
 	return matches
 }
 
@@ -156,56 +83,35 @@ async function processImageMatch(
 	app: App,
 	settings: StrapiExporterSettings
 ): Promise<string> {
-	Logger.debug('ProcessFile', `229. Processing image match: ${match.imagePath}`)
-
 	if (isExternalUrl(match.imagePath)) {
-		Logger.debug(
-			'ProcessFile',
-			`230. Skipping external image: ${match.imagePath}`
-		)
 		return content
 	}
 
 	const file = app.vault.getAbstractFileByPath(match.imagePath)
 	if (!(file instanceof TFile)) {
-		Logger.warn('ProcessFile', `231. File not found: ${match.imagePath}`)
 		return content
 	}
 
-	try {
-		const uploadedImage = await uploadImageToStrapi(
-			file,
-			file.name,
-			settings,
-			app,
-			{
-				alternativeText: match.altText || file.basename,
-				caption: match.altText || file.basename,
-			}
-		)
-
-		if (uploadedImage?.url) {
-			const newContent = content.replace(
-				match.fullMatch,
-				`![${match.altText}](${uploadedImage.url})`
-			)
-			Logger.debug(
-				'ProcessFile',
-				`232. Image replaced successfully: ${file.name}`
-			)
-			return newContent
+	const uploadedImage = await uploadImageToStrapi(
+		file,
+		file.name,
+		settings,
+		app,
+		{
+			alternativeText: match.altText || file.basename,
+			caption: match.altText || file.basename,
 		}
+	)
 
-		Logger.warn('ProcessFile', `233. Upload failed for image: ${file.name}`)
-		return content
-	} catch (error) {
-		Logger.error(
-			'ProcessFile',
-			`234. Error processing image: ${file.name}`,
-			error
+	if (uploadedImage?.url) {
+		const newContent = content.replace(
+			match.fullMatch,
+			`![${match.altText}](${uploadedImage.url})`
 		)
-		throw error
+		return newContent
 	}
+
+	return content
 }
 
 /**

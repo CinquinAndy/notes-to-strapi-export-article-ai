@@ -1,9 +1,6 @@
-// src/services/field-analyzer.ts
-
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { Logger } from '../utils/logger'
 
 /**
  * Schema for field analysis result
@@ -55,8 +52,6 @@ export class StructuredFieldAnalyzer {
 	 * Analyze JSON schema to identify field types and purposes
 	 */
 	async analyzeSchema(schema: string): Promise<FieldAnalysis> {
-		Logger.info('FieldAnalyzer', 'Starting schema analysis')
-
 		try {
 			const { object } = await generateObject({
 				model: this.model,
@@ -67,12 +62,8 @@ export class StructuredFieldAnalyzer {
 				prompt: this.buildAnalysisPrompt(schema),
 			})
 
-			Logger.debug('FieldAnalyzer', 'Schema analysis completed', {
-				result: object,
-			})
 			return object as FieldAnalysis
 		} catch (error) {
-			Logger.error('FieldAnalyzer', 'Error analyzing schema', error)
 			throw new Error(`Schema analysis failed: ${error.message}`)
 		}
 	}

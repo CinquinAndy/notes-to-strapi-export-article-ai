@@ -1,13 +1,10 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
-import { Logger } from '../utils/logger'
 
 export class ConfigurationGenerator {
 	private model
 
 	constructor(options: { openaiApiKey: string }) {
-		Logger.info('ConfigGenerator', 'Initializing')
-
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
 		})
@@ -21,35 +18,19 @@ export class ConfigurationGenerator {
 		language: string
 		additionalInstructions?: string
 	}) {
-		Logger.info('ConfigGenerator', 'Starting generation')
+		// Parse input schemas
+		const schema = JSON.parse(params.schema)
+		const descriptions = JSON.parse(params.schemaDescription)
 
-		try {
-			// Parse input schemas
-			const schema = JSON.parse(params.schema)
-			const descriptions = JSON.parse(params.schemaDescription)
+		// Generate field configurations
+		const { object } = await generateObject({
+			model: this.model,
+			output: 'no-schema',
+			prompt: this.buildPrompt(schema.data, descriptions.data, params.language),
+		})
 
-			Logger.debug('ConfigGenerator', 'Parsed inputs', {
-				schemaFields: Object.keys(schema.data),
-				descriptions: Object.keys(descriptions.data),
-			})
-
-			// Generate field configurations
-			const { object } = await generateObject({
-				model: this.model,
-				output: 'no-schema',
-				prompt: this.buildPrompt(
-					schema.data,
-					descriptions.data,
-					params.language
-				),
-			})
-
-			// Transform to final configuration
-			return this.transformToConfiguration(object)
-		} catch (error) {
-			Logger.error('ConfigGenerator', 'Generation failed', error)
-			throw error
-		}
+		// Transform to final configuration
+		return this.transformToConfiguration(object)
 	}
 
 	private buildPrompt(

@@ -1,6 +1,5 @@
 import { App, Modal, Notice, Setting } from 'obsidian'
 import { AnalyzedContent } from '../types'
-import { Logger } from './logger'
 import { FrontmatterGenerator } from '../services/frontmatter'
 import StrapiExporterPlugin from '../main'
 
@@ -29,7 +28,6 @@ export class PreviewModal extends Modal {
 	}
 
 	onOpen() {
-		Logger.info('PreviewModal', 'Opening preview modal')
 		const { contentEl } = this
 
 		try {
@@ -38,11 +36,8 @@ export class PreviewModal extends Modal {
 			this.createPreviewContainer(contentEl)
 			this.createButtons(contentEl)
 			this.addStyles()
-
-			Logger.info('PreviewModal', 'Preview modal rendered successfully')
 		} catch (error) {
-			Logger.error('PreviewModal', 'Error rendering preview modal', error)
-			this.showError('Failed to render preview')
+			this.showError('Failed to render preview' + error.message)
 		}
 	}
 
@@ -77,31 +72,26 @@ export class PreviewModal extends Modal {
 	}
 
 	private async generateFrontmatter() {
-		try {
-			new Notice('Generating frontmatter...')
+		new Notice('Generating frontmatter...')
 
-			// Get the active file
-			const file = this.app.workspace.getActiveFile()
-			if (!file) {
-				throw new Error('No active file')
-			}
-
-			// Generate frontmatter
-			const updatedContent =
-				await this.frontmatterGenerator.updateContentFrontmatter(file, this.app)
-
-			// Update content object
-			this.content.content = updatedContent
-
-			// Update preview
-			this.updatePreview()
-			await this.app.vault.modify(file, updatedContent)
-
-			new Notice('Frontmatter generated successfully!')
-		} catch (error) {
-			Logger.error('PreviewModal', 'Error generating frontmatter', error)
-			throw error
+		// Get the active file
+		const file = this.app.workspace.getActiveFile()
+		if (!file) {
+			throw new Error('No active file')
 		}
+
+		// Generate frontmatter
+		const updatedContent =
+			await this.frontmatterGenerator.updateContentFrontmatter(file, this.app)
+
+		// Update content object
+		this.content.content = updatedContent
+
+		// Update preview
+		this.updatePreview()
+		await this.app.vault.modify(file, updatedContent)
+
+		new Notice('Frontmatter generated successfully!')
 	}
 
 	private createPreviewContainer(container: HTMLElement) {
@@ -118,24 +108,15 @@ export class PreviewModal extends Modal {
 	}
 
 	private createContentSections(container: Element) {
-		Logger.debug('PreviewModal', '200. Creating content sections')
-
-		try {
-			// Main content section
-			if (this.content.content) {
-				const contentSection = this.createSection(
-					container.createDiv(),
-					'Main Content',
-					this.content.content,
-					'content-section'
-				)
-				contentSection.addClass('main-content')
-			}
-
-			Logger.debug('PreviewModal', '201. Content sections created')
-		} catch (error) {
-			Logger.error('PreviewModal', 'Error creating content sections', error)
-			throw error
+		// Main content section
+		if (this.content.content) {
+			const contentSection = this.createSection(
+				container.createDiv(),
+				'Main Content',
+				this.content.content,
+				'content-section'
+			)
+			contentSection.addClass('main-content')
 		}
 	}
 
@@ -145,8 +126,6 @@ export class PreviewModal extends Modal {
 		content: any,
 		className: string
 	): HTMLElement {
-		Logger.debug('PreviewModal', `203. Creating section: ${title}`)
-
 		const section = container.createDiv(className)
 		section.createEl('h3', { text: title })
 
@@ -159,8 +138,6 @@ export class PreviewModal extends Modal {
 	}
 
 	private createButtons(container: HTMLElement) {
-		Logger.debug('PreviewModal', '204. Creating action buttons')
-
 		const buttonContainer = container.createDiv('button-container')
 
 		// Confirm button
@@ -169,7 +146,6 @@ export class PreviewModal extends Modal {
 				.setButtonText('Confirm & Export')
 				.setCta()
 				.onClick(() => {
-					Logger.info('PreviewModal', '205. Export confirmed by user')
 					this.close()
 					this.onConfirm()
 				})
@@ -178,7 +154,6 @@ export class PreviewModal extends Modal {
 		// Cancel button
 		new Setting(buttonContainer).addButton(button => {
 			button.setButtonText('Cancel').onClick(() => {
-				Logger.info('PreviewModal', '206. Export cancelled by user')
 				this.close()
 				this.onCancel()
 			})
@@ -186,8 +161,6 @@ export class PreviewModal extends Modal {
 	}
 
 	private addStyles() {
-		Logger.debug('PreviewModal', '207. Adding modal styles')
-
 		document.body.addClass('preview-modal-open')
 
 		const styles = `
@@ -247,13 +220,9 @@ export class PreviewModal extends Modal {
 			attr: { type: 'text/css' },
 			text: styles,
 		})
-
-		Logger.debug('PreviewModal', '208. Styles added')
 	}
 
 	private showError(message: string) {
-		Logger.error('PreviewModal', '209. Showing error message', { message })
-
 		const { contentEl } = this
 		contentEl.empty()
 
@@ -269,7 +238,6 @@ export class PreviewModal extends Modal {
 	}
 
 	onClose() {
-		Logger.info('PreviewModal', '210. Closing preview modal')
 		const { contentEl } = this
 		contentEl.empty()
 		document.body.removeClass('preview-modal-open')
@@ -281,19 +249,15 @@ export function showPreviewToUser(
 	content: AnalyzedContent,
 	plugin: StrapiExporterPlugin
 ): Promise<boolean> {
-	Logger.info('PreviewModal', 'Showing preview to user')
-
 	return new Promise(resolve => {
 		new PreviewModal(
 			app,
 			content,
 			plugin,
 			() => {
-				Logger.info('PreviewModal', 'User confirmed preview')
 				resolve(true)
 			},
 			() => {
-				Logger.info('PreviewModal', 'User cancelled preview')
 				resolve(false)
 			}
 		).open()

@@ -10,7 +10,6 @@ import {
 } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { uploadImageToStrapi } from '../utils/strapi-uploader'
-import { Logger } from '../utils/logger'
 import { RouteConfig } from '../types'
 import { StructuredFieldAnalyzer } from '../services/field-analyzer'
 import { ConfigurationGenerator } from '../services/configuration-generator'
@@ -18,9 +17,9 @@ import { ConfigurationGenerator } from '../services/configuration-generator'
 export class Configuration {
 	private fieldAnalyzer: StructuredFieldAnalyzer
 	private configGenerator: ConfigurationGenerator
-	private plugin: StrapiExporterPlugin
-	private containerEl: HTMLElement
-	private components: {
+	private readonly plugin: StrapiExporterPlugin
+	private readonly containerEl: HTMLElement
+	private readonly components: {
 		schemaInput: TextAreaComponent | null
 		schemaDescriptionInput: TextAreaComponent | null
 		contentFieldInput: TextComponent | null
@@ -36,10 +35,9 @@ export class Configuration {
 		routeSelector: null,
 	}
 	private currentRouteId: string
-	private app: App
+	private readonly app: App
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
-		Logger.info('Configuration', '359. Initializing Configuration component')
 		this.plugin = plugin
 		this.containerEl = containerEl
 		this.app = plugin.app
@@ -63,7 +61,6 @@ export class Configuration {
 	 */
 	private initializeServices(): void {
 		if (!this.plugin.settings.openaiApiKey) {
-			Logger.warn('Configuration', 'OpenAI API key not configured')
 			return
 		}
 
@@ -77,7 +74,6 @@ export class Configuration {
 	}
 
 	display(): void {
-		Logger.info('Configuration', '360. Displaying configuration interface')
 		const { containerEl } = this
 		containerEl.empty()
 
@@ -88,18 +84,10 @@ export class Configuration {
 			this.addContentFieldSection()
 			this.addLanguageSection()
 			this.addAutoConfigSection()
-
-			Logger.info(
-				'Configuration',
-				'361. Configuration interface rendered successfully'
-			)
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'362. Error displaying configuration',
-				error
+			this.showError(
+				'Failed to display configuration interface' + error.message
 			)
-			this.showError('Failed to display configuration interface')
 		}
 	}
 
@@ -116,32 +104,22 @@ export class Configuration {
 	}
 
 	private addRouteSelector(): void {
-		Logger.debug('Configuration', '363. Adding route selector')
-		try {
-			const routeSetting = new Setting(this.containerEl)
-				.setName('Select Route')
-				.setDesc('Choose the route to configure')
-				.addDropdown(dropdown => {
-					this.components.routeSelector = dropdown
-					this.plugin.settings.routes.forEach(route => {
-						dropdown.addOption(route.id, route.name)
-					})
-					dropdown.setValue(this.currentRouteId)
-					dropdown.onChange(async value => {
-						Logger.debug('Configuration', `364. Route changed to: ${value}`)
-						this.currentRouteId = value
-						await this.updateConfigurationFields()
-					})
+		const routeSetting = new Setting(this.containerEl)
+			.setName('Select Route')
+			.setDesc('Choose the route to configure')
+			.addDropdown(dropdown => {
+				this.components.routeSelector = dropdown
+				this.plugin.settings.routes.forEach(route => {
+					dropdown.addOption(route.id, route.name)
 				})
+				dropdown.setValue(this.currentRouteId)
+				dropdown.onChange(async value => {
+					this.currentRouteId = value
+					await this.updateConfigurationFields()
+				})
+			})
 
-			this.addRouteManagementButtons(routeSetting)
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'365. Error setting up route selector',
-				error
-			)
-		}
+		this.addRouteManagementButtons(routeSetting)
 	}
 
 	private addRouteManagementButtons(setting: Setting): void {
@@ -161,7 +139,6 @@ export class Configuration {
 	}
 
 	private async createNewRoute(): Promise<void> {
-		Logger.info('Configuration', '366. Creating new route')
 		try {
 			const newRoute: RouteConfig = {
 				// Base properties
@@ -190,25 +167,17 @@ export class Configuration {
 				additionalInstructions: '',
 			}
 
-			Logger.debug(
-				'Configuration',
-				'Created new route with default values',
-				newRoute
-			)
-
 			this.plugin.settings.routes.push(newRoute)
 			await this.plugin.saveSettings()
 			this.currentRouteId = newRoute.id
 			this.display()
 			new Notice('New route created successfully')
 		} catch (error) {
-			Logger.error('Configuration', '367. Error creating new route', error)
-			this.showError('Failed to create new route')
+			this.showError('Failed to create new route' + error.message)
 		}
 	}
 
 	private async deleteCurrentRoute(): Promise<void> {
-		Logger.info('Configuration', '368. Deleting route')
 		try {
 			if (this.plugin.settings.routes.length <= 1) {
 				new Notice('Cannot delete the only route')
@@ -227,8 +196,7 @@ export class Configuration {
 				new Notice('Route deleted successfully')
 			}
 		} catch (error) {
-			Logger.error('Configuration', '369. Error deleting route', error)
-			this.showError('Failed to delete route')
+			this.showError('Failed to delete route' + error.message)
 		}
 	}
 
@@ -236,8 +204,6 @@ export class Configuration {
 	 * Updates schema input handler
 	 */
 	private addSchemaConfigSection(): void {
-		Logger.debug('Configuration', 'Adding schema configuration section')
-
 		try {
 			// Strapi Schema Input
 			new Setting(this.containerEl)
@@ -246,14 +212,9 @@ export class Configuration {
 				.addTextArea(text => {
 					this.components.schemaInput = text
 					text.setValue(this.getCurrentRouteSchema()).onChange(async value => {
-						try {
-							// Validate JSON format
-							JSON.parse(value)
-							await this.updateCurrentRouteConfig('schema', value)
-						} catch {
-							Logger.warn('Configuration', 'Invalid JSON in schema input')
-							// Don't show error immediately to avoid disrupting typing
-						}
+						// Validate JSON format
+						JSON.parse(value)
+						await this.updateCurrentRouteConfig('schema', value)
 					})
 					text.inputEl.rows = 10
 					text.inputEl.cols = 50
@@ -268,134 +229,93 @@ export class Configuration {
 					text
 						.setValue(this.getCurrentRouteSchemaDescription())
 						.onChange(async value => {
-							try {
-								// Validate JSON format
-								JSON.parse(value)
-								await this.updateCurrentRouteConfig('schemaDescription', value)
-							} catch {
-								Logger.warn(
-									'Configuration',
-									'Invalid JSON in schema description'
-								)
-								// Don't show error immediately to avoid disrupting typing
-							}
+							JSON.parse(value)
+							await this.updateCurrentRouteConfig('schemaDescription', value)
 						})
 					text.inputEl.rows = 10
 					text.inputEl.cols = 50
 				})
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'Error setting up schema configuration',
-				error
+			this.showError(
+				'Failed to set up schema configuration section' + error.message
 			)
-			this.showError('Failed to set up schema configuration section')
 		}
 	}
 
 	private addContentFieldSection(): void {
-		Logger.debug('Configuration', '372. Adding content field section')
-		try {
-			new Setting(this.containerEl)
-				.setName('Content Field Name')
-				.setDesc(
-					'Enter the name of the field where the main article content should be inserted'
-				)
-				.addText(text => {
-					this.components.contentFieldInput = text
-					text
-						.setValue(this.getCurrentRouteContentField())
-						.setPlaceholder('content')
-						.onChange(async value => {
-							await this.updateCurrentRouteConfig('contentField', value)
-						})
-				})
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'373. Error setting up content field section',
-				error
+		new Setting(this.containerEl)
+			.setName('Content Field Name')
+			.setDesc(
+				'Enter the name of the field where the main article content should be inserted'
 			)
-		}
+			.addText(text => {
+				this.components.contentFieldInput = text
+				text
+					.setValue(this.getCurrentRouteContentField())
+					.setPlaceholder('content')
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('contentField', value)
+					})
+			})
 	}
 
 	private addLanguageSection(): void {
-		Logger.debug('Configuration', '374. Adding language section')
-		try {
-			new Setting(this.containerEl)
-				.setName('Target Language')
-				.setDesc('Select the target language for the exported content')
-				.addDropdown(dropdown => {
-					this.components.languageDropdown = dropdown
-					const languages = this.getAvailableLanguages()
-					Object.entries(languages).forEach(([code, name]) => {
-						dropdown.addOption(code, name)
-					})
-					dropdown
-						.setValue(this.getCurrentRouteLanguage())
-						.onChange(async value => {
-							await this.updateCurrentRouteConfig('language', value)
-						})
+		new Setting(this.containerEl)
+			.setName('Target Language')
+			.setDesc('Select the target language for the exported content')
+			.addDropdown(dropdown => {
+				this.components.languageDropdown = dropdown
+				const languages = this.getAvailableLanguages()
+				Object.entries(languages).forEach(([code, name]) => {
+					dropdown.addOption(code, name)
 				})
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'375. Error setting up language section',
-				error
-			)
-		}
+				dropdown
+					.setValue(this.getCurrentRouteLanguage())
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('language', value)
+					})
+			})
 	}
 
 	private addAutoConfigSection(): void {
-		Logger.debug('Configuration', '376. Adding auto-config section')
-		try {
-			new Setting(this.containerEl)
-				.setName('Auto-Configure')
-				.setDesc('Automatically configure fields using OpenAI (Experimental)')
-				.addButton(button => {
-					button
-						.setButtonText('Generate Configuration')
-						.setCta()
-						.onClick(() => this.generateConfiguration())
-				})
+		new Setting(this.containerEl)
+			.setName('Auto-Configure')
+			.setDesc('Automatically configure fields using OpenAI (Experimental)')
+			.addButton(button => {
+				button
+					.setButtonText('Generate Configuration')
+					.setCta()
+					.onClick(() => this.generateConfiguration())
+			})
 
-			new Setting(this.containerEl)
-				.setName('Generated Configuration')
-				.setDesc(
-					'The generated configuration will appear here. You can edit it if needed.'
-				)
-				.addTextArea(text => {
-					this.components.configOutput = text
-					text
-						.setValue(this.getCurrentRouteGeneratedConfig())
-						.onChange(async value => {
-							await this.updateCurrentRouteConfig('generatedConfig', value)
-						})
-					text.inputEl.rows = 10
-					text.inputEl.cols = 50
-				})
-
-			new Setting(this.containerEl)
-				.setName('Apply Configuration')
-				.setDesc('Use this configuration for the plugin')
-				.addButton(button => {
-					button
-						.setButtonText('Apply')
-						.setCta()
-						.onClick(() => this.applyConfiguration())
-				})
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'377. Error setting up auto-config section',
-				error
+		new Setting(this.containerEl)
+			.setName('Generated Configuration')
+			.setDesc(
+				'The generated configuration will appear here. You can edit it if needed.'
 			)
-		}
+			.addTextArea(text => {
+				this.components.configOutput = text
+				text
+					.setValue(this.getCurrentRouteGeneratedConfig())
+					.onChange(async value => {
+						await this.updateCurrentRouteConfig('generatedConfig', value)
+					})
+				text.inputEl.rows = 10
+				text.inputEl.cols = 50
+			})
+
+		new Setting(this.containerEl)
+			.setName('Apply Configuration')
+			.setDesc('Use this configuration for the plugin')
+			.addButton(button => {
+				button
+					.setButtonText('Apply')
+					.setCta()
+					.onClick(() => this.applyConfiguration())
+			})
 	}
 
 	private async generateConfiguration(): Promise<void> {
-		Logger.info('Configuration', 'Starting configuration generation')
-
 		try {
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
@@ -420,12 +340,6 @@ export class Configuration {
 				throw new Error('Both schema and schema description are required')
 			}
 
-			Logger.debug('Configuration', 'Generating configuration', {
-				schemaLength: schema.length,
-				descriptionLength: schemaDescription.length,
-				language: currentRoute.language,
-			})
-
 			// Generate configuration using the new service
 			const config = await this.configGenerator.generateConfiguration({
 				schema,
@@ -444,15 +358,8 @@ export class Configuration {
 				this.components.configOutput.setValue(formattedConfig)
 
 				new Notice('Configuration generated successfully!')
-
-				// Log the successful generation
-				Logger.info('Configuration', 'Configuration generated successfully', {
-					fieldCount: Object.keys(config.fieldMappings || {}).length,
-				})
 			}
 		} catch (error) {
-			Logger.error('Configuration', 'Error generating configuration', error)
-
 			let errorMessage = 'Failed to generate configuration'
 
 			if (error instanceof SyntaxError) {
@@ -469,8 +376,6 @@ export class Configuration {
 	 * Apply the generated configuration
 	 */
 	private async applyConfiguration(): Promise<void> {
-		Logger.info('Configuration', 'Applying generated configuration')
-
 		try {
 			if (!this.components.configOutput) {
 				throw new Error('Configuration output not initialized')
@@ -497,7 +402,6 @@ export class Configuration {
 			await this.plugin.saveSettings()
 			new Notice('Configuration applied successfully!')
 		} catch (error) {
-			Logger.error('Configuration', 'Error applying configuration', error)
 			new Notice(`Failed to apply configuration: ${error.message}`)
 		}
 	}
@@ -521,7 +425,6 @@ export class Configuration {
 	}
 
 	private showError(message: string): void {
-		Logger.error('Configuration', '383. Error occurred', { message })
 		new Notice(`Configuration Error: ${message}`)
 	}
 
@@ -556,27 +459,16 @@ export class Configuration {
 		key: string,
 		value: string
 	): Promise<void> {
-		Logger.debug('Configuration', `384. Updating route config: ${key}`)
-		try {
-			const routeIndex = this.plugin.settings.routes.findIndex(
-				route => route.id === this.currentRouteId
-			)
-			if (routeIndex !== -1) {
-				this.plugin.settings.routes[routeIndex][key] = value
-				await this.plugin.saveSettings()
-			}
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				`385. Error updating route config: ${key}`,
-				error
-			)
-			throw error
+		const routeIndex = this.plugin.settings.routes.findIndex(
+			route => route.id === this.currentRouteId
+		)
+		if (routeIndex !== -1) {
+			this.plugin.settings.routes[routeIndex][key] = value
+			await this.plugin.saveSettings()
 		}
 	}
 
 	private async updateConfigurationFields(): Promise<void> {
-		Logger.debug('Configuration', '386. Updating configuration fields')
 		try {
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId
@@ -602,29 +494,20 @@ export class Configuration {
 				}
 			}
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'387. Error updating configuration fields',
-				error
-			)
-			this.showError('Failed to update configuration fields')
+			this.showError('Failed to update configuration fields' + error.message)
 		}
 	}
 
 	private async identifyImageFields(
 		generatedConfig: string
 	): Promise<string[]> {
-		Logger.debug('Configuration', '388. Identifying image fields')
 		try {
 			const analysis = await this.fieldAnalyzer.analyzeSchema(generatedConfig)
 			return analysis.imageFields.map(field => field.fieldName)
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'389. Error identifying image fields',
-				error
+			new Notice(
+				'Error identifying image fields. Please try again.' + error.message
 			)
-			new Notice('Error identifying image fields. Please try again.')
 			return []
 		}
 	}
@@ -633,7 +516,6 @@ export class Configuration {
 		imageFields: string[],
 		currentRoute: RouteConfig
 	): Promise<void> {
-		Logger.debug('Configuration', '391. Opening image selection modal')
 		const modal = new ImageSelectionModal(
 			this.app,
 			imageFields,
@@ -648,26 +530,16 @@ export class Configuration {
 		selections: Record<string, string>,
 		currentRoute: RouteConfig
 	): Promise<void> {
-		Logger.info('Configuration', '392. Processing image selections')
 		try {
 			for (const [field, imagePath] of Object.entries(selections)) {
 				if (imagePath) {
-					Logger.debug(
-						'Configuration',
-						`393. Processing image for field: ${field}`
-					)
 					await this.processImageField(field, imagePath, currentRoute)
 				}
 			}
 			await this.plugin.saveSettings()
 			new Notice('Image configurations updated successfully')
 		} catch (error) {
-			Logger.error(
-				'Configuration',
-				'394. Error handling image selections',
-				error
-			)
-			this.showError('Failed to process image selections')
+			this.showError('Failed to process image selections' + error.message)
 		}
 	}
 
@@ -676,53 +548,37 @@ export class Configuration {
 		imagePath: string,
 		currentRoute: RouteConfig
 	): Promise<void> {
-		Logger.debug('Configuration', `395. Processing image field: ${field}`)
-		try {
-			const file = this.app.vault.getAbstractFileByPath(imagePath)
-			if (!(file instanceof TFile)) {
-				throw new Error(`File not found: ${imagePath}`)
-			}
+		const file = this.app.vault.getAbstractFileByPath(imagePath)
+		if (!(file instanceof TFile)) {
+			throw new Error(`File not found: ${imagePath}`)
+		}
 
-			const result = await uploadImageToStrapi(
-				file,
-				file.name,
-				this.plugin.settings,
-				this.app
-			)
+		const result = await uploadImageToStrapi(
+			file,
+			file.name,
+			this.plugin.settings,
+			this.app
+		)
 
-			if (result?.url) {
-				// Initialiser le fieldMapping avec les propriétés requises
-				if (!currentRoute.fieldMappings[field]) {
-					currentRoute.fieldMappings[field] = {
-						obsidianSource: 'frontmatter', // ou 'content' selon le cas
+		if (result?.url) {
+			// Initialiser le fieldMapping avec les propriétés requises
+			if (!currentRoute.fieldMappings[field]) {
+				currentRoute.fieldMappings[field] = {
+					obsidianSource: 'frontmatter', // ou 'content' selon le cas
+					type: 'string',
+					format: 'url',
+					required: false,
+					transform: 'value => value', // transformation par défaut
+					validation: {
 						type: 'string',
-						format: 'url',
-						required: false,
-						transform: 'value => value', // transformation par défaut
-						validation: {
-							type: 'string',
-							pattern: '^https?://.+',
-						},
-					}
+						pattern: '^https?://.+',
+					},
 				}
-
-				// Mettre à jour la valeur
-				currentRoute.fieldMappings[field].value = result.url
-
-				Logger.debug(
-					'Configuration',
-					`396. Image processed successfully for: ${field}`
-				)
-			} else {
-				throw new Error('Failed to upload image')
 			}
-		} catch (error) {
-			Logger.error(
-				'Configuration',
-				`397. Error processing image field: ${field}`,
-				error
-			)
-			throw error
+
+			currentRoute.fieldMappings[field].value = result.url
+		} else {
+			throw new Error('Failed to upload image')
 		}
 	}
 }
@@ -743,16 +599,11 @@ class ImageSelectionModal extends Modal {
 	}
 
 	onOpen(): void {
-		Logger.debug('ImageSelectionModal', '398. Opening image selection modal')
 		const { contentEl } = this
 
 		contentEl.createEl('h2', { text: 'Select Images for Fields' })
 
 		this.imageFields.forEach(field => {
-			Logger.debug(
-				'ImageSelectionModal',
-				`399. Creating field selector: ${field}`
-			)
 			this.createFieldSelector(contentEl, field)
 		})
 
@@ -765,18 +616,10 @@ class ImageSelectionModal extends Modal {
 			.setDesc(`Select an image for ${field}`)
 			.addButton(button =>
 				button.setButtonText('Choose Image').onClick(async () => {
-					Logger.debug(
-						'ImageSelectionModal',
-						`400. Selecting image for: ${field}`
-					)
 					const imagePath = await this.selectImage()
 					if (imagePath) {
 						this.selections[field] = imagePath
 						button.setButtonText('Change Image')
-						Logger.debug(
-							'ImageSelectionModal',
-							`401. Image selected for: ${field}`
-						)
 						new Notice(`Image selected for ${field}`)
 					}
 				})
@@ -786,7 +629,6 @@ class ImageSelectionModal extends Modal {
 	}
 
 	private createButtons(container: HTMLElement): void {
-		Logger.debug('ImageSelectionModal', '402. Creating modal buttons')
 		const buttonContainer = container.createDiv('modal-button-container')
 
 		new Setting(buttonContainer)
@@ -795,14 +637,12 @@ class ImageSelectionModal extends Modal {
 					.setButtonText('Confirm')
 					.setCta()
 					.onClick(() => {
-						Logger.debug('ImageSelectionModal', '403. Confirming selections')
 						this.close()
 						this.onSubmit(this.selections)
 					})
 			)
 			.addButton(button =>
 				button.setButtonText('Cancel').onClick(() => {
-					Logger.debug('ImageSelectionModal', '404. Cancelling selection')
 					this.close()
 				})
 			)
@@ -811,12 +651,10 @@ class ImageSelectionModal extends Modal {
 	private async selectImage(): Promise<string | null> {
 		// TODO: Implement file selection using Obsidian's API
 		// This is a placeholder that should be replaced with actual file selection logic
-		Logger.debug('ImageSelectionModal', '405. Image selection requested')
 		return 'path/to/image.jpg'
 	}
 
 	onClose(): void {
-		Logger.debug('ImageSelectionModal', '406. Closing modal')
 		const { contentEl } = this
 		contentEl.empty()
 	}

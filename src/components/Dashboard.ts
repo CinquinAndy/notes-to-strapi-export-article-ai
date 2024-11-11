@@ -1,6 +1,5 @@
 import { Setting, Notice } from 'obsidian'
 import StrapiExporterPlugin from '../main'
-import { Logger } from '../utils/logger'
 
 interface ConfigStatus {
 	key: string
@@ -20,13 +19,11 @@ export class Dashboard {
 	private containerEl: HTMLElement
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
-		Logger.info('Dashboard', '312. Initializing Dashboard component')
 		this.plugin = plugin
 		this.containerEl = containerEl
 	}
 
 	display(): void {
-		Logger.info('Dashboard', '313. Rendering dashboard')
 		try {
 			const { containerEl } = this
 			containerEl.empty()
@@ -34,17 +31,12 @@ export class Dashboard {
 			this.createHeader()
 			this.addSummary()
 			this.addQuickLinks()
-
-			Logger.info('Dashboard', '314. Dashboard rendered successfully')
 		} catch (error) {
-			Logger.error('Dashboard', '315. Error rendering dashboard', error)
-			new Notice('Error displaying dashboard')
+			new Notice('Error displaying dashboard' + error.message)
 		}
 	}
 
 	private createHeader(): void {
-		Logger.debug('Dashboard', '316. Creating dashboard header')
-
 		const headerEl = this.containerEl.createEl('div', {
 			cls: 'dashboard-header',
 		})
@@ -60,36 +52,23 @@ export class Dashboard {
 	}
 
 	private addSummary(): void {
-		Logger.debug('Dashboard', '317. Adding configuration summary')
+		const summaryEl = this.containerEl.createEl('div', {
+			cls: 'dashboard-summary',
+		})
 
-		try {
-			const summaryEl = this.containerEl.createEl('div', {
-				cls: 'dashboard-summary',
-			})
+		const configStatus = this.getConfigurationStatus()
+		summaryEl.createEl('h3', {
+			text: 'Configuration Status',
+			cls: 'dashboard-section-title',
+		})
 
-			const configStatus = this.getConfigurationStatus()
-			summaryEl.createEl('h3', {
-				text: 'Configuration Status',
-				cls: 'dashboard-section-title',
-			})
-
-			this.createStatusList(summaryEl, configStatus)
-
-			Logger.debug('Dashboard', '318. Summary added successfully', {
-				statusCount: configStatus.length,
-			})
-		} catch (error) {
-			Logger.error('Dashboard', '319. Error adding summary', error)
-			throw error
-		}
+		this.createStatusList(summaryEl, configStatus)
 	}
 
 	private createStatusList(
 		container: HTMLElement,
 		statuses: ConfigStatus[]
 	): void {
-		Logger.debug('Dashboard', '320. Creating status list')
-
 		const statusList = container.createEl('ul', { cls: 'status-list' })
 
 		statuses.forEach(({ key, status, description }) => {
@@ -109,32 +88,21 @@ export class Dashboard {
 	}
 
 	private addQuickLinks(): void {
-		Logger.debug('Dashboard', '321. Adding quick links section')
+		const quickLinksEl = this.containerEl.createEl('div', {
+			cls: 'dashboard-quick-links',
+		})
 
-		try {
-			const quickLinksEl = this.containerEl.createEl('div', {
-				cls: 'dashboard-quick-links',
-			})
+		quickLinksEl.createEl('h3', {
+			text: 'Quick Links',
+			cls: 'dashboard-section-title',
+		})
 
-			quickLinksEl.createEl('h3', {
-				text: 'Quick Links',
-				cls: 'dashboard-section-title',
-			})
-
-			this.quickLinks.forEach(link => {
-				this.createQuickLink(quickLinksEl, link)
-			})
-
-			Logger.debug('Dashboard', '322. Quick links added successfully')
-		} catch (error) {
-			Logger.error('Dashboard', '323. Error adding quick links', error)
-			throw error
-		}
+		this.quickLinks.forEach(link => {
+			this.createQuickLink(quickLinksEl, link)
+		})
 	}
 
 	private createQuickLink(container: HTMLElement, link: QuickLink): void {
-		Logger.debug('Dashboard', `324. Creating quick link: ${link.name}`)
-
 		new Setting(container)
 			.setName(link.name)
 			.setDesc(link.description)
@@ -143,26 +111,21 @@ export class Dashboard {
 					.setButtonText(`Go to ${link.name}`)
 					.setCta()
 					.onClick(() => {
-						Logger.debug('Dashboard', `325. Navigating to: ${link.targetTab}`)
 						this.navigateToTab(link.targetTab)
 					})
 			})
 	}
 
 	private navigateToTab(tab: string): void {
-		Logger.info('Dashboard', `326. Navigating to tab: ${tab}`)
 		try {
 			this.plugin.settings.currentTab = tab
 			this.plugin.settingsTab.display()
 		} catch (error) {
-			Logger.error('Dashboard', `327. Error navigating to tab: ${tab}`, error)
-			new Notice(`Failed to navigate to ${tab}`)
+			new Notice(`Failed to navigate to ${tab}` + error.message)
 		}
 	}
 
 	private getConfigurationStatus(): ConfigStatus[] {
-		Logger.debug('Dashboard', '328. Getting configuration status')
-
 		const { settings } = this.plugin
 		return [
 			{

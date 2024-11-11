@@ -1,7 +1,6 @@
 import { Notice, Setting, TextComponent } from 'obsidian'
 import StrapiExporterPlugin from '../main'
 import { RouteConfig } from '../types'
-import { Logger } from '../utils/logger'
 
 interface RouteField {
 	name: string
@@ -48,13 +47,11 @@ export class Routes {
 	]
 
 	constructor(plugin: StrapiExporterPlugin, containerEl: HTMLElement) {
-		Logger.info('Routes', '430. Initializing Routes component')
 		this.plugin = plugin
 		this.containerEl = containerEl
 	}
 
 	display(): void {
-		Logger.info('Routes', '431. Displaying routes configuration')
 		const { containerEl } = this
 		containerEl.empty()
 
@@ -62,10 +59,8 @@ export class Routes {
 			this.createHeader()
 			this.createRoutesList()
 			this.addNewRouteButton()
-			Logger.info('Routes', '432. Routes display completed')
 		} catch (error) {
-			Logger.error('Routes', '433. Error displaying routes', error)
-			this.showError('Failed to display routes configuration')
+			this.showError('Failed to display routes configuration' + error.message)
 		}
 	}
 
@@ -84,12 +79,9 @@ export class Routes {
 	}
 
 	private createRoutesList(): void {
-		Logger.debug('Routes', '434. Creating routes list')
-
 		const routesContainer = this.containerEl.createDiv('routes-list')
 
 		this.plugin.settings.routes.forEach((route, index) => {
-			Logger.debug('Routes', `435. Creating settings for route: ${route.name}`)
 			this.createRouteConfigSettings(route, index, routesContainer)
 		})
 	}
@@ -99,25 +91,11 @@ export class Routes {
 		route: RouteConfig,
 		field: keyof RouteConfig
 	): TextComponent {
-		Logger.debug(
-			'Routes',
-			`436. Creating text component for field: ${String(field)}`
-		)
-
 		return text.setValue(route[field] as string).onChange(async value => {
 			try {
 				await this.updateRouteField(route, field, value)
-				Logger.debug(
-					'Routes',
-					`437. Field ${String(field)} updated successfully`
-				)
 			} catch (error) {
-				Logger.error(
-					'Routes',
-					`438. Error updating field: ${String(field)}`,
-					error
-				)
-				this.showError(`Failed to update ${String(field)}`)
+				this.showError(`Failed to update ${String(field)}` + error.message)
 			}
 		})
 	}
@@ -127,8 +105,6 @@ export class Routes {
 		index: number,
 		container: HTMLElement
 	): void {
-		Logger.debug('Routes', `439. Creating config settings for route ${index}`)
-
 		try {
 			const routeEl = container.createEl('div', {
 				cls: 'route-config',
@@ -144,18 +120,10 @@ export class Routes {
 
 			// Delete button
 			this.addDeleteButton(routeEl, index)
-
-			Logger.debug(
-				'Routes',
-				`440. Route ${index} settings created successfully`
-			)
 		} catch (error) {
-			Logger.error(
-				'Routes',
-				`441. Error creating route settings for index ${index}`,
-				error
+			this.showError(
+				`Failed to create settings for route ${index + 1}` + error.message
 			)
-			this.showError(`Failed to create settings for route ${index + 1}`)
 		}
 	}
 
@@ -171,14 +139,8 @@ export class Routes {
 				toggle.setValue(route.enabled).onChange(async value => {
 					try {
 						await this.updateRouteEnabled(route, value)
-						Logger.debug('Routes', `442. Route ${index} enabled state updated`)
 					} catch (error) {
-						Logger.error(
-							'Routes',
-							`443. Error updating route enabled state`,
-							error
-						)
-						this.showError('Failed to update route state')
+						this.showError('Failed to update route state' + error.message)
 					}
 				})
 			)
@@ -206,10 +168,8 @@ export class Routes {
 				.onClick(async () => {
 					try {
 						await this.deleteRoute(index)
-						Logger.info('Routes', `444. Route ${index} deleted successfully`)
 					} catch (error) {
-						Logger.error('Routes', `445. Error deleting route ${index}`, error)
-						this.showError('Failed to delete route')
+						this.showError('Failed to delete route' + error.message)
 					}
 				})
 		)
@@ -261,7 +221,6 @@ export class Routes {
 
 	private async deleteRoute(index: number): Promise<void> {
 		if (this.plugin.settings.routes.length <= 1) {
-			Logger.warn('Routes', '446. Attempted to delete only route')
 			new Notice('Cannot delete the only route')
 			return
 		}
@@ -273,8 +232,6 @@ export class Routes {
 	}
 
 	private addNewRouteButton(): void {
-		Logger.debug('Routes', '447. Adding new route button')
-
 		new Setting(this.containerEl)
 			.setName('Add New Route')
 			.setDesc('Create a new route configuration')
@@ -285,10 +242,8 @@ export class Routes {
 					.onClick(async () => {
 						try {
 							await this.createNewRoute()
-							Logger.info('Routes', '448. New route created successfully')
 						} catch (error) {
-							Logger.error('Routes', '449. Error creating new route', error)
-							this.showError('Failed to create new route')
+							this.showError('Failed to create new route' + error.message)
 						}
 					})
 			)
@@ -319,7 +274,6 @@ export class Routes {
 	}
 
 	private showError(message: string): void {
-		Logger.error('Routes', '450. Showing error message', { message })
 		new Notice(message)
 	}
 }

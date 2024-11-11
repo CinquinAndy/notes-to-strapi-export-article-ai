@@ -1,6 +1,5 @@
 import { App, Notice, TAbstractFile, TFile } from 'obsidian'
 import { StrapiExporterSettings, ImageDescription } from '../types'
-import { Logger } from './logger'
 
 interface UploadResponse {
 	url: string
@@ -23,37 +22,26 @@ export async function uploadImageToStrapi(
 		caption?: string
 	}
 ): Promise<ImageDescription | null> {
-	Logger.info('StrapiUploader', '257. Starting image upload', {
-		fileName,
-		hasMetadata: !!additionalMetadata,
-	})
+	// Validate settings
+	validateStrapiSettings(settings)
 
-	try {
-		// Validate settings
-		validateStrapiSettings(settings)
-
-		// Get file
-		const file = await getFileFromImageData(imageData, fileName, app)
-		if (!file) {
-			return null
-		}
-
-		// Prepare form data
-		const formData = await prepareFormData(file, fileName, additionalMetadata)
-
-		// Upload to Strapi
-		const uploadResult = await performStrapiUpload(formData, settings)
-
-		if (uploadResult) {
-			Logger.info('StrapiUploader', '258. Image upload successful')
-			return createImageDescription(uploadResult, fileName, additionalMetadata)
-		}
-
+	// Get file
+	const file = await getFileFromImageData(imageData, fileName, app)
+	if (!file) {
 		return null
-	} catch (error) {
-		Logger.error('StrapiUploader', '259. Image upload failed', error)
-		throw error
 	}
+
+	// Prepare form data
+	const formData = await prepareFormData(file, fileName, additionalMetadata)
+
+	// Upload to Strapi
+	const uploadResult = await performStrapiUpload(formData, settings)
+
+	if (uploadResult) {
+		return createImageDescription(uploadResult, fileName, additionalMetadata)
+	}
+
+	return null
 }
 // Helper functions
 
@@ -62,8 +50,6 @@ async function getFileFromImageData(
 	fileName: string,
 	app: App
 ): Promise<TFile | null> {
-	Logger.debug('StrapiUploader', '271. Getting file from image data')
-
 	let file: TAbstractFile | null = null
 	if (typeof imageData === 'string') {
 		file = app.vault.getAbstractFileByPath(imageData)
@@ -72,7 +58,6 @@ async function getFileFromImageData(
 	}
 
 	if (!(file instanceof TFile)) {
-		Logger.error('StrapiUploader', '272. Invalid file')
 		new Notice(`Failed to find file: ${fileName}`)
 		return null
 	}
@@ -85,8 +70,6 @@ async function prepareFormData(
 	fileName: string,
 	metadata?: { alternativeText?: string; caption?: string }
 ): Promise<FormData> {
-	Logger.debug('StrapiUploader', '273. Preparing form data')
-
 	const formData = new FormData()
 	const arrayBuffer = await file.vault.readBinary(file)
 	const blob = new Blob([arrayBuffer], { type: `image/${file.extension}` })
@@ -110,8 +93,6 @@ async function performStrapiUpload(
 	formData: FormData,
 	settings: StrapiExporterSettings
 ): Promise<UploadResponse | null> {
-	Logger.debug('StrapiUploader', '274. Performing Strapi upload')
-
 	const response = await fetch(`${settings.strapiUrl}/api/upload`, {
 		method: 'POST',
 		headers: {
@@ -130,8 +111,6 @@ async function performStrapiUpload(
 }
 
 function validateStrapiSettings(settings: StrapiExporterSettings): void {
-	Logger.debug('StrapiUploader', '275. Validating Strapi settings')
-
 	if (!settings.strapiUrl) {
 		throw new Error('Strapi URL is not configured')
 	}
