@@ -6,15 +6,28 @@
 
 Strapi Exporter is a game-changing Obsidian plugin that streamlines your content creation process by seamlessly exporting your notes to Strapi CMS. With its AI-powered image handling and SEO optimization features, you can take your content to the next level with just a few clicks.
 
-## ✨ Features
+## ✨ Key Features
 
-- 🗒️ Automatically upload images from your notes to Strapi
-- 🎨 Generate SEO-friendly alt text and captions for images using AI
-- 😎 Create SEO-optimized article content based on your notes
-- 🔧 Customize the JSON template for the article fields in Strapi
-- ⚙️ Easy configuration for Strapi API URL, token, and content attribute name
-- 📷 Supports both single images and image galleries
-- 🔗 Additional API route for creating content in a different Strapi content type
+- 🔄 Multiple Export Routes
+  - Configure different export paths for various content types
+  - Customizable field mappings per route
+  - Support for multiple languages
+
+- 🤖 AI-Powered Content Processing
+  - Automatic frontmatter generation
+  - SEO optimization
+  - Content analysis and enhancement
+
+- 📷 Advanced Image Management
+  - Automatic image upload to Strapi
+  - Support for both single images and galleries
+  - Image path management and updates
+
+- 🔧 Flexible Configuration
+  - JSON schema-based configuration
+  - Custom field mappings
+  - Language-specific settings
+
 
 ## 🛠️ Installation
 
