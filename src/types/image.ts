@@ -1,20 +1,31 @@
-/**
- * Image types
- */
-export interface ImageBlob {
-	path: string
-	blob: Blob
-	name: string
+export interface ImageDescription {
+	url?: string
+	path?: string
+	name?: string
 	id?: any
+	blob?: Blob
+	description?: ImageMetadata
 }
 
-/**
- * Image description
- */
-export interface ImageDescription extends ImageBlob {
-	description: {
-		name: string
-		alternativeText: string
-		caption: string
-	}
+export interface ImageMetadata {
+	name: string
+	alternativeText: string
+	caption: string
+	width?: number
+	height?: number
+	format?: string
+	size?: number
+}
+
+export interface ImageProcessingResult {
+	content: string
+	processedImages: ImageDescription[]
+	stats?: ImageProcessingStats
+}
+
+export interface ImageProcessingStats {
+	total: number
+	processed: number
+	failed: number
+	skipped: number
 }

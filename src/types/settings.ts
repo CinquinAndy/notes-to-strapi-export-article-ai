@@ -1,28 +1,27 @@
-/**
- * The settings for the Strapi Exporter plugin
- */
+import { RouteConfig } from './route'
+
 export interface StrapiExporterSettings {
+	// API Settings
 	strapiUrl: string
 	strapiApiToken: string
+	forvoyezApiKey: string
 	openaiApiKey: string
-	jsonTemplate: string
-	jsonTemplateDescription: string
-	strapiArticleCreateUrl: string
-	strapiContentAttributeName: string
-	additionalPrompt: string
-	enableAdditionalApiCall: boolean
-	additionalJsonTemplate: string
-	additionalJsonTemplateDescription: string
-	additionalUrl: string
-	additionalContentAttributeName: string
-	// enable elements
-	mainButtonImageEnabled: boolean
-	mainButtonGalleryEnabled: boolean
-	additionalButtonImageEnabled: boolean
-	additionalButtonGalleryEnabled: boolean
-	// images and galleries paths (for the body api call)
-	mainImageFullPathProperty: string
-	mainGalleryFullPathProperty: string
-	additionalImageFullPathProperty: string
-	additionalGalleryFullPathProperty: string
+
+	// UI Settings
+	currentTab: string
+
+	// Routes Configuration
+	routes: RouteConfig[]
+
+	lastExport?: {
+		date: string
+		status: 'success' | 'failure'
+		message?: string
+	}
+}
+
+export interface AnalyzedContent {
+	[key: string]: any
+	content?: string
+	meta?: Record<string, any>
 }
