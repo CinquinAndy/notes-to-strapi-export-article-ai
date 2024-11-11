@@ -157,7 +157,6 @@ class APIKeyField {
  * Class for managing API key settings in Obsidian
  */
 export class APIKeys {
-	private keyFields: Map<string, APIKeyField> = new Map()
 	private readonly validators: Record<string, APIKeyValidator>
 
 	constructor(

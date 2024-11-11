@@ -34,8 +34,6 @@ export async function analyzeFile(
 
 		// Processing field mappings
 		Logger.info('FileAnalysis', '45. Processing field mappings')
-		console.log('*'.repeat(50))
-		console.log(result)
 		for (const [strapiField, mapping] of Object.entries(route.fieldMappings)) {
 			Logger.debug('FileAnalysis', `46. Processing field: ${strapiField}`, {
 				mapping,
@@ -101,8 +99,6 @@ export async function analyzeFile(
 
 		Logger.info('FileAnalysis', '52. File analysis completed successfully')
 		Logger.debug('FileAnalysis', '53. Final analysis result', result)
-		console.log('*'.repeat(50))
-		console.log(result)
 		return result
 	} catch (error) {
 		Logger.error('FileAnalysis', '54. Error during file analysis', error)
@@ -159,7 +155,6 @@ export function extractFrontMatterAndContent(fileContent: string): {
 				frontmatterKeys: Object.keys(frontmatter),
 				bodyLength: body.length,
 			})
-			console.log(frontmatter)
 
 			return { frontmatter, body }
 		}

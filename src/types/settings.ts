@@ -25,9 +25,3 @@ export interface AnalyzedContent {
 	content?: string
 	meta?: Record<string, any>
 }
-
-export interface ValidationResult {
-	isValid: boolean
-	errors: string[]
-	warnings?: string[]
-}

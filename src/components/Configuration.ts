@@ -477,11 +477,9 @@ export class Configuration {
 			}
 
 			const configValue = this.components.configOutput.getValue()
-			console.log('configValue', configValue)
 
 			// Validate configuration format
 			const config = JSON.parse(configValue)
-			console.log('config', config)
 
 			const currentRoute = this.plugin.settings.routes.find(
 				route => route.id === this.currentRouteId

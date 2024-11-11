@@ -13,22 +13,11 @@ export class StrapiExportService {
 		private file: TFile
 	) {}
 
-	private async prepareExportData(app, file, route: RouteConfig): Promise<any> {
-		let content = await app.vault.read(file)
-		content = extractFrontMatterAndContent(content)
-		return {
-			data: {
-				...content.frontmatter,
-				[route.contentField]: content.body,
-			},
-		}
-	}
-
 	private async sendToStrapi(data: any, route: RouteConfig): Promise<void> {
 		// const url = `${this.settings.strapiUrl}${route.url}`
 		// Logger.info('StrapiExport', `Sending to Strapi: ${url}`)
 		// Logger.debug('StrapiExport', 'Request data', data)
-		// console.log('StrapiExport', 'Request data', data)
+		console.log('StrapiExport', 'Request data', data)
 		// console.log('StrapiExport', 'Strapi URL', url)
 		// console.log(
 		// 	'StrapiExport',
@@ -97,7 +86,7 @@ export class StrapiExportService {
 	/**
 	 * Process and handle all images in the content
 	 * @param content - The content to process
-	 * @returns Promise<string> - Updated content with processed image links
+	 * @returns Promise<{ content: string; wasModified: boolean }> - Updated content with processed image links and modification status
 	 */
 	private async processContentImages(
 		content: string
@@ -138,46 +127,7 @@ export class StrapiExportService {
 			}
 		}
 
-		if (wasModified) {
-			await this.updateObsidianFile(processedContent)
-		}
-		console.log('Processed Content', processedContent)
-
 		return { content: processedContent, wasModified }
-	}
-
-	/**
-	 * Update the current Obsidian file with new content
-	 * @param newContent - The new content to write
-	 */
-	private async updateObsidianFile(newContent: string): Promise<void> {
-		try {
-			Logger.info(
-				'StrapiExport',
-				'Updating Obsidian file with processed images'
-			)
-
-			// Préserver le frontmatter existant
-			const currentContent = await this.app.vault.read(this.file)
-			const { frontmatter } = extractFrontMatterAndContent(currentContent)
-
-			// Construire le nouveau contenu avec le frontmatter préservé
-			let updatedContent = ''
-			if (Object.keys(frontmatter).length > 0) {
-				updatedContent = '---\n'
-				updatedContent += yaml.dump(frontmatter)
-				updatedContent += '---\n\n'
-			}
-			updatedContent += newContent
-
-			// Mettre à jour le fichier
-			await this.app.vault.modify(this.file, updatedContent)
-
-			Logger.info('StrapiExport', 'Obsidian file updated successfully')
-		} catch (error) {
-			Logger.error('StrapiExport', 'Error updating Obsidian file', error)
-			throw new Error('Failed to update Obsidian file with processed images')
-		}
 	}
 
 	/**
@@ -192,10 +142,8 @@ export class StrapiExportService {
 	): Promise<string | null> {
 		try {
 			if (isInternal) {
-				console.log('StrapiExport', 'Processing internal image', imagePath)
 				return await this.handleInternalImage(imagePath)
 			} else {
-				console.log('StrapiExport', 'Processing external image', imagePath)
 				return await this.handleExternalImage(imagePath)
 			}
 		} catch (error) {
@@ -234,8 +182,9 @@ export class StrapiExportService {
 	private async handleExternalImage(imageUrl: string): Promise<string | null> {
 		// First, check if image already exists in Strapi
 		const existingImage = await this.checkExistingImage(imageUrl)
+		console.log('StrapiExport', 'Existing image', existingImage)
 		if (existingImage) {
-			return existingImage.url
+			return existingImage.data.url
 		}
 
 		// If not, download and upload to Strapi
@@ -279,7 +228,7 @@ export class StrapiExportService {
 	 */
 	private async checkExistingImage(
 		imageUrl: string
-	): Promise<{ url: string } | null> {
+	): Promise<{ data: { id: number; url: string } } | null> {
 		try {
 			const response = await fetch(
 				`${this.settings.strapiUrl}/api/upload/files?filters[url][$eq]=${encodeURIComponent(imageUrl)}`,
@@ -295,7 +244,14 @@ export class StrapiExportService {
 			}
 
 			const results = await response.json()
-			return results.length > 0 ? { url: results[0].url } : null
+			return results.length > 0
+				? {
+						data: {
+							id: results[0].id,
+							url: results[0].url,
+						},
+					}
+				: null
 		} catch (error) {
 			Logger.error(
 				'StrapiExport',
@@ -315,6 +271,176 @@ export class StrapiExportService {
 		return fileName || 'image.jpg'
 	}
 
+	/**
+	 * Process frontmatter data and handle any image fields
+	 * @param frontmatter - The frontmatter object to process
+	 * @returns Promise<{frontmatter: any, wasModified: boolean}> - Processed frontmatter and modification status
+	 */
+	private async processFrontmatterImages(
+		frontmatter: any
+	): Promise<{ frontmatter: any; wasModified: boolean }> {
+		Logger.info('StrapiExport', 'Processing frontmatter images')
+
+		let wasModified = false
+		const processedFrontmatter = { ...frontmatter }
+
+		/**
+		 * Recursively process object properties
+		 * @param obj - Object to process
+		 * @returns Promise<any> - Processed object
+		 */
+		const processObject = async (obj: any): Promise<any> => {
+			for (const key in obj) {
+				const value = obj[key]
+
+				// Handle arrays
+				if (Array.isArray(value)) {
+					const processedArray = await Promise.all(
+						value.map(async item => {
+							if (typeof item === 'object' && item !== null) {
+								return await processObject(item)
+							}
+							if (typeof item === 'string') {
+								return await processStringValue(item)
+							}
+							return item
+						})
+					)
+
+					if (JSON.stringify(processedArray) !== JSON.stringify(value)) {
+						obj[key] = processedArray
+						wasModified = true
+					}
+				}
+				// Handle nested objects
+				else if (typeof value === 'object' && value !== null) {
+					obj[key] = await processObject(value)
+				}
+				// Handle string values
+				else if (typeof value === 'string') {
+					const processedValue = await processStringValue(value)
+					if (processedValue !== value) {
+						obj[key] = processedValue
+						wasModified = true
+					}
+				}
+			}
+			return obj
+		}
+
+		/**
+		 * Process string values for possible image paths/URLs
+		 * @param value - String value to process
+		 * @returns Promise<string> - Processed string value
+		 */
+		const processStringValue = async (value: string): Promise<string> => {
+			if (this.isImagePath(value)) {
+				const isInternal =
+					value.startsWith('./') ||
+					value.startsWith('../') ||
+					!value.startsWith('http')
+				const processedUrl = await this.processImage(value, isInternal)
+				if (processedUrl) {
+					return processedUrl
+				}
+			}
+			return value
+		}
+
+		await processObject(processedFrontmatter)
+		return { frontmatter: processedFrontmatter, wasModified }
+	}
+
+	/**
+	 * Check if a string value might be an image path
+	 * @param value - String to check
+	 * @returns boolean - True if the string appears to be an image path
+	 */
+	private isImagePath(value: string): boolean {
+		const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg)$/i
+		return (
+			imageExtensions.test(value) ||
+			value.includes('/upload/') || // For existing Strapi URLs
+			/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)/i.test(value)
+		)
+	}
+
+	/**
+	 * Prepare export data by processing both content and frontmatter
+	 * @param app - Obsidian App instance
+	 * @param file - Current TFile
+	 * @param route - Route configuration
+	 * @returns Promise<any> - Prepared export data
+	 */
+	private async prepareExportData(
+		app: App,
+		file: TFile,
+		route: RouteConfig
+	): Promise<any> {
+		const content = await app.vault.read(file)
+		const { frontmatter, body } = extractFrontMatterAndContent(content)
+
+		// Process images in frontmatter
+		const {
+			frontmatter: processedFrontmatter,
+			wasModified: frontmatterModified,
+		} = await this.processFrontmatterImages(frontmatter)
+
+		// Process images in content
+		const { content: processedContent, wasModified: contentModified } =
+			await this.processContentImages(body)
+
+		// Update file if modifications were made
+		if (frontmatterModified || contentModified) {
+			await this.updateObsidianFile(processedContent, processedFrontmatter)
+		}
+
+		return {
+			data: {
+				...processedFrontmatter,
+				[route.contentField]: processedContent,
+			},
+		}
+	}
+
+	/**
+	 * Update Obsidian file with processed content and frontmatter
+	 * @param newContent - Processed content
+	 * @param newFrontmatter - Processed frontmatter
+	 * @returns Promise<void>
+	 */
+	private async updateObsidianFile(
+		newContent: string,
+		newFrontmatter: any
+	): Promise<void> {
+		try {
+			Logger.info(
+				'StrapiExport',
+				'Updating Obsidian file with processed content and frontmatter'
+			)
+
+			let updatedContent = ''
+
+			// Add updated frontmatter
+			if (Object.keys(newFrontmatter).length > 0) {
+				updatedContent = '---\n'
+				updatedContent += yaml.dump(newFrontmatter)
+				updatedContent += '---\n\n'
+			}
+
+			// Add updated content
+			updatedContent += newContent
+
+			// Update the file
+			await this.app.vault.modify(this.file, updatedContent)
+
+			Logger.info('StrapiExport', 'Obsidian file updated successfully')
+		} catch (error) {
+			Logger.error('StrapiExport', 'Error updating Obsidian file', error)
+			throw new Error('Failed to update Obsidian file')
+		}
+	}
+
 	// Update the exportContent method to use the new image processing
 	async exportContent(
 		content: AnalyzedContent,
@@ -332,7 +458,6 @@ export class StrapiExportService {
 				route
 			)
 
-			// Process images in the content
 			if (exportData.data[route.contentField]) {
 				const { content: processedContent } = await this.processContentImages(
 					exportData.data[route.contentField]
@@ -340,11 +465,60 @@ export class StrapiExportService {
 				exportData.data[route.contentField] = processedContent
 			}
 
+			Logger.info(
+				'StrapiExport',
+				'Converting image URLs to Strapi IDs before sending'
+			)
+			exportData.data = await this.convertImageUrlsToIds(exportData.data)
+
+			Logger.debug('StrapiExport', 'Final export data:', exportData)
+
 			await this.sendToStrapi(exportData, route)
 			Logger.info('StrapiExport', 'Content exported successfully')
 		} catch (error) {
 			Logger.error('StrapiExport', 'Export failed', error)
 			throw error
 		}
+	}
+
+	/**
+	 * Convert image URLs to Strapi IDs in frontmatter
+	 * @param data - The data object containing frontmatter
+	 * @returns Promise<any> - Updated data with image IDs
+	 */
+	private async convertImageUrlsToIds(data: any): Promise<any> {
+		Logger.info('StrapiExport', 'Converting image URLs to Strapi IDs')
+
+		const processValue = async (value: any): Promise<any> => {
+			if (typeof value === 'string' && this.isImagePath(value)) {
+				try {
+					const imageInfo = await this.checkExistingImage(value)
+					return imageInfo?.data?.id || value
+				} catch (error) {
+					Logger.error(
+						'StrapiExport',
+						`Error converting image URL to ID: ${value}`,
+						error
+					)
+					return value
+				}
+			}
+
+			if (Array.isArray(value)) {
+				return Promise.all(value.map(item => processValue(item)))
+			}
+
+			if (typeof value === 'object' && value !== null) {
+				const processed: any = {}
+				for (const [key, val] of Object.entries(value)) {
+					processed[key] = await processValue(val)
+				}
+				return processed
+			}
+
+			return value
+		}
+
+		return await processValue(data)
 	}
 }

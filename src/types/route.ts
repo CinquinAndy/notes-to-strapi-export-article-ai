@@ -49,22 +49,3 @@ export interface RouteConfig {
 	fieldMappings: Record<string, FieldMapping>
 	additionalInstructions?: string
 }
-
-export interface FieldValidation {
-	type: string
-	pattern?: string
-	min?: number
-	max?: number
-	required?: boolean
-	custom?: (value: any) => boolean
-}
-
-export interface RouteStats {
-	totalExports: number
-	successfulExports: number
-	failedExports: number
-	lastExport?: {
-		date: string
-		status: 'success' | 'failure'
-	}
-}

@@ -1,4 +1,3 @@
-// src/utils/logger.ts
 export const LogLevel = {
 	DEBUG: 'DEBUG',
 	INFO: 'INFO',
@@ -35,12 +34,6 @@ export class Logger {
 		}
 
 		this.logs.push(logMessage)
-
-		// Format du log : [ID] NIVEAU [COMPOSANT] Message
-		console.log(
-			`[${logMessage.id.toString().padStart(3, '0')}] ${level} [${component}] ${message}`,
-			data ? '\nData:' + data : ''
-		)
 	}
 
 	static debug(component: string, message: string, data?: any) {

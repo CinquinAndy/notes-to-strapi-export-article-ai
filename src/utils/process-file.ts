@@ -214,30 +214,3 @@ async function processImageMatch(
 function isExternalUrl(url: string): boolean {
 	return url.startsWith('http://') || url.startsWith('https://')
 }
-
-/**
- * Validate Strapi settings
- */
-function validateSettings(settings: StrapiExporterSettings): void {
-	Logger.debug('ProcessFile', '235. Validating Strapi settings')
-
-	if (!settings.strapiUrl) {
-		throw new Error('Strapi URL is not configured')
-	}
-	if (!settings.strapiApiToken) {
-		throw new Error('Strapi API token is not configured')
-	}
-}
-
-/**
- * Create image metadata
- */
-function createImageMetadata(
-	file: TFile,
-	altText: string
-): { alternativeText: string; caption: string } {
-	return {
-		alternativeText: altText || file.basename,
-		caption: altText || file.basename,
-	}
-}

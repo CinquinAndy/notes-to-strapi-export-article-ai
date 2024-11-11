@@ -184,8 +184,6 @@ the content field is ${config.contentField}. Please delete the content field fro
 
 Return complete YAML frontmatter with opening and closing "---" markers.`
 
-		console.log('*'.repeat(100))
-		console.log(prompt)
 		return prompt
 	}
 
@@ -268,7 +266,6 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 			// Parse configuration and generate frontmatter
 			const config: GeneratedConfig = JSON.parse(currentRoute.generatedConfig)
 
-			console.log('generation')
 			const { text } = await generateText({
 				model: this.model,
 				system:
