@@ -318,7 +318,6 @@ Here are the specific requirements:
 - Ensure consistent indentation (2 spaces)
 - Maintain compact array formatting
 - Verify all strings are properly quoted
-- Ensure locale matches the content language (if specified) ${language}
 
 2. Content Validation:
 - All URLs should be valid format
@@ -339,14 +338,20 @@ field mapping: ${JSON.stringify(config.fieldMappings)}
 Original frontmatter to clean:
 ${initialText}
 
-Return only the cleaned YAML frontmatter, maintaining exact and correct formatting. No explanation needed.`
+Return only the cleaned YAML frontmatter, maintaining exact and correct formatting. No explanation needed.
+- Ensure locale matches the content language (if specified) "${language}"
+- if the frontmatter is not in the correct language, please change it to "${language}"
+- TRANSLATE EVERYTHING TO "${language}"`
 
+		console.log('Formatting Prompt:', formattingPrompt)
 		const { text } = await generateText({
 			model: this.model,
 			system:
 				'You are a YAML formatting expert. Your only task is to clean and validate YAML frontmatter. Return only the cleaned YAML with no additional comments or explanations.',
 			prompt: formattingPrompt,
 		})
+
+		console.log('Formatted Text:', text)
 
 		return this.cleanGPTOutput(text)
 	}

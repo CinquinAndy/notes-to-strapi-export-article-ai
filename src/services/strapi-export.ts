@@ -14,7 +14,7 @@ export class StrapiExportService {
 	) {}
 
 	private async sendToStrapi(data: any, route: RouteConfig): Promise<void> {
-		// const url = `${this.settings.strapiUrl}${route.url}`
+		const url = `${this.settings.strapiUrl}${route.url}`
 		// Logger.info('StrapiExport', `Sending to Strapi: ${url}`)
 		// Logger.debug('StrapiExport', 'Request data', data)
 		console.log('StrapiExport', 'Request data', data)
@@ -25,7 +25,6 @@ export class StrapiExportService {
 		// 	this.settings.strapiApiToken
 		// )
 
-		return
 		try {
 			const response = await fetch(url, {
 				method: 'POST',
