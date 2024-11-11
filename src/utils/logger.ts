@@ -44,19 +44,19 @@ export class Logger {
 	}
 
 	static debug(component: string, message: string, data?: any) {
-		this.log(component, message, LogLevel.DEBUG, data)
+		if (false) this.log(component, message, LogLevel.DEBUG, data)
 	}
 
 	static info(component: string, message: string, data?: any) {
-		this.log(component, message, LogLevel.INFO, data)
+		if (false) this.log(component, message, LogLevel.INFO, data)
 	}
 
 	static warn(component: string, message: string, data?: any) {
-		this.log(component, message, LogLevel.WARN, data)
+		if (false) this.log(component, message, LogLevel.WARN, data)
 	}
 
 	static error(component: string, message: string, data?: any) {
-		this.log(component, message, LogLevel.ERROR, data)
+		if (false) this.log(component, message, LogLevel.ERROR, data)
 	}
 
 	static getLogs(): LogMessage[] {
