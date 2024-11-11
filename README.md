@@ -71,159 +71,101 @@ To install Strapi Exporter, follow these steps (coming soon to the Obsidian plug
 ## ⚙️ Configuration
 
 To get started with Strapi Exporter, you'll need to configure the following settings:
+![img.png](images/img.png)
 
-- **Strapi URL**: The URL of your Strapi instance (e.g., `https://your-strapi-url`).
-  ![img.png](images/img.png)
-- **Strapi API Token**: Your Strapi API token for authentication. You can create an API token in your Strapi admin panel under "Settings" > "API Tokens".
-  ![img_1.png](images/img_1.png)
-  ![img_2.png](images/img_2.png)
-- You need, at least, to have the following permissions:
-  - article: create
-  - upload: create
-  - (you can also add full permissions, but it's not really recommended for security reasons)
-    ![img_3.png](images/img_3.png)
-  - (the token in the screenshot is not valid, don't try to use it 😌)
-- **OpenAI API Key**: Your OpenAI API key for using GPT-3 to generate SEO-friendly content. You can get your API key from the [OpenAI website](https://platform.openai.com/account/api-keys).
-  ![img_4.png](images/img_4.png)
-  - this key is needed to use the GPT-3 API, which is used to generate the content of the article
-  - (it need to access to "Model capabilities" with "write" permission)
-    ![img_5.png](images/img_5.png)
-  - (or with the "all" permission)
-- **JSON Template**: The JSON template for the article fields in Strapi. Customize this according to your Strapi content type structure. You can find the JSON template in your Strapi API documentation (Swagger).
-  ![img_6.png](images/img_6.png)
-  - to get the JSON template, you can go to the documentation of your Strapi API, and copy the JSON template of the article creation
-  - it should look like this: `https://{api_url}/documentation/v1.0.0`
-  - then, go to the article creation, and copy the JSON template
-    ![img_7.png](images/img_7.png)
-    ![img_8.png](images/img_8.png)
-  - it should look like this for example:
+### 1. Go in "API Keys" tab
+- (required) Add your Strapi API URL
+    It's the link to your Strapi API, for example: `https://api.yourdomain.com`
+![img_1.png](images/img_1.png)
+- (required) Add your Strapi API Token
+![img_2.png](images/img_2.png)
+  (settings -> api tokens -> create new API Token)
+then, give it the right permissions (at least, upload, and create permissions on the content type you want to use)
+  (or just use a full-access token [in Token type configuration])
+- (required) Add your OpenAI API Token
+![img_3.png](images/img_3.png)
+you need to create an account on OpenAI, and create an API key, then add it here
+- (optional to improve the results) Add your ForVoyez API Token
 
-```json
+### 2. Go in "Routes" tab
+- Add a new route
+- Give it a name, icon, url, subtitle
+- for example, 
+  - name : articles
+  - icon : bird
+  - url : /api/articles
+  - subtitle : Create articles
+- You can add multiple routes, for example, one for articles, one for pages, one for categories, etc.
+![img_4.png](images/img_4.png)
+
+### 3. Go in "Configuration" tab
+- For each route, you can configure the fields you want to use, and the schema needed for the fields
+in Strapi, go in Documentation -> Open Documentation
+![img_5.png](images/img_5.png)
+You will see the openapi schema, you can use it to create the schema for the fields you want to use
+![img_6.png](images/img_6.png)
+You need to check the POST method, and the schema needed for the fields you want to use
+![img_7.png](images/img_7.png)
+Copy the whole schema in the Strapi schema section in the obsidian plugin
+![img_8.png](images/img_8.png)
+
+Then, you need to describe the content you want to use, and you want to upload at the end,
+in schema description, for exemple for me :
+in Strapi Schema
+```
 {
-	"data": {
-		"title": "string",
-		"seo_title": "string",
-		"seo_description": "string",
-		"slug": "string",
-		"excerpt": "string",
-		"links": [
-			{
-				"id": "number",
-				"label": "string",
-				"url": "string"
-			}
-		],
-		"subtitle": "string",
-		"type": "string",
-		"rank": "number",
-		"tags": [
-			{
-				"id": "number",
-				"name": "string"
-			}
-		],
-		"locale": "string"
-	}
-}
+  "data": {
+    "title": "string",
+    "content": "string",
+    "seo_title": "string",
+    "seo_description": "string",
+    "slug": "string",
+    ...
+  }
 ```
-
-- then, you can copy this JSON template in the settings of the plugin
-- and copy that, to describe each field in the other JSON description setting
-- **JSON Template Description**: A description for each field in the JSON template to help GPT-3 understand the structure. Follow the same schema as the JSON template to provide descriptions for each field.
-
-```json
+In Strapi Description (just describe with your words the fields, to help the AI to understand what you want) : 
+```
 {
-	"data": {
-		"title": "<Title of the item, as a short string>",
-		"seo_title": "<SEO optimized title, as a short string>",
-		"seo_description": "<SEO optimized description, as a short string>",
-		"slug": "<URL-friendly string derived from the title>",
-		"excerpt": "<A short preview or snippet from the content>",
-		"links": [
-			{
-				"id": "<Unique identifier for the link, as a number>",
-				"label": "<Display text for the link, as a short string>",
-				"url": "<URL the link points to, as a string>"
-			}
-		],
-		"subtitle": "<Subtitle or secondary title, as a short string>",
-		"type": "<Category or type of the item, as a short string>",
-		"rank": "<Numerical ranking or order priority, as a number>",
-		"tags": [
-			{
-				"id": "<Unique identifier for the tag, as a number>",
-				"name": "<Name of the tag, as a short string>"
-			}
-		],
-		"locale": "<Locale or language code, as a short string>"
-	}
-}
+  "data": {
+    "title": "the title of the article",
+    "content": "the content normal of the article",
+    "seo_title": "the seo optimized version of the title",
+    "seo_description": "a summary of the content, seo optimized, for the seo optimized description",
+    "slug": "the-slug-for-the-access-of-the-article",
+    ...
+  }
 ```
+![img_9.png](images/img_9.png)
 
-```
-⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-⚠️
-⚠️ **Important:** Remove the `content` (or the attribute name that correspond to the main content of the article)
-⚠️ field from the JSON template and specify it separately in the "Strapi Content Attribute Name" setting.
-⚠️ ( i do that to avoid changes on the main content by chat gpt )
-⚠️
-⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-```
+- And now, in the content field name, you need to write the main content attribute name, for example, in my case, it's "content"
+it because we want to avoid the AI to rewrite the content field. (it's already written by us)
 
-- **Strapi Article Create URL**: The URL to create articles in Strapi (e.g., `https://your-strapi-url/api/articles`).
-  - to get the URL, you can go to the documentation of your Strapi API, and copy the URL of the article creation
-  - it should look like this: `https://{api_url}/documentation/v1.0.0`
-  - then, go to the article creation, and copy the URL
-- **Strapi Content Attribute Name**: The attribute name for the content field in Strapi (e.g., `content`).
-  - to get the attribute name, you can go to the documentation of your Strapi API, and copy the attribute name of the article creation, (it need to be the name of the attribute that contain the main content of the article, for me it's "content", but it can be different for you)
-- **Additional Prompt** (optional): Additional prompt to provide context for GPT-3 when generating content. You can use this field to specify additional information or instructions for the AI model. Like your langage, the tone of the article, etc.
+![img_10.png](images/img_10.png)
 
-### Image Settings (main), optional
+- Select the target Language. 
+![img_11.png](images/img_11.png)
 
-- **Enable Additional Call API Image**: Toggle this option to enable the image feature for the additional API route. The plugin will look for an image in the `image` folder next to your article file and upload it to Strapi.
-- **Additional Call API Image Full Path Property**: Specify the full path to the image property for the additional API route in your Strapi API (e.g., `image_presentation`).
+- click on "Generate Configuration", and wait the configuration to be generated
+- check if it's coherent with what you want, and click on "Apply"
 
-- **Enable Additional Call API Gallery**: Toggle this option to enable the gallery feature for the additional API route. The plugin will look for images in the `gallery` folder next to your article file and upload them to Strapi.
-- **Additional Call API Gallery Full Path Property**: Specify the full path to the gallery property for the additional API route in your Strapi API (e.g., `gallery`).
--
+![img_12.png](images/img_12.png)
 
-### Additional API Route Settings
+- Repeat the process for each route you want to use, (you can select an another route with the dropdown menu [select route])
+- Reload the plugin (ctrl + r) to apply the changes
 
-⚠️ Warning: When enabling the additional API route feature, you'll need to restart Obsidian to see the additional button in the ribbon menu.
-
-- **Enable Additional Call API**: Toggle this option to enable the additional API route feature. This will display a new icon in the ribbon menu for creating content in a different Strapi content type.
-- **Additional JSON Template**: Enter the JSON template for the fields needed for the additional API route.
-- **Additional API JSON Template Description**: Enter the description for each field in the additional API JSON template.
-- **Additional API URL**: Enter the URL to create content for the additional API route (e.g., `https://your-strapi-url/api/additional-content`).
-- **Additional API Content Attribute Name**: Enter the attribute name for the content field for the additional API route.
-
-### Image Settings (additional), optional
-
-- **Enable Additional Call API Image**: Toggle this option to enable the image feature for the additional API route. The plugin will look for an image in the `image` folder next to your article file and upload it to Strapi.
-- **Additional Call API Image Full Path Property**: Specify the full path to the image property for the additional API route in your Strapi API (e.g., `image_presentation`).
-
-- **Enable Additional Call API Gallery**: Toggle this option to enable the gallery feature for the additional API route. The plugin will look for images in the `gallery` folder next to your article file and upload them to Strapi.
-- **Additional Call API Gallery Full Path Property**: Specify the full path to the gallery property for the additional API route in your Strapi API (e.g., `gallery`).
 
 ## 🚀 Usage
 
+YOU NEED TO HAVE FINISHED THE CONFIGURATION BEFORE USING THE PLUGIN
+
 1. Open a Markdown file in Obsidian.
 2. Click on the plugin's ribbon icon to start the magic.
-   ![img_9.png](images/img_9.png)
-3. Sit back and relax while Strapi Exporter does the heavy lifting:
-   - 🖼️ Extracting and uploading images to Strapi
-   - 🎨 Generating SEO-friendly alt text and captions for images
-   - 📝 Creating SEO-optimized article content based on your notes
-   - 🌐 Publishing the article to Strapi with the generated content and images
-4. Enjoy your freshly exported article in Strapi!
+![img_13.png](images/img_13.png)
+3. if you haven't any frontmatter, click on "Generate" to generate the frontmatter
+4. you can change the frontmatter if you want, directly in the file
+5. Check if the frontmatter is correct, and click on "Confirm & Export"
+6. Enjoy your freshly exported article in Strapi!
 
-For the plugin to detect images and galleries, ensure the following folder structure:
-
-- Article file (e.g., `article.md`)
-- Main image folder (name: `image`)
-- Main gallery folder (name: `gallery`)
-
-The plugin will detect images in the `image` and `gallery` folders and upload them to Strapi.
 
 ## 🤝 Contributing
 
