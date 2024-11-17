@@ -414,6 +414,7 @@ export class StrapiExportService {
 			try {
 				await this.sendToStrapi(exportData, route)
 			} catch (strapiError) {
+				new Notice(`Failed to upload, retrying with simplified data...`)
 				// Parse and analyze the error
 				const errorDetails = await this.parseAndAnalyzeError(strapiError)
 
@@ -494,11 +495,11 @@ export class StrapiExportService {
 	): Promise<any> {
 		const { text } = await generateText({
 			model: this.model,
-			system: `You are an API expert specializing in Strapi CMS. Your role is to fix validation issues in API requests.
-                You understand Strapi's data structures and validation requirements.
-                When fixing issues, prioritize maintaining data integrity while resolving validation errors.`,
+			system: `You are an API expert specializing in Strapi CMS. You MUST return only valid JSON data.
+                Do not include any explanations or text outside of the JSON structure.
+                The response must be parseable by JSON.parse().`,
 			prompt: `
-            Help fix this failed Strapi API request.
+            Fix this failed Strapi API request.
 
             Error Information:
             Status Code: ${errorDetails.statusCode}
@@ -511,59 +512,134 @@ export class StrapiExportService {
             Route Configuration and Schema:
             ${route.generatedConfig}
 
-            Requirements:
-            1. Analyze the error and fix validation issues
-            2. Keep the data structure matching Strapi's expectations
-            3. Preserve valid content from the original request
-            4. Remove or fix problematic fields
-            5. Ensure all required fields are present and properly formatted
-            6. Handle any type mismatches or format issues
-
-            Return a complete, corrected data object that follows Strapi's requirements.
-            Maintain the exact structure with the "data" wrapper as in the original request.
-            If you remove any fields, explain why in a comment at the end of the JSON.
-
-            Example format:
+            IMPORTANT: Return ONLY valid JSON in the exact format:
             {
               "data": {
-                "field1": "corrected value",
-                "field2": "preserved value"
+                // corrected fields here
               }
-              "__comment": "Removed field3 due to validation error"
             }
+            
+            If the error is something similar with an Unknown error, try to delete the complexe fields, galleries, lists, etc. and keep only the simple fields.
+
+            Do not include any text explanations - use the "__comment" field inside the JSON if needed.
+            The entire response must be valid JSON that can be parsed with JSON.parse().
         `,
 		})
 
 		try {
-			const correctedData = JSON.parse(text)
+			// First, try to clean the response if needed
+			const cleanedText = this.cleanAIResponse(text)
 
-			// Extract any comments if present
-			const comments = correctedData.__comment
-			if (comments) {
-				delete correctedData.__comment
-				console.log('Correction comments:', comments)
+			let correctedData: any
+			try {
+				correctedData = JSON.parse(cleanedText)
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			} catch (e) {
+				// If parsing fails, attempt to extract JSON from the response
+				const extractedJson = this.extractJsonFromText(cleanedText)
+				if (!extractedJson) {
+					console.error('Original AI response:', text)
+					console.error('Cleaned response:', cleanedText)
+					throw new Error('Could not extract valid JSON from AI response')
+				}
+				correctedData = JSON.parse(extractedJson)
 			}
 
 			// Validate basic structure
 			if (!correctedData.data) {
-				throw new Error('Generated data missing required "data" property')
+				correctedData = { data: correctedData }
 			}
 
-			// Log changes for debugging
+			// Log for debugging
 			console.log('Original data:', originalData)
 			console.log('Error details:', errorDetails)
 			console.log('Corrected data:', correctedData)
 
-			new Notice('Content structure corrected based on API error')
-			if (comments) {
-				new Notice(`Changes made: ${comments}`)
+			if (correctedData.__comment) {
+				console.log('Correction comment:', correctedData.__comment)
+				new Notice(`Changes made: ${correctedData.__comment}`)
+				delete correctedData.__comment
 			}
 
 			return correctedData
 		} catch (e) {
-			console.error('Failed to generate corrected data:', e)
-			throw new Error(`Failed to generate corrected data: ${e.message}`)
+			console.error('AI Response:', text)
+			console.error('Generation error:', e)
+
+			// Fallback: return a sanitized version of the original data
+			return this.createFallbackData(originalData, errorDetails)
 		}
+	}
+
+	/**
+	 * Clean AI response text to ensure valid JSON
+	 */
+	private cleanAIResponse(text: string): string {
+		// Remove markdown code blocks if present
+		// eslint-disable-next-line no-useless-escape
+		text = text.replace(/```json\n?|\```\n?/g, '')
+
+		// Remove any leading/trailing whitespace
+		text = text.trim()
+
+		// Remove any text before the first {
+		const firstBrace = text.indexOf('{')
+		if (firstBrace > 0) {
+			text = text.substring(firstBrace)
+		}
+
+		// Remove any text after the last }
+		const lastBrace = text.lastIndexOf('}')
+		if (lastBrace !== -1 && lastBrace < text.length - 1) {
+			text = text.substring(0, lastBrace + 1)
+		}
+
+		return text
+	}
+
+	/**
+	 * Extract JSON from text that might contain other content
+	 */
+	private extractJsonFromText(text: string): string | null {
+		const jsonRegex = /{[\s\S]*}/
+		const match = text.match(jsonRegex)
+		return match ? match[0] : null
+	}
+
+	/**
+	 * Create fallback data when regeneration fails
+	 */
+	private createFallbackData(originalData: any, errorDetails: any): any {
+		console.log('Using fallback data generation')
+
+		// Start with the original data
+		const fallbackData = { ...originalData }
+
+		// Remove fields mentioned in error details
+		if (errorDetails.details?.errors) {
+			errorDetails.details.errors.forEach((error: any) => {
+				if (error.path) {
+					const path = Array.isArray(error.path) ? error.path : [error.path]
+					let current = fallbackData.data
+					for (let i = 0; i < path.length - 1; i++) {
+						if (current[path[i]]) {
+							current = current[path[i]]
+						}
+					}
+					const lastKey = path[path.length - 1]
+					if (current[lastKey]) {
+						delete current[lastKey]
+					}
+				}
+			})
+		}
+
+		// Ensure the data property exists
+		if (!fallbackData.data) {
+			fallbackData.data = {}
+		}
+
+		return fallbackData
 	}
 
 	/**
