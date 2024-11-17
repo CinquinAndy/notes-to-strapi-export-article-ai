@@ -3,8 +3,9 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { App, Notice, TFile } from 'obsidian'
 import { RouteConfig } from '../types'
 import StrapiExporterPlugin from '../main'
-import { processImages } from '../utils/process-file'
+import { processContentLinks } from '../utils/process-file'
 import { extractFrontMatterAndContent } from '../utils/analyse-file'
+import yaml from 'js-yaml'
 
 /**
  * Interface defining the structure of a field in the schema
@@ -100,15 +101,25 @@ export class FrontmatterGenerator {
 		try {
 			const { frontmatter, body } = extractFrontMatterAndContent(content)
 
-			// Process content and images
-			const processedContent = await processImages(
-				{ content: body, ...frontmatter },
+			// Process only the images in the content, leaving regular links unchanged
+			const processedContent = await processContentLinks(
+				body,
 				app,
 				this.plugin.settings
 			)
 
-			// Return the processed content
-			return processedContent.content || body
+			// If frontmatter exists, reconstruct the content with it
+			if (Object.keys(frontmatter).length > 0) {
+				return [
+					'---',
+					yaml.dump(frontmatter),
+					'---',
+					'',
+					processedContent,
+				].join('\n')
+			}
+
+			return processedContent
 		} catch (error) {
 			new Notice(`Error processing images: ${error.message}`)
 			throw error

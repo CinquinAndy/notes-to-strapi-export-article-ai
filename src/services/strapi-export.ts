@@ -1,16 +1,25 @@
 import { RouteConfig, AnalyzedContent } from '../types'
 import { StrapiExporterSettings } from '../types/settings'
 import { extractFrontMatterAndContent } from '../utils/analyse-file'
-import { App, TFile } from 'obsidian'
+import { App, Notice, TFile } from 'obsidian'
 import { uploadImageToStrapi } from '../utils/strapi-uploader'
 import * as yaml from 'js-yaml'
+import { createOpenAI } from '@ai-sdk/openai'
+import { generateText } from 'ai'
 
 export class StrapiExportService {
+	private model
+
 	constructor(
 		private settings: StrapiExporterSettings,
 		private app: App,
 		private file: TFile
-	) {}
+	) {
+		const openai = createOpenAI({
+			apiKey: this.settings.openaiApiKey,
+		})
+		this.model = openai('gpt-4o-mini')
+	}
 
 	private async sendToStrapi(data: any, route: RouteConfig): Promise<void> {
 		const url = `${this.settings.strapiUrl}${route.url}`
@@ -390,18 +399,171 @@ export class StrapiExportService {
 		this.validateSettings()
 		this.validateRoute(route)
 
-		const exportData = await this.prepareExportData(this.app, this.file, route)
+		try {
+			let exportData = await this.prepareExportData(this.app, this.file, route)
 
-		if (exportData.data[route.contentField]) {
-			const { content: processedContent } = await this.processContentImages(
-				exportData.data[route.contentField]
-			)
-			exportData.data[route.contentField] = processedContent
+			if (exportData.data[route.contentField]) {
+				const { content: processedContent } = await this.processContentImages(
+					exportData.data[route.contentField]
+				)
+				exportData.data[route.contentField] = processedContent
+			}
+
+			exportData.data = await this.convertImageUrlsToIds(exportData.data)
+
+			try {
+				await this.sendToStrapi(exportData, route)
+			} catch (strapiError) {
+				// Parse and analyze the error
+				const errorDetails = await this.parseAndAnalyzeError(strapiError)
+
+				// Regenerate data with error details
+				exportData = await this.regenerateDataWithError(
+					exportData,
+					errorDetails,
+					route
+				)
+
+				// Retry sending to Strapi
+				await this.sendToStrapi(exportData, route)
+			}
+		} catch (error) {
+			throw new Error(`Export failed: ${error.message}`)
 		}
+	}
 
-		exportData.data = await this.convertImageUrlsToIds(exportData.data)
+	/**
+	 * Process individual error messages from Strapi response
+	 */
+	private async parseAndAnalyzeError(error: any): Promise<any> {
+		try {
+			// If we already have JSON data in the error response
+			if (error.response?.data) {
+				return {
+					statusCode: error.response.status,
+					error: error.response.data.error,
+					details: error.response.data.error?.details || {},
+					message: error.response.data.error?.message || 'Unknown error',
+				}
+			}
 
-		await this.sendToStrapi(exportData, route)
+			// Handle string error message
+			if (typeof error === 'string') {
+				return {
+					statusCode: 500,
+					error: { message: error },
+					details: {},
+					message: error,
+				}
+			}
+
+			// Extract detailed error info
+			const errorInfo = error.toString().split(': ').pop()
+			let parsedError
+
+			try {
+				parsedError = JSON.parse(errorInfo)
+			} catch {
+				parsedError = { message: errorInfo }
+			}
+
+			return {
+				statusCode: error.response?.status || 500,
+				error: parsedError,
+				details: parsedError.details || {},
+				message: parsedError.message || 'Unknown error',
+			}
+		} catch (e) {
+			console.error('Error parsing Strapi response:', e)
+			return {
+				statusCode: error.response?.status || 500,
+				error: { message: 'Failed to parse error response' },
+				details: {},
+				message: error.message || 'Unknown error',
+			}
+		}
+	}
+
+	/**
+	 * Regenerate data based on Strapi error feedback
+	 */
+	private async regenerateDataWithError(
+		originalData: any,
+		errorDetails: any,
+		route: RouteConfig
+	): Promise<any> {
+		const { text } = await generateText({
+			model: this.model,
+			system: `You are an API expert specializing in Strapi CMS. Your role is to fix validation issues in API requests.
+                You understand Strapi's data structures and validation requirements.
+                When fixing issues, prioritize maintaining data integrity while resolving validation errors.`,
+			prompt: `
+            Help fix this failed Strapi API request.
+
+            Error Information:
+            Status Code: ${errorDetails.statusCode}
+            Message: ${errorDetails.message}
+            Details: ${JSON.stringify(errorDetails.details, null, 2)}
+
+            Original Request Data:
+            ${JSON.stringify(originalData, null, 2)}
+
+            Route Configuration and Schema:
+            ${route.generatedConfig}
+
+            Requirements:
+            1. Analyze the error and fix validation issues
+            2. Keep the data structure matching Strapi's expectations
+            3. Preserve valid content from the original request
+            4. Remove or fix problematic fields
+            5. Ensure all required fields are present and properly formatted
+            6. Handle any type mismatches or format issues
+
+            Return a complete, corrected data object that follows Strapi's requirements.
+            Maintain the exact structure with the "data" wrapper as in the original request.
+            If you remove any fields, explain why in a comment at the end of the JSON.
+
+            Example format:
+            {
+              "data": {
+                "field1": "corrected value",
+                "field2": "preserved value"
+              }
+              "__comment": "Removed field3 due to validation error"
+            }
+        `,
+		})
+
+		try {
+			const correctedData = JSON.parse(text)
+
+			// Extract any comments if present
+			const comments = correctedData.__comment
+			if (comments) {
+				delete correctedData.__comment
+				console.log('Correction comments:', comments)
+			}
+
+			// Validate basic structure
+			if (!correctedData.data) {
+				throw new Error('Generated data missing required "data" property')
+			}
+
+			// Log changes for debugging
+			console.log('Original data:', originalData)
+			console.log('Error details:', errorDetails)
+			console.log('Corrected data:', correctedData)
+
+			new Notice('Content structure corrected based on API error')
+			if (comments) {
+				new Notice(`Changes made: ${comments}`)
+			}
+
+			return correctedData
+		} catch (e) {
+			console.error('Failed to generate corrected data:', e)
+			throw new Error(`Failed to generate corrected data: ${e.message}`)
+		}
 	}
 
 	/**
