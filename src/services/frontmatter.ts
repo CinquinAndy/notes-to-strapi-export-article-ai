@@ -67,7 +67,7 @@ export class FrontmatterGenerator {
 				app
 			)
 
-			// Generate new frontmatter based on processed content
+			// Generate new frontmatter
 			const newFrontmatter = await this.generateFrontmatter(
 				file,
 				app,
@@ -282,13 +282,18 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 	}
 
 	/**
-	 * Main method to generate frontmatter based on file content and schema
+	 * Generates frontmatter based on file content and schema
 	 * @param file - The file to process
 	 * @param app - The Obsidian app instance
+	 * @param processedContent - Optional pre-processed content
 	 * @returns Promise<string> Generated frontmatter
 	 */
-	async generateFrontmatter(file: TFile, app: App): Promise<string> {
-		const content = await app.vault.read(file)
+	async generateFrontmatter(
+		file: TFile,
+		app: App,
+		processedContent?: string
+	): Promise<string> {
+		const content = processedContent || (await app.vault.read(file))
 		const currentRoute = this.getCurrentRoute()
 
 		if (!currentRoute?.generatedConfig) {
