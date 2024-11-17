@@ -1,8 +1,10 @@
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { App, TFile } from 'obsidian'
+import { App, Notice, TFile } from 'obsidian'
 import { RouteConfig } from '../types'
 import StrapiExporterPlugin from '../main'
+import { processImages } from '../utils/process-file'
+import { extractFrontMatterAndContent } from '../utils/analyse-file'
 
 /**
  * Interface defining the structure of a field in the schema
@@ -55,11 +57,62 @@ export class FrontmatterGenerator {
 	 * @returns Promise<string> Updated content with new frontmatter
 	 */
 	async updateContentFrontmatter(file: TFile, app: App): Promise<string> {
-		const content = await app.vault.read(file)
-		const newFrontmatter = await this.generateFrontmatter(file, app)
-		const updatedContent = this.replaceFrontmatter(content, newFrontmatter)
+		try {
+			// Read original content
+			const originalContent = await app.vault.read(file)
 
-		return updatedContent
+			// Process images in the content first
+			const processedContent = await this.processContentWithImages(
+				originalContent,
+				app
+			)
+
+			// Generate new frontmatter based on processed content
+			const newFrontmatter = await this.generateFrontmatter(
+				file,
+				app,
+				processedContent
+			)
+
+			// Replace or add frontmatter to the processed content
+			const updatedContent = this.replaceFrontmatter(
+				processedContent,
+				newFrontmatter
+			)
+
+			return updatedContent
+		} catch (error) {
+			new Notice(`Error processing content: ${error.message}`)
+			throw error
+		}
+	}
+
+	/**
+	 * Process content including images
+	 * @param content - Original content
+	 * @param app - The Obsidian app instance
+	 * @returns Promise<string> Processed content with updated image links
+	 */
+	private async processContentWithImages(
+		content: string,
+		app: App
+	): Promise<string> {
+		try {
+			const { frontmatter, body } = extractFrontMatterAndContent(content)
+
+			// Process content and images
+			const processedContent = await processImages(
+				{ content: body, ...frontmatter },
+				app,
+				this.plugin.settings
+			)
+
+			// Return the processed content
+			return processedContent.content || body
+		} catch (error) {
+			new Notice(`Error processing images: ${error.message}`)
+			throw error
+		}
 	}
 
 	/**
@@ -105,10 +158,8 @@ export class FrontmatterGenerator {
 			return ['example1', 'example2']
 		}
 
-		// Analyze transform string to determine array structure
 		const transform = field.transform
 
-		// Handle different array structures based on transform content
 		if (transform.includes('name:')) {
 			return [
 				{ name: 'example1', id: 1 },
@@ -144,7 +195,7 @@ export class FrontmatterGenerator {
 			.map(([field]) => field)
 			.join(', ')
 
-		const prompt = `Generate YAML frontmatter that follows this exact schema and format:
+		return `Generate YAML frontmatter that follows this exact schema and format:
 
 Schema Definition:
 ${JSON.stringify(config.fieldMappings, null, 2)}
@@ -169,8 +220,6 @@ DO NOT include the content IN the generated frontmatter. Just use the content to
 the content field is ${config.contentField}. Please delete the content field from the frontmatter.
 
 Return complete YAML frontmatter with opening and closing "---" markers.`
-
-		return prompt
 	}
 
 	/**
