@@ -11,7 +11,7 @@
   "keywords": [],
   "author": "Cinquin Andy",
   "devDependencies": {
-    "@types/node": "22.9.3",
+    "@types/node": "22.9.4",
     "@typescript-eslint/eslint-plugin": "8.15.0",
     "@typescript-eslint/parser": "8.15.0",
     "builtin-modules": "4.0.0",
