@@ -1,7 +1,7 @@
 {
 	"id": "notes-to-strapi-export-article-ai",
 	"name": "Strapi Exporter AI",
-	"version": "3.0.65",
+	"version": "3.0.66",
 	"minAppVersion": "1.7.0",
 	"description": "Effortlessly export your notes to Strapi CMS with AI-powered handling and SEO optimization.",
 	"author": "Cinquin Andy",
