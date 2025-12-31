@@ -9,7 +9,7 @@ export class ConfigurationGenerator {
 			apiKey: options.openaiApiKey,
 		})
 
-		this.model = openai('gpt-4o-mini')
+		this.model = openai('gpt-5-mini')
 	}
 
 	async generateConfiguration(params: {

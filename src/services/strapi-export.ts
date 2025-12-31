@@ -18,7 +18,7 @@ export class StrapiExportService {
 		const openai = createOpenAI({
 			apiKey: this.settings.openaiApiKey,
 		})
-		this.model = openai('gpt-4o-mini')
+		this.model = openai('gpt-5-mini')
 	}
 
 	private async sendToStrapi(data: any, route: RouteConfig): Promise<void> {

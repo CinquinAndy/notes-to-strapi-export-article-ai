@@ -43,7 +43,7 @@ export class StructuredFieldAnalyzer {
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
 		})
-		this.model = openai('gpt-4o-mini', {
+		this.model = openai('gpt-5-mini', {
 			structuredOutputs: true,
 		})
 	}

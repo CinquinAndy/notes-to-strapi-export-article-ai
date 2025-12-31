@@ -48,7 +48,7 @@ export class FrontmatterGenerator {
 		const openai = createOpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
 		})
-		this.model = openai('gpt-4o-mini')
+		this.model = openai('gpt-5-mini')
 	}
 
 	/**
