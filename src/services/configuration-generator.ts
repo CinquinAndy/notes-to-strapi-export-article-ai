@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 
 export class ConfigurationGenerator {
 	private model
@@ -9,7 +9,7 @@ export class ConfigurationGenerator {
 			apiKey: options.openaiApiKey,
 		})
 
-		this.model = openai('gpt-5-mini')
+		this.model = openai.chat('gpt-4o-mini')
 	}
 
 	async generateConfiguration(params: {
@@ -23,14 +23,14 @@ export class ConfigurationGenerator {
 		const descriptions = JSON.parse(params.schemaDescription)
 
 		// Generate field configurations
-		const { object } = await generateObject({
+		const { output } = await generateText({
 			model: this.model,
-			output: 'no-schema',
+			output: Output.json(),
 			prompt: this.buildPrompt(schema.data, descriptions.data, params.language),
 		})
 
 		// Transform to final configuration
-		return this.transformToConfiguration(object)
+		return this.transformToConfiguration(output)
 	}
 
 	private buildPrompt(

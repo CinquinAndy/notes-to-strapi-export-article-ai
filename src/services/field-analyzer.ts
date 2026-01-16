@@ -1,36 +1,27 @@
-import { z } from 'zod'
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
 /**
- * Schema for field analysis result
+ * Interface for field analysis result
  */
-const fieldAnalysisSchema = z.object({
-	imageFields: z.array(
-		z.object({
-			fieldName: z.string(),
-			fieldType: z.enum(['single-image', 'gallery', 'other']),
-			required: z.boolean(),
-			description: z.string(),
-		})
-	),
-	metadataFields: z.array(
-		z.object({
-			fieldName: z.string(),
-			valueType: z.string(),
-			description: z.string(),
-		})
-	),
-	contentFields: z.array(
-		z.object({
-			fieldName: z.string(),
-			contentType: z.string(),
-			format: z.string().optional(),
-		})
-	),
-})
-
-type FieldAnalysis = z.infer<typeof fieldAnalysisSchema>
+interface FieldAnalysis {
+	imageFields: Array<{
+		fieldName: string
+		fieldType: 'single-image' | 'gallery' | 'other'
+		required: boolean
+		description: string
+	}>
+	metadataFields: Array<{
+		fieldName: string
+		valueType: string
+		description: string
+	}>
+	contentFields: Array<{
+		fieldName: string
+		contentType: string
+		format?: string
+	}>
+}
 
 export interface FieldAnalyzerOptions {
 	openaiApiKey: string
@@ -43,9 +34,7 @@ export class StructuredFieldAnalyzer {
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
 		})
-		this.model = openai('gpt-5-mini', {
-			structuredOutputs: true,
-		})
+		this.model = openai.chat('gpt-5-mini')
 	}
 
 	/**
@@ -53,16 +42,13 @@ export class StructuredFieldAnalyzer {
 	 */
 	async analyzeSchema(schema: string): Promise<FieldAnalysis> {
 		try {
-			const { object } = await generateObject({
+			const { output } = await generateText({
 				model: this.model,
-				schema: fieldAnalysisSchema,
-				schemaName: 'SchemaAnalysis',
-				schemaDescription:
-					'Analysis of content schema fields to identify types and purposes',
+				output: Output.json(),
 				prompt: this.buildAnalysisPrompt(schema),
 			})
 
-			return object as FieldAnalysis
+			return output as unknown as FieldAnalysis
 		} catch (error) {
 			throw new Error(`Schema analysis failed: ${error.message}`)
 		}
@@ -74,7 +60,12 @@ export class StructuredFieldAnalyzer {
     - Metadata fields (SEO, tags, dates, etc.)
     - Content fields (text, rich text, markdown)
 
-    Provide structured categorization of all fields with their purposes and data types.
+    Return a JSON object with this exact structure:
+    {
+      "imageFields": [{ "fieldName": string, "fieldType": "single-image" | "gallery" | "other", "required": boolean, "description": string }],
+      "metadataFields": [{ "fieldName": string, "valueType": string, "description": string }],
+      "contentFields": [{ "fieldName": string, "contentType": string, "format": string (optional) }]
+    }
 
     Schema to analyze:
     ${schema}
