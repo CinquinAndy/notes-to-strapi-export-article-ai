@@ -9,6 +9,7 @@ export interface StrapiExporterSettings {
 
 	// UI Settings
 	currentTab: string
+	currentConfigRouteId?: string // Persist selected route in Configuration tab
 
 	// Routes Configuration
 	routes: RouteConfig[]
