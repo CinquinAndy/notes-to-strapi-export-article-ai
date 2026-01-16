@@ -10,6 +10,10 @@
   },
   "keywords": [],
   "author": "Cinquin Andy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CinquinAndy/notes-to-strapi-export-article-ai"
+  },
   "devDependencies": {
     "@types/node": "22.19.7",
     "@typescript-eslint/eslint-plugin": "8.53.0",
