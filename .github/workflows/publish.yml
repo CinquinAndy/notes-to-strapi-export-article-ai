@@ -8,23 +8,25 @@ on:
 jobs:
     publish:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write  # Required for npm provenance
         steps:
-            -   name: Checkout
-                uses: actions/checkout@v4
-                with:
-                    fetch-depth: 0
-                    token: ${{ secrets.GIT_TOKEN }}
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
-            -   name: Use Node.js
-                uses: actions/setup-node@v4
-                with:
-                    node-version: '20'
-                    registry-url: 'https://registry.npmjs.org'
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  registry-url: 'https://registry.npmjs.org'
 
-            -   name: Install Dependencies
-                run: npm ci
+            - name: Install Dependencies
+              run: npm ci
 
-            -   name: Publish to npm
-                run: npm publish
-                env:
-                    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Publish to npm with provenance
+              run: npm publish --provenance --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
