@@ -41,7 +41,11 @@ export class Configuration {
 		this.plugin = plugin
 		this.containerEl = containerEl
 		this.app = plugin.app
-		this.currentRouteId = this.plugin.settings.routes[0]?.id || ''
+		// Use persisted route ID or default to first route
+		this.currentRouteId =
+			this.plugin.settings.currentConfigRouteId ||
+			this.plugin.settings.routes[0]?.id ||
+			''
 
 		// Initialiser les services avec la clé API
 		this.initializeServices()
@@ -115,6 +119,9 @@ export class Configuration {
 				dropdown.setValue(this.currentRouteId)
 				dropdown.onChange(async value => {
 					this.currentRouteId = value
+					// Persist the selected route ID
+					this.plugin.settings.currentConfigRouteId = value
+					await this.plugin.saveSettings()
 					await this.updateConfigurationFields()
 				})
 			})
@@ -490,6 +497,11 @@ export class Configuration {
 				if (this.components.languageDropdown) {
 					this.components.languageDropdown.setValue(
 						currentRoute.language || 'en'
+					)
+				}
+				if (this.components.contentFieldInput) {
+					this.components.contentFieldInput.setValue(
+						currentRoute.contentField || 'content'
 					)
 				}
 			}
