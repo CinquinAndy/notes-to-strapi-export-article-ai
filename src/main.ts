@@ -154,7 +154,8 @@ export default class StrapiExporterPlugin extends Plugin {
 			const userConfirmed = await showPreviewToUser(
 				this.app,
 				processedContent,
-				this
+				this,
+				route.id
 			)
 
 			if (!userConfirmed) {

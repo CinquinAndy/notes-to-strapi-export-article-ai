@@ -38,13 +38,16 @@ interface GeneratedConfig {
 export class FrontmatterGenerator {
 	private model
 	private plugin: StrapiExporterPlugin
+	private routeId: string
 
 	/**
-	 * Initialize the generator with the plugin instance
+	 * Initialize the generator with the plugin instance and specific route
 	 * @param plugin - The Strapi Exporter plugin instance
+	 * @param routeId - The ID of the route to use for generation
 	 */
-	constructor(plugin: StrapiExporterPlugin) {
+	constructor(plugin: StrapiExporterPlugin, routeId: string) {
 		this.plugin = plugin
+		this.routeId = routeId
 		const openai = createOpenAI({
 			apiKey: this.plugin.settings.openaiApiKey,
 		})
@@ -285,11 +288,13 @@ Return complete YAML frontmatter with opening and closing "---" markers.`
 	}
 
 	/**
-	 * Gets the currently active route from plugin settings
-	 * @returns The active route configuration or undefined
+	 * Gets the route for this generator instance
+	 * Uses the routeId passed in constructor
+	 * @returns The route configuration or undefined
 	 */
 	private getCurrentRoute(): RouteConfig | undefined {
-		return this.plugin.settings.routes.find(route => route.enabled)
+		// Use the route ID passed to this generator
+		return this.plugin.settings.routes.find(route => route.id === this.routeId)
 	}
 
 	/**
