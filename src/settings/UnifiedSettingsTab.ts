@@ -162,9 +162,8 @@ export class UnifiedSettingsTab extends PluginSettingTab {
 			this.contentContainer.empty()
 			const currentTab = this.plugin.settings.currentTab
 
-			if (!this.components[currentTab]) {
-				this.initializeComponent(currentTab)
-			}
+			// Always reinitialize component to ensure fresh container reference
+			this.initializeComponent(currentTab)
 
 			this.components[currentTab]?.display()
 		} catch (error) {

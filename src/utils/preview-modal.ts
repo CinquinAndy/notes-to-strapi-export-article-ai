@@ -6,6 +6,7 @@ import StrapiExporterPlugin from '../main'
 export class PreviewModal extends Modal {
 	private content: AnalyzedContent
 	private plugin: StrapiExporterPlugin
+	private routeId: string
 	private onConfirm: () => void
 	private onCancel: () => void
 	private frontmatterGenerator: FrontmatterGenerator
@@ -14,17 +15,22 @@ export class PreviewModal extends Modal {
 		app: App,
 		content: AnalyzedContent,
 		plugin: StrapiExporterPlugin,
+		routeId: string,
 		onConfirm: () => void,
 		onCancel?: () => void
 	) {
 		super(app)
 		this.plugin = plugin
 		this.content = content
+		this.routeId = routeId
 		this.onConfirm = onConfirm
 		this.onCancel = onCancel || (() => {})
 
-		// Initialize with plugin instance
-		this.frontmatterGenerator = new FrontmatterGenerator(this.plugin)
+		// Initialize with plugin instance and route ID
+		this.frontmatterGenerator = new FrontmatterGenerator(
+			this.plugin,
+			this.routeId
+		)
 	}
 
 	onOpen() {
@@ -247,13 +253,15 @@ export class PreviewModal extends Modal {
 export function showPreviewToUser(
 	app: App,
 	content: AnalyzedContent,
-	plugin: StrapiExporterPlugin
+	plugin: StrapiExporterPlugin,
+	routeId: string
 ): Promise<boolean> {
 	return new Promise(resolve => {
 		new PreviewModal(
 			app,
 			content,
 			plugin,
+			routeId,
 			() => {
 				resolve(true)
 			},
