@@ -34,6 +34,7 @@ export class StructuredFieldAnalyzer {
 		const openai = createOpenAI({
 			apiKey: options.openaiApiKey,
 		})
+		// updated to gpt-5-mini
 		this.model = openai.chat('gpt-5-mini')
 	}
 
