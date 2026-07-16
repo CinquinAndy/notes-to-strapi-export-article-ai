@@ -16,8 +16,8 @@
   },
   "devDependencies": {
     "@types/node": "22.20.1",
-    "@typescript-eslint/eslint-plugin": "8.63.0",
-    "@typescript-eslint/parser": "8.63.0",
+    "@typescript-eslint/eslint-plugin": "8.64.0",
+    "@typescript-eslint/parser": "8.64.0",
     "builtin-modules": "4.0.0",
     "esbuild": "0.27.2",
     "obsidian": "latest",
