@@ -28,7 +28,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.12",
     "ai": "^6.0.39",
-    "js-yaml": "4.3.0",
+    "js-yaml": "5.2.2",
     "process": "0.11.10"
   }
 }
